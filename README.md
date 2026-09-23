@@ -33,3 +33,7 @@ Expected response:
 ```json
 {"status":"UP","application":"irclass-external-widget"}
 ```
+
+## Platform HTTPS
+
+See the [3DEXPERIENCE TLS findings](docs/3dexperience-tls.md) for the verified certificate and Java trust baseline.
