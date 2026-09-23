@@ -1,0 +1,152 @@
+/* DragAndDropArea.css - Enhanced with LibraryClassViewer highlighting features */
+.drag-drop-area {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    background: #f8f9fa;
+    padding: 24px;
+    margin: 16px 0;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    cursor: pointer;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Enhanced hover effects from LibraryClassViewer */
+.drag-drop-area:hover {
+    background-color: #e3f2fd;
+    border-color: #0056b3;
+    transform: scale(1.01);
+}
+
+/* Enhanced drag over effects */
+.drag-drop-area.dnd-over,
+.drag-drop-area.drag-over {
+    background-color: #e8f5e8;
+    border-color: #28a745;
+    border-style: solid;
+    transform: scale(1.02);
+}
+
+/* 3DEXPERIENCE drag and drop overlay */
+#droppable.hidden {
+    display: none;
+}
+
+#droppable.show {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(40, 167, 69, 0.1);
+    border: 2px solid #28a745;
+    border-radius: 6px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+#droppable.droppable.show {
+    background: rgba(40, 167, 69, 0.2);
+    border: 3px solid #28a745;
+    animation: pulse-3dx 1s infinite;
+}
+
+/* Pulse animation */
+@keyframes pulse-3dx {
+    0% { 
+        transform: scale(1); 
+        opacity: 0.8;
+    }
+    50% { 
+        transform: scale(1.02); 
+        opacity: 1;
+    }
+    100% { 
+        transform: scale(1); 
+        opacity: 0.8;
+    }
+}
+
+/* Icon enhancements */
+.drag-drop-icon {
+    margin-bottom: 8px;
+}
+
+.drag-drop-icon i {
+    font-size: 32px;
+    color: #007bff;
+    transition: color 0.3s ease;
+}
+
+.drag-drop-area:hover .drag-drop-icon i,
+.drag-drop-area.drag-over .drag-drop-icon i {
+    color: #0056b3;
+}
+
+.dnd-label {
+    font-size: 1.1em;
+    color: #333;
+    margin-bottom: 12px;
+    font-weight: 500;
+}
+
+.dnd-zone {
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.dnd-invite {
+    color: #007bff;
+    font-size: 1em;
+    font-weight: 500;
+}
+
+/* Enhanced text styling */
+.primary-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    margin: 0 0 3px 0;
+}
+
+.secondary-text {
+    font-size: 12px;
+    color: #666;
+    margin: 0;
+}
+
+.dnd-status {
+    margin-top: 10px;
+    font-size: 0.95em;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 4px;
+    text-align: center;
+    min-height: 20px;
+    display: none; /* Hidden by default */
+}
+.dnd-success {
+    color: #007bff;
+    background-color: #e3f2fd;
+    border: 1px solid #b3d9ff;
+}
+.dnd-error {
+    color: #d32f2f;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+/* Focus styles for accessibility */
+.drag-drop-area:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
