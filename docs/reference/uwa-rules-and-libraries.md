@@ -77,6 +77,9 @@ hierarchy.
 | Pure.css | `PureCss/pure-min.css` | from the POC | not checked | kept |
 | DragAndDrop | `DragAndDrop/DragAndDropArea.js/.css` | IRS/SOLIZE code | - | kept |
 
+| Credentials | `PlatformService/Credentials.js`, `PlatformService/README.md` | **1.0.0 - our own** (2026-09-23) | - | AMD `JazzySole/Credentials`; OOTB credential preference with fallback |
+| Router | `Router/Router.js`, `Router/README.md` | **1.0.0 - our own** (2026-09-23) | - | new shared library, AMD module `JazzySole/Router`; see its README |
+
 Not copied: `Tabulator/Tabulator.js`, a **0-byte placeholder** in the POC.
 
 Tabulator 6.3 -> 6.5 is a minor upgrade within major version 6 and keeps the

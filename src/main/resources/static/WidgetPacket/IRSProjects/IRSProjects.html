@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:widget="http://www.netvibes.com/ns/">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="author" content="IRCLASS" />
+    <meta name="description" content="IRS projects" />
+    <meta name="version" content="0.1.0" />
+    <meta name="autoRefresh" content="0" />
+    <title>IRS Projects</title>
+
+    <link rel="stylesheet" type="text/css" href="../JazzySole/bootstrap/css/bootstrap.min.css" />
+
+    <widget:preferences>
+        <widget:preference type="hidden" name="x3dPlatformId" defaultValue="OnPremise"></widget:preference>
+    </widget:preferences>
+
+    <!-- shared libraries -->
+    <script type="text/javascript" src="../JazzySole/PlatformService/Credentials.js"></script>
+    <!-- widget modules: one AMD module per file (rule R4) -->
+    <script type="text/javascript" src="js/components/CredentialBar.js"></script>
+    <script type="text/javascript" src="js/views/HelloView.js"></script>
+    <script type="text/javascript" src="js/App.js"></script>
+
+    <!-- UWA events only: no logic here -->
+    <script type="text/javascript">
+    //<![CDATA[
+        widget.addEvents({
+            onLoad: function () {
+                require(['IRSProjects/App'], function (App) { App.onLoad(); });
+            },
+            onRefresh: function () {
+                require(['IRSProjects/App'], function (App) { App.onRefresh(); });
+            },
+            onResize: function () {
+                require(['IRSProjects/App'], function (App) { App.onResize(); });
+            }
+        });
+    //]]>
+    </script>
+</head>
+<body>
+    <div class="d-flex justify-content-center align-items-center p-5">
+        <div class="spinner-border text-secondary" role="status"><span class="visually-hidden">Loading</span></div>
+    </div>
+</body>
+</html>

@@ -128,3 +128,14 @@ module. No service module calls `WAFData` directly.
 | Grid / form controls | `DS/Controls/*`, `DS/TreeModel/*`, DataGridView | **Bootstrap + Tabulator** (D3) |
 | Object search | `DS/SNInfraUX/SearchCom` | OOTB search popup - worth reusing for picking Department / Customer (WP02 doc 05 §9.5) |
 | Open in another app | compass socket `onSetX3DContent` + `onLaunchApp` with `3DXContent` protocol | later |
+
+## 7. `DS/ENOXWidgetPreferences` - the credential preference (read 2026-09-23)
+
+Shared DS module used by the Meeting widget for the platform and credential
+preferences (VM: `webapps/3dspace/webapps/ENOXWidgetPreferences/ENOXWidgetPreferences.js`).
+Keys: `xPref_CREDENTIAL`, `xPref_3DEXPERIENCE_PLATFORM`,
+`xPref_SHOW_WORK_UNDER`, `xPref_SHOW_PREF_PAGE_AT_START`. Behaviour of
+`addCredentialPreferenceToWidget()` is recorded in
+[WGT-03](../requirements/WGT-03-credential/README.md) section 1. Persistence
+across refresh and browsers comes from widget preferences being stored by
+3DDashboard server-side.

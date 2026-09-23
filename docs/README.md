@@ -16,6 +16,17 @@ When a widget task also touches the VM or the platform (MQL, deployment,
 certificates on the VM), it gets a workspace worklog entry **and** a devlog
 entry here, each linking to the other.
 
+## Development rules
+
+| # | Rule |
+|---|---|
+| R1 | **Minimal custom CSS.** Use Bootstrap 5 and Tabulator out of the box: Bootstrap classes, components and utilities; Tabulator's `tabulator_bootstrap5` theme and built-in formatters. Write own CSS only when neither can do it, keep it in the widget's one CSS file under one root class, and record why in the requirement's `design.md` (user, 2026-09-23) |
+| R2 | Follow the UWA rules in [reference/uwa-rules-and-libraries.md](reference/uwa-rules-and-libraries.md) |
+| R3 | All REST calls go through one request wrapper (tenant, SecurityContext, CSRF) - see [reference/ootb-meeting-widget.md](reference/ootb-meeting-widget.md) §5 |
+| R4 | **Many small files.** One AMD module per file, grouped by role (config, services, views, components, utilities), like the OOTB Meeting widget. No single large JS file; the HTML shell holds no logic (user, 2026-09-23) |
+| R5 | **CSRF token tracked and renewed.** The request wrapper keeps the current `ENO_CSRF_TOKEN`, sends it on every PUT / PATCH / POST / DELETE, updates it from any response that carries one, and when a write fails because the token is missing or expired (new 3DSpace login) it fetches a fresh one from `GET /resources/v1/application/CSRF` and retries **once**. The token value is never logged or written to docs (user, 2026-09-23) |
+| R6 | **Navigation survives a refresh.** The current page and its parameters are kept in a hidden widget preference, so a refresh returns the user to the same page (see [WGT-02](requirements/WGT-02-navigation-state/README.md)) (user, 2026-09-23) |
+
 ## Layout
 
 ```
@@ -89,6 +100,9 @@ documentation structure; ours is the one above.
 | [reference/uwa-rules-and-libraries.md](reference/uwa-rules-and-libraries.md) | UWA rules from the DS documentation; JazzySole libraries and versions |
 | [reference/ootb-meeting-widget.md](reference/ootb-meeting-widget.md) | patterns from the OOTB Meeting widget on the VM |
 | [3dexperience-tls.md](3dexperience-tls.md) | platform HTTPS certificate and Java trust |
+| [JazzySole PlatformService README](../src/main/resources/static/WidgetPacket/JazzySole/PlatformService/README.md) | shared `JazzySole/Credentials`: install, API, OOTB / fallback behaviour |
+| [IRSProjects widget README](../src/main/resources/static/WidgetPacket/IRSProjects/README.md) | the widget's files and lifecycle |
+| [JazzySole Router README](../src/main/resources/static/WidgetPacket/JazzySole/Router/README.md) | shared router library: install, API, behaviour. Library docs live next to the library so they travel with it |
 
 ### Requirements
 
