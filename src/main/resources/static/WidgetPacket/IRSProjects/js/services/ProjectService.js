@@ -7,6 +7,11 @@
  *   state=<list>     the states the current view wants
  * tenant and SecurityContext are added by JazzySole/Request (rule R3).
  *
+ * Only our own project types are listed - Analysis and Research
+ * (`ProjectFields.LIST_TYPES`). The service returns every project the user can
+ * see, including plain OOTB `Project Space` objects, and takes no type
+ * parameter, so that filter is applied to the rows here.
+ *
  * About `state`: the DS guide documents it, the OpenAPI spec does not declare
  * it, so it could not be verified through the API Labs validator (api.md
  * section 4, open item A2). The service therefore does not trust it:
@@ -76,9 +81,14 @@ define('IRSProjects/services/ProjectService', [
             opts = opts || {};
             var states = opts.includeClosed ? Fields.ALL_STATES : Fields.OPEN_STATES;
 
+            /**
+             * Two filters, both applied in the widget: the service takes no type
+             * parameter at all, and the state parameter is not trusted (above).
+             */
             function keep(rows) {
-                return opts.includeClosed ? rows : rows.filter(function (r) {
-                    return !Fields.isClosed(r.state);
+                return rows.filter(function (r) {
+                    if (!Fields.isListed(r.type)) { return false; }
+                    return opts.includeClosed || !Fields.isClosed(r.state);
                 });
             }
 

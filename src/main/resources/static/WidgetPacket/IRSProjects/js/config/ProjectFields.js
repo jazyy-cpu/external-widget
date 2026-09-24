@@ -26,6 +26,22 @@ define('IRSProjects/config/ProjectFields', [], function () {
     var LIST_FIELDS = ['none', 'title', 'state', 'estimatedStartDate',
                        'estimatedFinishDate', 'EPMProjectNo'];
 
+    /**
+     * The project types the landing page lists (user, 2026-09-24: "we will only
+     * show research and analysis project in the widget, in future if required we
+     * will show the more project types here").
+     *
+     * Exact type names, not "anything deriving from EPMRandD": the REST response
+     * carries the type name and nothing about its parent, so derivation cannot be
+     * judged in the widget. Adding a subtype later is one line here - and that is
+     * the only change needed, because the filter and the Category label both read
+     * from this file.
+     *
+     * The detail page does NOT use this list: a project opened by id is shown
+     * whatever its type, so a link from elsewhere never lands on a blank page.
+     */
+    var LIST_TYPES = ['EPMAnalysisProject', 'EPMResearchProject'];
+
     /** The REST `type` is the subtype name; the label is not returned (api.md section 2). */
     var TYPE_LABELS = {
         EPMAnalysisProject: 'Analysis',
@@ -47,6 +63,7 @@ define('IRSProjects/config/ProjectFields', [], function () {
     };
 
     return {
+        LIST_TYPES: LIST_TYPES,
         OPEN_STATES: OPEN_STATES,
         CLOSED_STATES: CLOSED_STATES,
         ALL_STATES: OPEN_STATES.concat(CLOSED_STATES),
@@ -65,6 +82,11 @@ define('IRSProjects/config/ProjectFields', [], function () {
 
         isClosed: function (state) {
             return CLOSED_STATES.indexOf(state) >= 0;
+        },
+
+        /** Does this project type belong on the landing page? */
+        isListed: function (type) {
+            return LIST_TYPES.indexOf(type) >= 0;
         }
     };
 });

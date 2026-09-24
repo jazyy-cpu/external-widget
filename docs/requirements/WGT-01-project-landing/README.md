@@ -20,6 +20,13 @@ widget**, not here - this page has no create button.
 Lifecycle (MQL): policy `Project Space` = Create, Assign, Active, Review,
 Complete, Archive; policy `Project Space Hold Cancel` = Hold, Cancel.
 
+Only **our own project types** are listed - `EPMAnalysisProject` and
+`EPMResearchProject` (user, 2026-09-24: "we will only show research and analysis
+project in the widget, in future if required we will show the more project types
+here"). The service returns every project the user can see, including plain OOTB
+`Project Space` objects, so the filter is applied in the widget, from the one
+list `ProjectFields.LIST_TYPES`.
+
 | View | States | |
 |---|---|---|
 | **Default** | everything **except Complete and Archive**: Create, Assign, Active, Review, Hold, Cancel | user decision 2026-09-23 |
@@ -92,6 +99,8 @@ Bootstrap + Tabulator (`tabulator_bootstrap5` theme) only.
 | 2026-09-24 | The pager is pinned to the bottom of the widget even with one row |
 | 2026-09-24 | One search control over Project No. and Title; no header filter on any column |
 | 2026-09-24 | Toolbar is one row: heading and row count dropped as duplicates, Refresh moved beside Clear |
+| 2026-09-24 | The credential picker moved to the **far right of that same row**, beside Refresh - it used to be a row of its own |
+| 2026-09-24 | Only Analysis and Research projects are listed (**closes A4**); more types is one line in `ProjectFields.LIST_TYPES` |
 | 2026-09-24 | Compact rows: `tabulator_simple` theme plus one scoped CSS file, as close to the OOTB grids as reasonable |
 | 2026-09-24 | `state` **is** accepted by the service (A2 answered); the local filter stays as a safety net |
 | 2026-09-24 | Plain `Project Space` projects are listed too - whether to show only our EPM subtypes is open item **A4** |

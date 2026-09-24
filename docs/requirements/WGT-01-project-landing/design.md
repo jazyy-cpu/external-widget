@@ -105,6 +105,7 @@ Tabulator's ESM build (`<script type="module">` is not part of the UWA contract)
 | `pagination` | local, 20, selector 10/20/50/100, `paginationCounter: 'rows'` | user decision 2026-09-23 |
 | `initialSort` | `finish` ascending | planned end first |
 | `headerFilter` | **none** | one search control in the toolbar instead (user, 2026-09-24) |
+| rows | only `ProjectFields.LIST_TYPES` | Analysis and Research only (user, 2026-09-24). The service has no type parameter, so it is filtered here |
 | `index` | `id` | so `replaceData` can keep row identity |
 | `placeholder` | "No project in this view." | empty state without an extra branch |
 | `height` | measured in pixels, recomputed on resize | pins the pager to the **bottom of the widget** - §4a |

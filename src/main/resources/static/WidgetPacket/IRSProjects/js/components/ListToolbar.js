@@ -1,12 +1,14 @@
 /**
  * Toolbar above the project grid (WGT-01 section 3).
  *
- *   ( ) Show completed / archived   [All fields v][      ][🔍][Clear][Refresh]
+ *   ( ) Show completed / archived   [All fields v][ ][🔍][Clear][Refresh]  | Credential
  *
- * One row, one search control. Neither a "IRS Projects" heading nor a row count
- * is shown (user, 2026-09-24): the widget's own title bar already names it, and
- * Tabulator's footer already says "Showing 1-3 of 3 rows". Two labels saying the
- * same thing is one too many in a frame this short.
+ * It renders into the left of the widget's shared top row; the credential
+ * picker occupies the right of that same row. Neither a "IRS Projects" heading
+ * nor a row count is shown (user, 2026-09-24): the widget's own title bar
+ * already names it, and Tabulator's footer already says "Showing 1-3 of 3
+ * rows". Two labels saying the same thing is one too many in a frame this
+ * short.
  *
  * The search control: the user picks the field first, types, and presses the
  * magnifier or Enter. Only Project No. and Title are searchable - the other
@@ -67,7 +69,7 @@ define('IRSProjects/components/ListToolbar', [], function () {
          * @returns {{root: HTMLElement, setBusy: Function}}
          */
         render: function (parent, options) {
-            var root = el('div', 'd-flex flex-wrap align-items-center gap-2 mb-2');
+            var root = el('div', 'd-flex flex-wrap align-items-center gap-2 flex-grow-1');
 
             var check = el('div', 'form-check form-switch mb-0 me-auto');
             var input = el('input', 'form-check-input');

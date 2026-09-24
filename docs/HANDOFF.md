@@ -108,7 +108,7 @@ render only into `widget.body`.
 |---|---|
 | A1 | Project manager name is not available from the project service; needed on the detail page only. Options in [WGT-01 api.md §3](requirements/WGT-01-project-landing/api.md) |
 | ~~A2~~ | **Closed 2026-09-24: `state` is accepted.** The widget shows a warning strip when it has to fall back; none appeared |
-| A4 | The list shows plain OOTB `Project Space` objects as well as our `EPMAnalysisProject` / `EPMResearchProject`. Only ours, or everything? **Ask the user** - one line in `ProjectService` either way |
+| ~~A4~~ | **Closed 2026-09-24: ours only.** The list shows `EPMAnalysisProject` and `EPMResearchProject`; adding a subtype later is one line in `ProjectFields.LIST_TYPES`. The detail page still opens any type |
 | A3 | Three test projects on the VM: the pager cannot be judged below 20 rows. Create more in the OOTB project widget |
 | O3 | `JazzySole/PlatformService/PlatformServices.js` still defines ids in the `DS/` namespace. Rename them out of it - now more than cosmetic, since `DS/` ids resolve against our own package root |
 | B1-B6 | The detail page's open questions - see [WGT-04](requirements/WGT-04-project-detail/README.md) §6. B1 and B4 need platform work; B3 (the project **write** call) blocks every edit, including the Project No. button |

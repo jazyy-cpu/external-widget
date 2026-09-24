@@ -1,7 +1,13 @@
 /**
- * Top bar: shows the active credential and lets the user change it (WGT-03).
+ * The active credential, and a picker to change it (WGT-03).
+ *
+ * It is a control on the widget's shared top row, sitting at the **far right**
+ * (user, 2026-09-24), beside whatever the open page puts on the left. It used
+ * to be a row of its own, which cost a line of height on every page for a
+ * control that is changed once a session.
+ *
  * Bootstrap classes only. A native form-select is used for "change" so no
- * Bootstrap JavaScript is needed.
+ * Bootstrap JavaScript is needed (UWA rule C7).
  */
 define('IRSProjects/components/CredentialBar', ['JazzySole/Credentials'], function (Credentials) {
     'use strict';
@@ -21,7 +27,7 @@ define('IRSProjects/components/CredentialBar', ['JazzySole/Credentials'], functi
          * @param {Function} options.onError    called with an Error
          */
         render: function (parent, options) {
-            var bar = el('div', 'd-flex flex-wrap align-items-center gap-2 border-bottom pb-2 mb-3');
+            var bar = el('div', 'd-flex align-items-center gap-2 flex-shrink-0');
             bar.appendChild(el('span', 'text-body-secondary small', 'Credential'));
 
             var select = el('select', 'form-select form-select-sm w-auto');

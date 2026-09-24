@@ -69,6 +69,8 @@ define('IRSProjects/views/ProjectListView', [
         /**
          * @param {HTMLElement} parent
          * @param {Object} [options]
+         * @param {HTMLElement} [options.toolbar]     the shared top row's left slot;
+         *        without it the toolbar sits above the grid as its own row
          * @param {Function} [options.onOpenProject]  called with the row data on a title click
          * @returns {{redraw: Function, reload: Function, destroy: Function}}
          */
@@ -85,7 +87,8 @@ define('IRSProjects/views/ProjectListView', [
             var busy = el('div', 'd-flex justify-content-center p-4');
             busy.appendChild(el('div', 'spinner-border spinner-border-sm text-secondary'));
 
-            var toolbar = ListToolbar.render(root, {
+            // the credential picker holds the right of that same row (WGT-03)
+            var toolbar = ListToolbar.render(options.toolbar || root, {
                 includeClosed: includeClosed,
                 onRefresh: function () { load(); },
                 onToggleClosed: function (checked) {

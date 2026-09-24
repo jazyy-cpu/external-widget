@@ -26,7 +26,7 @@ IRSProjects/
     │   ├── ProjectService.js   the project list call and the row mapping
     │   └── ProjectDetailService.js  one project by id
     ├── components/
-    │   ├── CredentialBar.js    active credential + change (WGT-03)
+    │   ├── CredentialBar.js    active credential + change, far right of the top row (WGT-03)
     │   ├── ListToolbar.js      the closed switch, the search control, Clear, Refresh
     │   ├── Tabs.js             Bootstrap nav-tabs without Bootstrap's JS; panes build lazily
     │   ├── FieldList.js        renders form fields - and says WHY one is empty
@@ -65,6 +65,15 @@ would raise `Mismatched anonymous define()` under the dashboard's AMD loader.
 
 Changing the credential re-renders the page: a different security context can see
 a different set of projects.
+
+**One shared top row:** the open page's own controls on the left (the list puts
+its toolbar there), the credential picker hard right. `App.js` owns the row and
+hands the page the left slot.
+
+**Only our project types are listed:** `EPMAnalysisProject` and
+`EPMResearchProject`, from `config/ProjectFields.js` (`LIST_TYPES`). The project
+service has no type parameter, so the filter is ours. The detail page does not
+filter - it opens a project of any type.
 
 Everything renders into `widget.body`. User-visible text is set with
 `textContent`, and Tabulator formatters return DOM nodes - never HTML strings.

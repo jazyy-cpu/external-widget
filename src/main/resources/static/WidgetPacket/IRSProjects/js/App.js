@@ -17,6 +17,10 @@
  *
  * Changing the credential reopens the current page: a different security
  * context can see a different set of projects, and may not see this one at all.
+ *
+ * Layout: one shared top row carries the open page's own controls on the left
+ * and the credential picker at the **far right** (user, 2026-09-24). A page
+ * that has no toolbar simply leaves the left empty.
  */
 define('IRSProjects/App', [
     'JazzySole/Credentials',
@@ -30,6 +34,7 @@ define('IRSProjects/App', [
     var running = null;
     var view = null;      // the current page, for onResize and for cleanup
     var page = null;      // the element the router renders into
+    var slot = null;      // left of the shared top row: the page's own controls
     var router = null;
 
     function clearBody() {
@@ -62,10 +67,11 @@ define('IRSProjects/App', [
         view = null;
     }
 
-    /** Empty the page area and close whatever was on it. */
+    /** Empty the page area and the row's left slot, and close what was on them. */
     function freshPage() {
         closeView();
         while (page.firstChild) { page.removeChild(page.firstChild); }
+        while (slot.firstChild) { slot.removeChild(slot.firstChild); }
         return page;
     }
 
@@ -78,7 +84,9 @@ define('IRSProjects/App', [
         router = new Router({ defaultPath: 'projects', prefName: 'jzRoute' });
 
         router.add('projects', function () {
-            view = ProjectListView.render(freshPage(), {
+            var target = freshPage();
+            view = ProjectListView.render(target, {
+                toolbar: slot,
                 onOpenProject: function (row) {
                     if (!row.id) { return; }
                     router.go('project/:id', { id: row.id });
@@ -103,10 +111,19 @@ define('IRSProjects/App', [
         var root = document.createElement('div');
         // irs-projects scopes the widget's only CSS file - see css/IRSProjects.css
         root.className = 'irs-projects container-fluid py-2';
-        CredentialBar.render(root, {
+
+        // the shared top row: the page's controls, then the credential, hard right
+        var bar = document.createElement('div');
+        bar.className = 'd-flex flex-wrap align-items-center gap-2 mb-2';
+        slot = document.createElement('div');
+        slot.className = 'd-flex flex-wrap align-items-center gap-2 flex-grow-1';
+        bar.appendChild(slot);
+        CredentialBar.render(bar, {
             onChanged: function () { ensureRouter().reload().catch(function () { /* shown by the page */ }); },
             onError: function (err) { alertBox(root, err.message); }
         });
+        root.appendChild(bar);
+
         page = document.createElement('div');
         root.appendChild(page);
         clearBody().appendChild(root);

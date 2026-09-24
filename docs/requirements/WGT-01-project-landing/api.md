@@ -81,12 +81,17 @@ The live grid listed three projects: `AP project` (`EPMAnalysisProject`),
 **`Project Space`**. The service returns every project the user can see; it does
 not know about our subtypes.
 
-Nothing was changed - showing a project that exists is safer than silently
-hiding it, and the Category column names the type. **To decide with the user:**
-should the landing page list only `EPMAnalysisProject` / `EPMResearchProject`,
-or everything? If only ours, filter on `type` in `ProjectService` (one line
-against `ProjectFields.TYPE_LABELS`) rather than in the query - the service takes
-no type parameter.
+**Decided 2026-09-24: only ours.** The user asked for Research and Analysis
+projects only, "in future if required we will show the more project types here".
+
+The filter is in the widget, because the service takes no type parameter. The
+list of types lives in `ProjectFields.LIST_TYPES` and adding a subtype later is
+one line there. It matches on the **exact type name**, not "anything deriving
+from `EPMRandD`": the response carries the type name and nothing about its
+parent, so derivation cannot be judged in the widget.
+
+The **detail page does not filter** - a project opened by id is shown whatever
+its type, so a link from elsewhere never lands on a blank page.
 
 ## 5. CSRF (rule R5)
 
@@ -108,5 +113,5 @@ So expiry in practice = the 3DSpace session was renewed. The wrapper:
 |---|---|
 | A1 | Project manager: pick option (a), (b) or (c) in §3 - **needed for the detail page only**; not shown on the landing page (user, 2026-09-23) |
 | A2 | ~~Verify `state` from the widget~~ - **answered 2026-09-24: it is accepted.** See §4 |
-| A4 | Should the list show only our EPM subtypes, or every project the user can see (today: every project)? See §4 |
+| ~~A4~~ | **Answered 2026-09-24: only ours.** The list shows `EPMAnalysisProject` and `EPMResearchProject`; everything else the service returns is dropped in the widget. See §4 |
 | A3 | With only one project on the VM, paging and volume were not tested; create a few more test projects (OOTB widget) before the grid test |

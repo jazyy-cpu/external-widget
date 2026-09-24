@@ -82,10 +82,12 @@ function setup(replies) {
   // 2b. dates stay as the ISO-like strings the service sent: they sort as text
   assert.ok(res.rows[0].finish > res.rows[0].start, 'ISO text sorts chronologically');
 
-  // 2c. an unknown subtype shows its own name instead of an empty cell
-  t = setup([{ body: { data: [project({ type: 'EPMSomethingNew' })] } }]);
-  res = await t.S.list();
-  assert.strictEqual(res.rows[0].category, 'EPMSomethingNew');
+  // 2c. an unknown subtype still gets a readable label rather than an empty cell.
+  //     Since 2026-09-24 the LIST drops it (see 3b), so this is asserted on the
+  //     label map itself - the detail page opens any type and still needs it.
+  assert.strictEqual(t.F.typeLabel('EPMSomethingNew'), 'EPMSomethingNew');
+  assert.strictEqual(t.F.typeLabel('Project Space'), 'Project');
+  assert.strictEqual(t.F.typeLabel(''), '');
 
   // 2d. a missing field is an empty string, not undefined (Tabulator would show "undefined")
   t = setup([{ body: { data: [{ id: 'x', type: 'EPMResearchProject', dataelements: {} }] } }]);
@@ -105,6 +107,33 @@ function setup(replies) {
   assert.strictEqual(t.calls[0].params.state,
     'Create,Assign,Active,Review,Hold,Cancel,Complete,Archive');
   assert.strictEqual(res.rows.length, 2);
+
+  // 3b. only OUR project types are listed (user, 2026-09-24). The service returns
+  //     every project the user can see and takes no type parameter, so a plain
+  //     OOTB `Project Space` and anything else must be dropped in the widget.
+  t = setup([{ body: { data: [
+    project(),
+    project({ id: 'ps', type: 'Project Space' }),
+    project({ id: 'rp', type: 'EPMResearchProject' }),
+    project({ id: 'rd', type: 'EPMRandD' })
+  ] } }]);
+  res = await t.S.list();
+  assert.deepStrictEqual(res.rows.map(r => r.type),
+    ['EPMAnalysisProject', 'EPMResearchProject'],
+    'Project Space and the parent type EPMRandD are not listed');
+  assert.ok(!/type/i.test(JSON.stringify(t.calls[0].params)),
+    'the filter is ours: no type parameter is sent, the service has none');
+
+  // 3c. the switch does not smuggle other types back in
+  t = setup([{ body: { data: [project(), project({ id: 'ps', type: 'Project Space' })] } }]);
+  res = await t.S.list({ includeClosed: true });
+  assert.deepStrictEqual(res.rows.map(r => r.id), ['B159953C6DCA4634803A88CA3FBBF26E']);
+
+  // 3d. adding a subtype later is one line in ProjectFields - nothing else
+  assert.deepStrictEqual(t.F.LIST_TYPES, ['EPMAnalysisProject', 'EPMResearchProject']);
+  assert.strictEqual(t.F.isListed('EPMAnalysisProject'), true);
+  assert.strictEqual(t.F.isListed('Project Space'), false);
+  assert.strictEqual(t.F.isListed(undefined), false);
 
   // 4. defensive: a server that ignores `state` and returns a closed project anyway
   //    must not put it in the default view
