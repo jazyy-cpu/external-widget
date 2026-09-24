@@ -3,6 +3,7 @@
 | File | AMD module | Version | What |
 |---|---|---|---|
 | `Credentials.js` | `JazzySole/Credentials` | 1.1.0 | the user's 3DSpace credential (security context): stored, changeable, survives refresh and other browsers |
+| `Request.js` | `JazzySole/Request` | 1.0.0 | **the one request wrapper** for 3DSpace REST calls: tenant, security context, CSRF |
 | `PlatformServices.js` | `DS/PlatformServices/PlatformServices` | from the IRS POC | 3DSpace URL + preferred security context. Older helper; its module id sits in the DS namespace and it reads the deprecated `preferredcredentials`. New widgets use `Credentials.js` |
 
 ## Credentials 1.1.0
@@ -133,3 +134,87 @@ OOTB branch has not come back. Run in 3DDashboard on 2026-09-24.
 |---|---|---|
 | 1.1.0 | 2026-09-24 | removed the `DS/ENOXWidgetPreferences` branch - unreachable from an external widget (UWA rule C6). `info()` no longer returns `source` |
 | 1.0.0 | 2026-09-23 | first version |
+
+## Request 1.0.0
+
+Development rule **R3**: every REST call goes through one wrapper, so no service
+module ever calls `DS/WAFData` itself. Rule **R5**: that wrapper owns the CSRF
+token.
+
+### What it does to every call
+
+1. resolves a **relative** path against the 3DSpace root from
+   `Credentials.get3DSpaceUrl()` (an absolute URL is used as given);
+2. appends `tenant=<x3dPlatformId>`;
+3. appends `SecurityContext=ctx::<active credential>` - suppress with
+   `noContext: true` for the few services that reject it;
+4. sends `Accept-Language` from `widget.lang`;
+5. encodes the `params` object, dropping `undefined`, `null` and `''` but
+   keeping `0`;
+6. rejects with an `Error` carrying `.status` and `.body` where they could be
+   determined - **including** an HTTP 200 whose body says `success: false`,
+   which several DS services do.
+
+### CSRF (rule R5)
+
+- Needed for `PUT`, `PATCH`, `POST` and `DELETE` only, so a widget that just
+  reads never fetches a token.
+- The token is picked up from any response that carries one: a `csrf` object in
+  the body (the project list does this) or the `X-DS-CSRFTOKEN` header.
+- A write with no token held fetches one from
+  `GET /resources/v1/application/CSRF` first. Parallel writes share that one
+  call.
+- A write rejected with 403 or a CSRF-looking message fetches a **fresh** token
+  and retries **once**. A second failure is reported to the caller.
+- The value is never logged, never written to a preference and not reachable
+  through the public API - `hasCsrfToken()` only says whether one is held. A
+  test asserts that the module contains no `console.*` at all.
+
+### Use
+
+```html
+<script type="text/javascript" src="../JazzySole/PlatformService/Credentials.js"></script>
+<script type="text/javascript" src="../JazzySole/PlatformService/Request.js"></script>
+```
+
+```js
+define('MyWidget/services/Thing', ['JazzySole/Request'], function (Request) {
+    return {
+        list: function () {
+            return Request.get('resources/v1/modeler/projects',
+                               { params: { '$include': 'none' } });
+        },
+        rename: function (id, title) {
+            return Request.send('resources/v1/modeler/projects/' + id,
+                                { method: 'PATCH', data: { title: title } });
+        }
+    };
+});
+```
+
+`Credentials.init()` must have resolved before the first call - it is what
+establishes the 3DSpace URL and the active credential.
+
+### API
+
+| Member | |
+|---|---|
+| `send(path, opts)` | `Promise<body>`. `opts`: `method`, `params`, `data` (object or string), `headers`, `type` (default `json`), `timeout` (default 30000), `noContext` |
+| `get(path, opts)` | `send` with `method: 'GET'` |
+| `hasCsrfToken()` | whether a token is currently held. The value is not exposed |
+| `resetCsrfToken()` | drop it, for example after a new 3DSpace login |
+| `VERSION` | `1.0.0` |
+| `_buildUrl`, `_isCsrfFailure` | tests only |
+
+### Tested
+
+`src/test/js/jazzysole-request.test.js` - URL building, tenant and security
+context, both token sources, the fetch-before-write, the single retry, a
+non-token failure not retried, `success: false`, timeouts, and that the token
+cannot leak. Run with `node`, no browser needed.
+
+### Change log
+
+| Version | Date | |
+|---|---|---|
+| 1.0.0 | 2026-09-24 | first version, written with WGT-01 (the project list) |

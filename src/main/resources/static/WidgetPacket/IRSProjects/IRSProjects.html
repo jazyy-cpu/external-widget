@@ -5,21 +5,49 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="author" content="IRCLASS" />
     <meta name="description" content="IRS projects" />
-    <meta name="version" content="0.1.0" />
+    <meta name="version" content="0.4.0" />
     <meta name="autoRefresh" content="0" />
     <title>IRS Projects</title>
 
     <link rel="stylesheet" type="text/css" href="../JazzySole/bootstrap/css/bootstrap.min.css" />
+    <!-- tabulator_simple, not bootstrap5: the bootstrap5 theme renders at 16px,
+         which is about twice the row height of the OOTB grids next to us -->
+    <link rel="stylesheet" type="text/css" href="../JazzySole/Tabulator/css/tabulator_simple.min.css" />
+    <!-- the widget's only custom CSS, all under .irs-projects (rule R1) -->
+    <link rel="stylesheet" type="text/css" href="css/IRSProjects.css" />
 
     <widget:preferences>
         <widget:preference type="hidden" name="x3dPlatformId" defaultValue="OnPremise"></widget:preference>
+        <widget:preference type="hidden" name="xPrefShowClosed" defaultValue="false"></widget:preference>
+        <!-- the open page, so a refresh comes back to it (JazzySole/Router, rule R6) -->
+        <widget:preference type="hidden" name="jzRoute" defaultValue=""></widget:preference>
     </widget:preferences>
 
-    <!-- shared libraries -->
+    <!-- shared libraries. Tabulator's JS is NOT a script tag: its UMD bundle would
+         call an anonymous define() and break. TabulatorLoader loads it instead. -->
     <script type="text/javascript" src="../JazzySole/PlatformService/Credentials.js"></script>
+    <script type="text/javascript" src="../JazzySole/PlatformService/Request.js"></script>
+    <script type="text/javascript" src="../JazzySole/Router/Router.js"></script>
+    <script type="text/javascript" src="../JazzySole/Tabulator/TabulatorLoader.js"></script>
+
     <!-- widget modules: one AMD module per file (rule R4) -->
+    <script type="text/javascript" src="js/config/ProjectFields.js"></script>
+    <script type="text/javascript" src="js/config/ProjectForm.js"></script>
+    <script type="text/javascript" src="js/utils/Format.js"></script>
+    <script type="text/javascript" src="js/services/ProjectService.js"></script>
+    <script type="text/javascript" src="js/services/ProjectDetailService.js"></script>
     <script type="text/javascript" src="js/components/CredentialBar.js"></script>
-    <script type="text/javascript" src="js/views/HelloView.js"></script>
+    <script type="text/javascript" src="js/components/ListToolbar.js"></script>
+    <script type="text/javascript" src="js/components/Tabs.js"></script>
+    <script type="text/javascript" src="js/components/FieldList.js"></script>
+    <script type="text/javascript" src="js/components/ProjectHeader.js"></script>
+    <script type="text/javascript" src="js/views/ProjectColumns.js"></script>
+    <script type="text/javascript" src="js/views/ProjectListView.js"></script>
+    <script type="text/javascript" src="js/views/detail/OverviewTab.js"></script>
+    <script type="text/javascript" src="js/views/detail/OrganisationTab.js"></script>
+    <script type="text/javascript" src="js/views/detail/RisksTab.js"></script>
+    <script type="text/javascript" src="js/views/detail/LessonsTab.js"></script>
+    <script type="text/javascript" src="js/views/ProjectDetailView.js"></script>
     <script type="text/javascript" src="js/App.js"></script>
 
     <!-- UWA events only: no logic here -->

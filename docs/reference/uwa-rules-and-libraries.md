@@ -49,6 +49,7 @@ Sources (DS RAG library):
 | C4 | Calls to 3DEXPERIENCE services go through **`DS/WAFData/WAFData.authenticatedRequest`**. Only widgets on the trusted domain (additional apps) may call platform web services | S, F |
 | C5 | A widget served over HTTPS that must call plain HTTP uses `WAFData.proxifiedRequest` | F (R2022x Widget Development Fundamentals) |
 | C6 | **An external widget cannot `require` a `DS/<app>/...` module that lives in a platform webapp.** The dashboard proxies an external widget and the AMD loader's base becomes the widget's own package root, so a `DS/` id is looked for **inside our own served directory** and 404s. `UWA/*` and the modules the frame injects (`DS/WAFData`, `DS/i3DXCompassPlatformServices`) still work - they are already in the frame. Verified 2026-09-24, devlog `2026-09-24-02` | measured |
+| C7 | **A UMD bundle must not be loaded with a plain `<script>` tag.** Its `typeof define === 'function' && define.amd ? define(factory)` branch fires under the dashboard's AMD loader, and because the loader did not request the file it cannot name the anonymous module: `Mismatched anonymous define() module`. CSS is unaffected. Bootstrap's JS is therefore not used at all; Tabulator is loaded by `JazzySole/TabulatorLoader`, which hides `define.amd` for the length of the load. Read from the shipped bundle 2026-09-24, devlog `2026-09-24-06` | measured |
 
 ### 1.4.1 What C6 means in practice
 
@@ -110,6 +111,8 @@ hierarchy.
 | Pure.css | `PureCss/pure-min.css` | from the POC | not checked | kept |
 | DragAndDrop | `DragAndDrop/DragAndDropArea.js/.css` | IRS/SOLIZE code | - | kept |
 | Credentials | `PlatformService/Credentials.js`, `PlatformService/README.md` | **1.1.0 - our own** (2026-09-24) | - | AMD `JazzySole/Credentials`; the OOTB credential preference key, built with Get Me + `addPreference`. One path - the `DS/ENOXWidgetPreferences` branch was removed per rule C6 |
+| Request | `PlatformService/Request.js`, `PlatformService/README.md` | **1.0.0 - our own** (2026-09-24) | - | AMD `JazzySole/Request`; THE request wrapper (rules R3, R5): 3DSpace root, tenant, SecurityContext, CSRF tracked and retried once |
+| TabulatorLoader | `Tabulator/TabulatorLoader.js`, `Tabulator/README.md` | **1.0.0 - our own** (2026-09-24) | - | AMD `JazzySole/TabulatorLoader`; the only supported way to load the Tabulator UMD bundle in a widget - see rule C7 |
 | Router | `Router/Router.js`, `Router/README.md` | **1.0.0 - our own** (2026-09-23) | - | new shared library, AMD module `JazzySole/Router`; see its README |
 
 Not copied: `Tabulator/Tabulator.js`, a **0-byte placeholder** in the POC.

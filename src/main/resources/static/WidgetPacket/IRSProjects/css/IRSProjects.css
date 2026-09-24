@@ -1,0 +1,85 @@
+/*
+ * The widget's ONLY custom CSS (development rule R1), everything under the one
+ * root class .irs-projects so it can never restyle the dashboard (UWA rule C3).
+ *
+ * Why it exists: Tabulator's themes are built for a full web page, not for a
+ * dashboard widget. The bootstrap5 theme renders at 16px and the simple theme
+ * at 14px with heavy #999 borders, which gives rows roughly twice the height of
+ * the OOTB ENOVIA grids the widget sits next to (user, 2026-09-24: "each row
+ * looks too big, go as close as possible to the OOTB widgets"). Row density is
+ * font size, line height and border colour - none of which Tabulator exposes as
+ * an option, and none of which Bootstrap can reach inside the Tabulator DOM.
+ *
+ * Base theme: tabulator_simple. Only density and border colour are changed;
+ * no layout, no behaviour, no colours beyond the greys.
+ * Reasoning kept in docs/requirements/WGT-01-project-landing/design.md section 6.
+ */
+
+/* ---- density ------------------------------------------------------- */
+
+.irs-projects .tabulator {
+    border: 1px solid #dcdcdc;
+    font-size: 13px;
+}
+
+.irs-projects .tabulator-header {
+    background-color: #f5f5f5;
+    border-bottom: 1px solid #dcdcdc;
+    color: #333;
+}
+
+.irs-projects .tabulator-col {
+    border-right: 1px solid #e6e6e6;
+}
+
+.irs-projects .tabulator-col-content {
+    padding: 6px 8px;
+}
+
+.irs-projects .tabulator-cell {
+    border-right: 1px solid #f0f0f0;
+    padding: 4px 8px;
+}
+
+.irs-projects .tabulator-row {
+    border-bottom: 1px solid #f0f0f0;
+    min-height: 28px;
+}
+
+/* the OOTB grids alternate row shading; Tabulator's simple theme does not */
+.irs-projects .tabulator-row.tabulator-row-even {
+    background: #fafafa !important;
+}
+
+.irs-projects .tabulator-row:hover {
+    background: #eef4fb !important;
+}
+
+.irs-projects .tabulator-footer {
+    background: #f5f5f5;
+    border-top: 1px solid #dcdcdc;
+    font-size: 12px;
+    padding: 2px 6px;
+}
+
+/* ---- badges --------------------------------------------------------- */
+
+/*
+ * Bootstrap's badge is sized in em of a 16px body, so inside a 13px grid it is
+ * still the tallest thing in the row and sets the row height on its own.
+ */
+.irs-projects .tabulator-cell .badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 6px;
+}
+
+/* ---- the title cell reads as a link --------------------------------- */
+
+.irs-projects .tabulator-cell.irs-link {
+    cursor: pointer;
+}
+
+.irs-projects .tabulator-cell.irs-link:hover {
+    text-decoration: underline;
+}

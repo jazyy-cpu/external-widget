@@ -62,6 +62,32 @@ first widget test (open item A2):
 
 Fallback if `state` does not work: load all and filter in Tabulator.
 
+### A2 answered - 2026-09-24: `state` **is** accepted
+
+Observed in 3DDashboard on the first live run of the grid. The widget sends
+`state=Create,Assign,Active,Review,Hold,Cancel` and shows a warning strip
+whenever the call has to fall back to no `state` parameter
+(`ProjectService.list()` -> `serverFiltered: false`). **No strip appeared** and
+the rows arrived, so the service took the parameter. The widget keeps its local
+filter as a safety net regardless - see design.md §5.
+
+Still not measured: which states `!Closed` excludes, because we never rely on
+the default. Not worth a session of its own.
+
+### A4 (new, 2026-09-24): plain `Project Space` objects are returned too
+
+The live grid listed three projects: `AP project` (`EPMAnalysisProject`),
+`Reaseach Project` (`EPMResearchProject`) and `simple project`, an ordinary OOTB
+**`Project Space`**. The service returns every project the user can see; it does
+not know about our subtypes.
+
+Nothing was changed - showing a project that exists is safer than silently
+hiding it, and the Category column names the type. **To decide with the user:**
+should the landing page list only `EPMAnalysisProject` / `EPMResearchProject`,
+or everything? If only ours, filter on `type` in `ProjectService` (one line
+against `ProjectFields.TYPE_LABELS`) rather than in the query - the service takes
+no type parameter.
+
 ## 5. CSRF (rule R5)
 
 Guide "Get CSRF Token" (R2024x, common principles):
@@ -81,5 +107,6 @@ So expiry in practice = the 3DSpace session was renewed. The wrapper:
 | # | Item |
 |---|---|
 | A1 | Project manager: pick option (a), (b) or (c) in §3 - **needed for the detail page only**; not shown on the landing page (user, 2026-09-23) |
-| A2 | Verify `state` and `!Closed` from the widget |
+| A2 | ~~Verify `state` from the widget~~ - **answered 2026-09-24: it is accepted.** See §4 |
+| A4 | Should the list show only our EPM subtypes, or every project the user can see (today: every project)? See §4 |
 | A3 | With only one project on the VM, paging and volume were not tested; create a few more test projects (OOTB widget) before the grid test |

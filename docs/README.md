@@ -91,6 +91,12 @@ documentation structure; ours is the one above.
 | Planner import extension | `D:\PROJECT DATA\20 MICROSOFT PLANNER\Integration to 3dexperience\Planner-to-3DEX-Import-Extension` | project / task API usage |
 | IRS POC | `SpringProject_IRS_POC/poc_demo` in the workspace | the earlier IRS widget POC |
 
+## Where the work stands
+
+[HANDOFF.md](HANDOFF.md) - the current picture for whoever picks the work up:
+what exists, what to do next, and the traps in the order they bite. It is a
+living page, rewritten rather than appended to; the history stays in the devlog.
+
 ## Index
 
 ### Reference
@@ -103,6 +109,7 @@ documentation structure; ours is the one above.
 | [JazzySole PlatformService README](../src/main/resources/static/WidgetPacket/JazzySole/PlatformService/README.md) | shared `JazzySole/Credentials`: install, API, OOTB / fallback behaviour |
 | [IRSProjects widget README](../src/main/resources/static/WidgetPacket/IRSProjects/README.md) | the widget's files and lifecycle |
 | [JazzySole Router README](../src/main/resources/static/WidgetPacket/JazzySole/Router/README.md) | shared router library: install, API, behaviour. Library docs live next to the library so they travel with it |
+| [JazzySole Tabulator README](../src/main/resources/static/WidgetPacket/JazzySole/Tabulator/README.md) | Tabulator and `TabulatorLoader`: why a loader is needed at all |
 
 ### Requirements
 

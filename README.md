@@ -1,6 +1,12 @@
 # IRCLASS external widget
 
-This Spring Boot application is the foundation for the IRCLASS external widget, following the direction of the earlier proof of concept. It currently exposes only a small status endpoint while the widget's integration, security, and user interface are defined.
+This Spring Boot application serves the IRCLASS external widget as static
+content to 3DDashboard, plus a small status endpoint. The widget itself
+(`IRSProjects`) currently shows the project list.
+
+**Where to start:** [docs/HANDOFF.md](docs/HANDOFF.md) - what exists, what to do
+next, and the traps. Development rules and the documentation layout are in
+[docs/README.md](docs/README.md).
 
 ## Technology baseline
 
@@ -61,14 +67,30 @@ mvn spring-boot:run
 Get-NetTCPConnection -State Listen -LocalPort 443 | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 ```
 
-Verify the application and the widget:
+Verify the application and the widget. Use **`localhost`** on the development
+host: `external.solize.com` resolves on the VM (which is what 3DDashboard needs)
+and only resolves here once the elevated `setup-https-host.ps1` above has been
+run.
 
 ```powershell
-Invoke-RestMethod https://external.solize.com/api/status
+Invoke-RestMethod https://localhost/api/status
 # -> {"status":"UP","application":"irclass-external-widget"}
 
-Start-Process https://external.solize.com/WidgetPacket/IRSProjects/IRSProjects.html
+# with full certificate validation - never curl -k
+curl.exe -s -o NUL -w '%{http_code}' --cacert "$env:USERPROFILE\.irs-certs\external-widget.crt" `
+  https://localhost/WidgetPacket/IRSProjects/IRSProjects.html    # 200
 ```
+
+### Tests
+
+The widget's JavaScript is unit-tested with plain `node` - no browser, no build:
+
+```powershell
+Get-ChildItem src\test\js\*.test.js | ForEach-Object { node $_.FullName }
+```
+
+Each test loads the real served file the way a browser does, with fakes for
+`widget` and the platform modules.
 
 If the keystore is missing, or you need to recreate it, see worklog entry
 `2026-09-24-01` for the exact OpenSSL commands.
