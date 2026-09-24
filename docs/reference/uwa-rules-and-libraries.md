@@ -48,13 +48,46 @@ Sources (DS RAG library):
 | C3 | "You are free to use your favorite libraries" - Bootstrap and Tabulator are allowed; keep their CSS scoped so it does not restyle the dashboard | F |
 | C4 | Calls to 3DEXPERIENCE services go through **`DS/WAFData/WAFData.authenticatedRequest`**. Only widgets on the trusted domain (additional apps) may call platform web services | S, F |
 | C5 | A widget served over HTTPS that must call plain HTTP uses `WAFData.proxifiedRequest` | F (R2022x Widget Development Fundamentals) |
+| C6 | **An external widget cannot `require` a `DS/<app>/...` module that lives in a platform webapp.** The dashboard proxies an external widget and the AMD loader's base becomes the widget's own package root, so a `DS/` id is looked for **inside our own served directory** and 404s. `UWA/*` and the modules the frame injects (`DS/WAFData`, `DS/i3DXCompassPlatformServices`) still work - they are already in the frame. Verified 2026-09-24, devlog `2026-09-24-02` | measured |
+
+### 1.4.1 What C6 means in practice
+
+Observed request for `DS/ENOXWidgetPreferences/js/ENOXWidgetPreferences`:
+
+```
+GET https://<platform>/3ddashboard/api/widget/proxy/external/<appId>/<base64 widget url>/<token>/<version>/WidgetPacket/ENOXWidgetPreferences/js/ENOXWidgetPreferences.js
+                                                                                                            ^^^^^^^^^^^^^ our package root, not 3DSpace
+```
+
+`requireDs` tries three variants - concatenated, individual scripts, `_v2.1` -
+and all three 404. So:
+
+- **Do not design an external widget around an OOTB `DS/` app module.** Reproduce
+  what it does with documented REST calls instead, keyed on the same preference
+  names so OOTB apps and ours stay interchangeable (this is what
+  `JazzySole/Credentials` does with `xPref_CREDENTIAL`).
+- If a `DS/` module really is required, it needs a RequireJS `paths` mapping to an
+  absolute 3DSpace URL. Weigh that against just calling the REST API.
+- Expect `DS/3DXContentChecker` to 404 in the console of **every** external
+  widget: the dashboard's own `FrameExtension.js` requests it and hits the same
+  wall. Not ours, not fixable, not a problem.
 
 ### 1.5 Consequences for our build
 
 - The widget HTML is served by Spring from `static/WidgetPacket/<widget>/`.
-  3DDashboard is HTTPS, so the widget URL must be **HTTPS** too, or the
-  browser blocks it as mixed content. `external-widget` currently runs on
-  `http://localhost:8080` - see open item O1 in WP03 `01-plan-and-status.md`.
+  3DDashboard is HTTPS, so the widget URL must be **HTTPS** too. Done
+  2026-09-24: `https://external.solize.com/WidgetPacket/...`, see
+  `docs/3dexperience-tls.md`. Note that the dashboard fetches the widget
+  **server-side**, so the platform VM's JVM must trust the certificate - the
+  browser never contacts our server.
+- **Caching, two separate layers.** The proxy cache-busts our files with the
+  **platform's** resource version (`?v=20240118T194043Z`), not ours, so the
+  browser can serve stale JavaScript - use the DevTools "Disable cache" option
+  while developing. Separately, 3DDashboard caches the widget's **HTML and CSS**
+  per instance, so an HTML change normally needs the widget removed and re-added
+  to the tab. That server cache was **disabled on this VM** on 2026-09-24
+  (`uwp.cache.enabled = false`, worklog `2026-09-24-02`), so HTML and CSS edits
+  now take effect on reload. It must be re-enabled before production-like use.
 - Library files are referenced **relative** to the widget HTML
   (`../JazzySole/bootstrap/css/bootstrap.min.css`), as the POC does.
 - Bootstrap's global styles (reboot) touch `body` and base tags. Inside a
@@ -76,8 +109,7 @@ hierarchy.
 | Chart.js | `ChartJS/chart.min.js`, `chart.umd.min.js` | from the POC | not checked | kept; not in the agreed set, available if needed |
 | Pure.css | `PureCss/pure-min.css` | from the POC | not checked | kept |
 | DragAndDrop | `DragAndDrop/DragAndDropArea.js/.css` | IRS/SOLIZE code | - | kept |
-
-| Credentials | `PlatformService/Credentials.js`, `PlatformService/README.md` | **1.0.0 - our own** (2026-09-23) | - | AMD `JazzySole/Credentials`; OOTB credential preference with fallback |
+| Credentials | `PlatformService/Credentials.js`, `PlatformService/README.md` | **1.1.0 - our own** (2026-09-24) | - | AMD `JazzySole/Credentials`; the OOTB credential preference key, built with Get Me + `addPreference`. One path - the `DS/ENOXWidgetPreferences` branch was removed per rule C6 |
 | Router | `Router/Router.js`, `Router/README.md` | **1.0.0 - our own** (2026-09-23) | - | new shared library, AMD module `JazzySole/Router`; see its README |
 
 Not copied: `Tabulator/Tabulator.js`, a **0-byte placeholder** in the POC.

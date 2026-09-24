@@ -31,11 +31,34 @@ root, firewall rule - idempotent):
 powershell -ExecutionPolicy Bypass -File .\scripts\setup-https-host.ps1
 ```
 
-Then, from this directory:
+### Start and stop
+
+From this directory:
 
 ```powershell
+.\scripts\start-widget.ps1                # foreground, Ctrl+C to stop
+.\scripts\start-widget.ps1 -Background    # detached, logs to target\widget-run.log
+.\scripts\stop-widget.ps1                 # stop it
+```
+
+`start-widget.ps1` supplies `JAVA_HOME` and reads `WIDGET_KEYSTORE_PASSWORD` from
+the persisted user environment variable (a fresh shell does not always inherit
+it), and refuses to start if the port is already taken.
+
+`stop-widget.ps1` finds the process by **the port it listens on**, not by process
+name - this machine runs several unrelated `java` processes and a name-based kill
+would take them down too. It then checks the command line really belongs to this
+application before stopping anything, and confirms the port is free afterwards.
+
+Doing it by hand instead:
+
+```powershell
+$env:JAVA_HOME = 'D:\SOFTWARES\openjdk-21.0.2_windows-x64_bin\jdk-21.0.2'
 $env:WIDGET_KEYSTORE_PASSWORD = [Environment]::GetEnvironmentVariable('WIDGET_KEYSTORE_PASSWORD','User')
 mvn spring-boot:run
+
+# stop: find the listener on 443 and stop that PID
+Get-NetTCPConnection -State Listen -LocalPort 443 | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 ```
 
 Verify the application and the widget:

@@ -19,7 +19,7 @@ define('IRSProjects/views/HelloView', [], function () {
     return {
         /**
          * @param {HTMLElement} parent
-         * @param {Object} info  { source, value, label, spaceUrl }
+         * @param {Object} info  { value, label, spaceUrl }
          */
         render: function (parent, info) {
             var card = document.createElement('div');
@@ -36,9 +36,6 @@ define('IRSProjects/views/HelloView', [], function () {
             dl.className = 'row small mb-0';
             row(dl, 'Active credential', info.label);
             row(dl, 'Security context', info.value ? 'ctx::' + info.value : '');
-            row(dl, 'Credential source', info.source === 'ootb'
-                ? 'OOTB DS/ENOXWidgetPreferences'
-                : 'Fallback (Get Me + widget preference)');
             row(dl, '3DSpace', info.spaceUrl);
             row(dl, 'Rendered at', new Date().toLocaleString());
             body.appendChild(dl);

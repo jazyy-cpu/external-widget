@@ -4,6 +4,9 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-09-24-05](2026/2026-09-24-05_3dxcontentchecker-control-widget.md) | Why DS/3DXContentChecker 404s (it lives in 3dspace/webapps); confirmed with a minimal control widget, then deleted | - | done |
+| [2026-09-24-04](2026/2026-09-24-04_dashboard-cache-and-prerequisites.md) | Dashboard cache disabled for development; Additional App prerequisites confirmed complete (O2 closed) | WP03 O2 | done |
+| [2026-09-24-03](2026/2026-09-24-03_credentials-1.1.0-single-path.md) | `Credentials` 1.1.0: dead OOTB branch removed, single path, regression guard in the tests | WGT-03 | done |
 | [2026-09-24-02](2026/2026-09-24-02_widget-live-in-dashboard-t1-answered.md) | Widget live in 3DDashboard; T1 answered - `DS/` module ids unreachable from an external widget, fallback carries it | WGT-03 | done |
 | [2026-09-24-01](2026/2026-09-24-01_widget-https-certificate.md) | Widget served over HTTPS with our own SAN certificate; Apache certificates unusable (no SAN) | WP03 O1 | done |
 | [2026-09-23-07](2026/2026-09-23-07_widget-step1-credentials-hello.md) | Widget step 1: IRSProjects shell, credentials with OOTB fallback, Hello World | WGT-03 | done |

@@ -1,5 +1,5 @@
 // Run: node src/test/js/jazzysole-credentials.test.js   (from external-widget/)
-// Tests JazzySole/Credentials with fake widget, WAFData, platform services and require.
+// Tests JazzySole/Credentials with fake widget, WAFData and platform services.
 'use strict';
 const assert = require('assert');
 const path = require('path');
@@ -19,6 +19,7 @@ const GET_ME = {
 };
 
 function setup(opts) {
+  opts = opts || {};
   const prefs = {}; const defs = {};
   global.widget = {
     lang: 'en',
@@ -29,75 +30,89 @@ function setup(opts) {
   };
   if (opts.stored !== undefined) { widget.setValue('xPref_CREDENTIAL', opts.stored); }
   widget.setValue('x3dPlatformId', 'OnPremise');
-  const WAFData = { calls: [], authenticatedRequest(url, o) { this.calls.push(url); setImmediate(() => o.onComplete(GET_ME)); } };
+  const me = opts.me !== undefined ? opts.me : GET_ME;
+  const WAFData = { calls: [], authenticatedRequest(url, o) { this.calls.push(url); setImmediate(() => o.onComplete(me)); } };
   const Compass = { getPlatformServices(o) { setImmediate(() => o.onComplete([{ platformId: 'OnPremise', '3DSpace': 'https://vm/3dspace' }])); } };
-  global.require = (deps, ok, fail) => {
-    if (opts.ootb === 'ok') {
-      setImmediate(() => ok({ addCredentialPreferenceToWidget: () => {
-        widget.addPreference({ name: 'xPref_CREDENTIAL', type: 'list', options: [{ value: 'R.O.C', label: 'C ● R' }] });
-        if (!widget.getValue('xPref_CREDENTIAL')) { widget.setValue('xPref_CREDENTIAL', 'R.O.C'); }
-        return Promise.resolve();
-      } }));
-    } else if (opts.ootb === 'error') {
-      setImmediate(() => fail(new Error('Script error for DS/ENOXWidgetPreferences')));
-    } // 'hang': never calls back -> timeout
-  };
   const define = (name, deps, f) => { defs[name] = f(WAFData, Compass); };
-  // load like a browser script: AMD define/require in scope, not Node's require
-  new Function('define', 'require', require('fs').readFileSync(FILE, 'utf8'))(define, global.require);
+  // load like a browser script: AMD define in scope, not Node's require
+  new Function('define', require('fs').readFileSync(FILE, 'utf8'))(define);
   return { C: defs['JazzySole/Credentials'], WAFData, prefs };
 }
 
 (async () => {
-  // 1. OOTB module loads -> source ootb, no Get Me call of our own
-  let t = setup({ ootb: 'ok' });
+  // 1. builds the preference from Get Me: sorted by label, admin credentials last
+  let t = setup();
   let info = await t.C.init();
-  assert.strictEqual(info.source, 'ootb');
-  assert.strictEqual(info.value, 'R.O.C');
-  assert.strictEqual(t.WAFData.calls.length, 0);
-  assert.strictEqual(t.C.getSecurityContext(), 'ctx::R.O.C');
-
-  // 2. OOTB module fails to load -> fallback, first sorted non-admin option
-  t = setup({ ootb: 'error' });
-  info = await t.C.init();
-  assert.strictEqual(info.source, 'fallback');
-  assert.ok(t.WAFData.calls[0].startsWith('https://vm/3dspace/resources/modeler/pno/person?current=true&select=collabspaces&tenant=OnPremise'));
+  assert.ok(t.WAFData.calls[0].startsWith(
+    'https://vm/3dspace/resources/modeler/pno/person?current=true&select=collabspaces&tenant=OnPremise'));
   assert.deepStrictEqual(t.C.list().map(o => o.value), [
-    'VPLMCreator.Company Name.Alpha',           // "Alpha Space ● Author"
-    'VPLMProjectLeader.Company Name.Common Space', // "Common Space ● Project Leader"
-    'VPLMAdmin.Company Name.Common Space'        // admin last
+    'VPLMCreator.Company Name.Alpha',               // "Alpha Space ● Author"
+    'VPLMProjectLeader.Company Name.Common Space',  // "Common Space ● Project Leader"
+    'VPLMAdmin.Company Name.Common Space'           // admin last
   ]);
   assert.strictEqual(t.C.list()[1].label, 'Common Space ● Project Leader'); // one org -> no org in label
   assert.strictEqual(info.value, 'VPLMCreator.Company Name.Alpha');
+  assert.strictEqual(info.spaceUrl, 'https://vm/3dspace');
+  assert.strictEqual(t.C.getSecurityContext(), 'ctx::VPLMCreator.Company Name.Alpha');
 
-  // 3. stored value still valid -> kept
-  t = setup({ ootb: 'error', stored: 'VPLMProjectLeader.Company Name.Common Space' });
+  // 1b. the removed OOTB branch must not come back (UWA rule C6: a DS/<app>/...
+  //     id cannot resolve from an external widget, so there is nothing to retry)
+  const src = require('fs').readFileSync(FILE, 'utf8');
+  assert.ok(!('source' in info), 'info() must not report a source any more');
+  assert.ok(!/\brequire\s*\(/.test(src),
+    'must not call require() - a DS/<app> id 404s under the dashboard proxy');
+  assert.ok(!/loadOotb|OOTB_MODULE|OOTB_TIMEOUT/.test(src),
+    'the OOTB branch must stay removed');
+
+  // 2. stored value still valid -> kept
+  t = setup({ stored: 'VPLMProjectLeader.Company Name.Common Space' });
   info = await t.C.init();
   assert.strictEqual(info.value, 'VPLMProjectLeader.Company Name.Common Space');
   assert.strictEqual(info.label, 'Common Space ● Project Leader');
 
-  // 4. stored value no longer valid -> replaced by the first option
-  t = setup({ ootb: 'error', stored: 'OldRole.Company Name.Gone' });
+  // 3. stored value no longer valid -> replaced by the first option
+  t = setup({ stored: 'OldRole.Company Name.Gone' });
   info = await t.C.init();
   assert.strictEqual(info.value, 'VPLMCreator.Company Name.Alpha');
 
-  // 5. set(): known value switches and notifies; unknown value rejected
+  // 4. set(): known value switches and notifies; unknown value rejected
   let seen = null;
   t.C.onChange((now, prev) => { seen = [now.value, prev]; });
   await t.C.set('VPLMAdmin.Company Name.Common Space');
   assert.deepStrictEqual(seen, ['VPLMAdmin.Company Name.Common Space', 'VPLMCreator.Company Name.Alpha']);
   await assert.rejects(t.C.set('not.a.credential'));
 
-  // 6. several organizations -> organization in the label
+  // 5. several organizations -> organization in the label
   const opts = t.C._buildOptions({ collabspaces: [{ name: 'S', title: 'S', couples: [
     { organization: { name: 'A', title: 'Org A' }, role: { name: 'R', nls: 'Role' } },
     { organization: { name: 'B', title: 'Org B' }, role: { name: 'R', nls: 'Role' } }] }] });
   assert.strictEqual(opts[0].label, 'S ● Org A ● Role');
 
-  // 7. OOTB module never answers -> timeout -> fallback (takes ~6 s)
-  t = setup({ ootb: 'hang' });
+  // 5b. a role nobody has listed anywhere still appears and sorts normally.
+  //     ADMIN_ROLE_PATTERN is an ordering rule, NOT a registration list: adding
+  //     roles to the platform must never require editing Credentials.js.
+  const withNewRole = {
+    name: 'u3',
+    collabspaces: [{ name: 'Alpha', title: 'Alpha Space', couples: [
+      { organization: { name: 'Co', title: 'Co' }, role: { name: 'IRSReader',  nls: 'Reader' } },
+      { organization: { name: 'Co', title: 'Co' }, role: { name: 'VPLMAdmin',  nls: 'Administrator' } },
+      { organization: { name: 'Co', title: 'Co' }, role: { name: 'VPLMCreator', nls: 'Author' } }
+    ] }]
+  };
+  t = setup({ me: withNewRole });
   info = await t.C.init();
-  assert.strictEqual(info.source, 'fallback');
+  const values = t.C.list().map(o => o.value);
+  assert.ok(values.includes('IRSReader.Co.Alpha'), 'an unknown role must still be offered');
+  assert.deepStrictEqual(values, [
+    'VPLMCreator.Co.Alpha',   // "Alpha Space ● Author"
+    'IRSReader.Co.Alpha',     // "Alpha Space ● Reader"  - sorts by label, not special-cased
+    'VPLMAdmin.Co.Alpha'      // admin still last
+  ]);
+  assert.strictEqual(info.value, 'VPLMCreator.Co.Alpha', 'admin must not become the default');
+
+  // 6. user with no credential -> init rejects with a clear message
+  t = setup({ me: { name: 'u2', collabspaces: [] } });
+  await assert.rejects(t.C.init(), /No credentials assigned/);
 
   console.log('ALL CREDENTIALS TESTS PASSED');
 })().catch(e => { console.error('FAIL', e); process.exit(1); });

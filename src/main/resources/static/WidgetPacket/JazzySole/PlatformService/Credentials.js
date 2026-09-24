@@ -1,16 +1,23 @@
 /**
  * JazzySole Credentials - the user's 3DSpace credential (security context) for a UWA widget.
  *
- * Stored in the widget preference "xPref_CREDENTIAL", the same key the OOTB
- * apps use (DS/ENOXWidgetPreferences). 3DDashboard keeps widget preferences
- * server-side per user and widget instance, so the choice survives a
- * refresh, a dashboard reload and a login from another browser.
+ * Stored in the widget preference "xPref_CREDENTIAL" - deliberately the same
+ * key the OOTB apps use - and built from Get Me + widget.addPreference, the
+ * documented DS use case "Credentials with Widget App". 3DDashboard keeps
+ * widget preferences server-side per user and widget instance, so the choice
+ * survives a refresh, a dashboard reload and a login from another browser.
  *
- * init() first tries the OOTB module DS/ENOXWidgetPreferences. A widget
- * served from an external server may not be able to load it, so after a
- * timeout or a load error it falls back to the documented DS use case
- * "Credentials with Widget App": Get Me + widget.addPreference, same key,
- * same labels and order as the OOTB module.
+ * Why there is no DS/ENOXWidgetPreferences path here (removed in 1.1.0):
+ * an external widget cannot load a DS/<app>/... module at all. The dashboard
+ * proxies the widget, so the AMD loader's base is the widget's own package
+ * root and a DS/ id is looked for inside our served directory, where it does
+ * not exist. It was measured on 2026-09-24: every variant requireDs tries
+ * returns 404 and the OOTB branch could never succeed. See UWA rule C6 in
+ * docs/reference/uwa-rules-and-libraries.md and WGT-03 section 6.
+ *
+ * The OOTB preference KEY is kept on purpose: values, labels and ordering
+ * match DS/ENOXWidgetPreferences, so our widget and the OOTB apps stay
+ * interchangeable on the same dashboard.
  *
  * Usage and API: README.md in this folder.
  */
@@ -20,14 +27,29 @@ define('JazzySole/Credentials', [
 ], function (WAFData, CompassPlatformServices) {
     'use strict';
 
-    var VERSION = '1.0.0';
+    var VERSION = '1.1.0';
     var KEY = 'xPref_CREDENTIAL';
-    var OOTB_MODULE = 'DS/ENOXWidgetPreferences/js/ENOXWidgetPreferences';
-    var OOTB_TIMEOUT_MS = 6000;
+    /**
+     * Roles that must NOT become the default credential, listed at the bottom of
+     * the picker. The first option in the list is what becomes active when the
+     * user has nothing stored yet, so an administrator credential must never
+     * happen to sort first.
+     *
+     * This is an ORDERING rule, not a registration list. A role that is not
+     * matched here still appears in the picker - every credential the user holds
+     * is always offered. Adding a new role to the system needs no change here;
+     * add one only when it should be pushed to the bottom (a read-only role is
+     * the likely next candidate, for the same reason: nobody should silently
+     * default into a context where they cannot work).
+     *
+     * The three names below are exactly the set `DS/ENOXWidgetPreferences` uses,
+     * so our order matches the OOTB apps that share this preference. Anything
+     * added beyond them is our own divergence - see the README next to this file.
+     * Case-insensitive because the real names are mixed case (`VPLMAdmin`).
+     */
     var ADMIN_ROLE_PATTERN = /(3ddrestrictedowner|vplmprojectadministrator|vplmadmin)/i;
 
     var state = {
-        source: null,        // "ootb" | "fallback"
         spaceUrl: null,      // 3DSpace base URL
         listeners: [],
         options: null        // [{ value, label }]
@@ -59,33 +81,7 @@ define('JazzySole/Credentials', [
         });
     }
 
-    // ---- OOTB path -----------------------------------------------------
-
-    function loadOotb() {
-        return new Promise(function (resolve, reject) {
-            var done = false;
-            var timer = setTimeout(function () {
-                if (!done) { done = true; reject(new Error('OOTB module not loaded within ' + OOTB_TIMEOUT_MS + ' ms')); }
-            }, OOTB_TIMEOUT_MS);
-            require([OOTB_MODULE], function (ENOXWidgetPreferences) {
-                if (done) { return; }
-                ENOXWidgetPreferences.addCredentialPreferenceToWidget().then(function () {
-                    if (done) { return; }
-                    done = true; clearTimeout(timer); resolve();
-                }, function (err) {
-                    if (done) { return; }
-                    done = true; clearTimeout(timer);
-                    reject(new Error((err && err.message) || 'OOTB credential preference failed'));
-                });
-            }, function (err) {
-                if (done) { return; }
-                done = true; clearTimeout(timer);
-                reject(new Error('OOTB module could not be loaded: ' + ((err && err.message) || err)));
-            });
-        });
-    }
-
-    // ---- fallback path (DS use case "Credentials with Widget App") -----
+    // ---- building the preference ---------------------------------------
 
     function getMe(spaceUrl) {
         return new Promise(function (resolve, reject) {
@@ -130,7 +126,7 @@ define('JazzySole/Credentials', [
         return regular.sort(byLabel).concat(admin.sort(byLabel));
     }
 
-    function loadFallback() {
+    function loadPreference() {
         return get3DSpaceUrl().then(getMe).then(function (me) {
             var options = buildOptions(me);
             if (!options.length) { throw new Error('No credentials assigned to the current user.'); }
@@ -158,18 +154,10 @@ define('JazzySole/Credentials', [
         /**
          * Create or refresh the credential preference and make sure a valid
          * credential is active. Call on every onLoad and onRefresh.
-         * @returns {Promise<{source, value, label, spaceUrl}>}
+         * @returns {Promise<{value, label, spaceUrl}>}
          */
         init: function () {
-            return get3DSpaceUrl().then(function () {
-                return loadOotb().then(function () { state.source = 'ootb'; }, function (err) {
-                    if (typeof console !== 'undefined') {
-                        console.info('[JazzySole/Credentials] OOTB path not used, fallback: ' + err.message);
-                    }
-                    state.source = 'fallback';
-                    return loadFallback();
-                });
-            }).then(function () {
+            return loadPreference().then(function () {
                 state.options = readOptions();
                 if (!Credentials.get()) { throw new Error('No credential is active.'); }
                 return Credentials.info();
@@ -216,9 +204,9 @@ define('JazzySole/Credentials', [
             };
         },
 
-        /** { source, value, label, spaceUrl } */
+        /** { value, label, spaceUrl } */
         info: function () {
-            return { source: state.source, value: Credentials.get(), label: Credentials.getLabel(), spaceUrl: state.spaceUrl };
+            return { value: Credentials.get(), label: Credentials.getLabel(), spaceUrl: state.spaceUrl };
         },
 
         get3DSpaceUrl: get3DSpaceUrl,

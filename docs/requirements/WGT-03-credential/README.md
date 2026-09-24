@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | **working in 3DDashboard** (2026-09-24): `JazzySole/Credentials` 1.0.0 + widget `IRSProjects` showing Hello World and the credential bar; T1 done - the OOTB module is not reachable from an external widget, the fallback carries it (§6); T2-T4 pending |
+| Status | **working in 3DDashboard** (2026-09-24): `JazzySole/Credentials` **1.1.0** + widget `IRSProjects` showing Hello World and the credential bar. T1 done - the OOTB module is unreachable from an external widget, so that branch was **removed** and the module now has one path (§6, §7); T2-T4 pending |
 | Work package | [WP03](../../../../documents/work-packages/03-project-widget/README.md) |
 
 ## What is asked (user, 2026-09-23)
@@ -45,6 +45,7 @@ refresh **and** a login from another browser. The module behind it,
 | Values | `role.organization.collabspace` (internal names) |
 | Labels | `collabspace title ● role nls`, with `● organization title` in the middle only when the user has more than one organization |
 | Order | sorted by label; admin credentials (roles containing `3DDRestrictedOwner`, `VPLMProjectAdministrator`, `VPLMAdmin`) listed **last** |
+| Order, our note | we reproduce this exactly. It is an **ordering** rule, not a list of known roles - a new role appears in the picker without any code change (test `5b`). It matters because the first option becomes the default credential, so an admin role must not win that spot. A read-only role is the likely next addition - see §8 |
 | On load | stored value still in the list -> **kept**; empty or no longer valid -> **first option** is set |
 | Placement | inserted as the 1st preference (2nd if a visible platform preference exists) |
 | Edit dialog | listens to `onEdit` / `endEdit` / `onUpdateValue`: reloads the list when the platform changes, restores the old values on Cancel |
@@ -137,7 +138,7 @@ Bootstrap only - a `navbar` row above the breadcrumb:
 
 | File | Role |
 |---|---|
-| `JazzySole/PlatformService/Credentials.js` (**shared**, AMD `JazzySole/Credentials`) | wraps `ENOXWidgetPreferences` (fallback: Get Me + `addPreference`, same key); `init()`, `get()`, `getLabel()`, `list()`, `set(value)`, change event. Generic - any widget can use it |
+| `JazzySole/PlatformService/Credentials.js` (**shared**, AMD `JazzySole/Credentials`) | Get Me + `widget.addPreference` on the OOTB key `xPref_CREDENTIAL`; `init()`, `get()`, `getLabel()`, `list()`, `set(value)`, change event. Generic - any widget can use it |
 | widget `components/CredentialBar.js` | the top bar and the chooser (Bootstrap markup) |
 | widget `services/Request.js` | the request wrapper; adds `SecurityContext` from `Credentials.get()` |
 
@@ -166,11 +167,11 @@ Handled in the shared module:
 
 | Piece | Where |
 |---|---|
-| `JazzySole/Credentials` 1.0.0 | `src/main/resources/static/WidgetPacket/JazzySole/PlatformService/Credentials.js`, doc `README.md` next to it |
-| OOTB first, fallback second | `require()` of the OOTB module with an error callback and a 6 s timeout; on failure the DS use case (Get Me + `addPreference`) with the same key `xPref_CREDENTIAL`. `info().source` = `ootb` or `fallback` |
+| `JazzySole/Credentials` 1.0.0 (now 1.1.0, see §7) | `src/main/resources/static/WidgetPacket/JazzySole/PlatformService/Credentials.js`, doc `README.md` next to it |
+| OOTB first, fallback second | *(1.0.0 only - removed in 1.1.0, see §7)* `require()` of the OOTB module with an error callback and a 6 s timeout; on failure the DS use case (Get Me + `addPreference`) with the same key `xPref_CREDENTIAL`. `info().source` = `ootb` or `fallback` |
 | Widget | `WidgetPacket/IRSProjects/` - `IRSProjects.html` (UWA shell, no logic), `js/App.js` (lifecycle), `js/components/CredentialBar.js`, `js/views/HelloView.js` |
 | Top bar | Bootstrap `form-select` for the change - no Bootstrap JavaScript needed (see note) |
-| Hello page | shows active credential, `ctx::` value, **which path was used**, 3DSpace URL |
+| Hello page | shows active credential, `ctx::` value, 3DSpace URL (the "which path was used" row went away with 1.1.0) |
 | Tests | `src/test/js/jazzysole-credentials.test.js` - 7 scenarios, pass |
 
 Note on Bootstrap JavaScript: `bootstrap.bundle.js` is a UMD file; loaded
@@ -231,18 +232,20 @@ stall.
 
 ### Decision
 
-Stay on the fallback (Get Me + `widget.addPreference`, same `xPref_CREDENTIAL`
-key). Making the OOTB module load would mean a RequireJS `paths` mapping to an
-absolute 3DSpace URL, which buys nothing - the fallback produces the same
+Keep only Get Me + `widget.addPreference` on the same `xPref_CREDENTIAL` key.
+Making the OOTB module load would mean a RequireJS `paths` mapping to an
+absolute 3DSpace URL, which buys nothing - this path produces the same
 preference key, the same labels and the same ordering, and it is ours to
-maintain. The OOTB path stays in the code because a widget hosted inside the
-platform would still use it.
+maintain.
+
+The OOTB branch was **deleted** in 1.1.0 rather than kept for a hypothetical
+in-platform deployment - see §7.
 
 ### Two 404s in the console are expected
 
 | Module | Whose | Verdict |
 |---|---|---|
-| `DS/ENOXWidgetPreferences/...` | ours, via `loadOotb()` | expected; the fallback handles it |
+| `DS/ENOXWidgetPreferences/...` | was ours, via `loadOotb()` | **gone since 1.1.0** - the branch was removed, so this 404 no longer appears |
 | `DS/3DXContentChecker/...` | **the dashboard's own**, requested by `FrameExtension.js:234` | not ours, fails for the same namespace reason, nothing to fix |
 
 ### Caching caution for development
@@ -251,3 +254,95 @@ The proxy serves our files with the **platform's** resource version as the
 cache-buster (`Credentials.js?v=20240118T194043Z`), not ours. That key only
 changes when the platform is updated, so edited files can be served stale.
 Hard-reload when a change does not show up.
+
+## 7. Cleanup: `Credentials` 1.1.0 (2026-09-24)
+
+User decision after §6: *"remove the code that is not working for credentials
+and let's have clean working option only."* The dead branch was deleted rather
+than kept behind a flag - it could never succeed (§6), and it put a 404 plus a
+`console.info` in every load.
+
+### Removed
+
+| Piece | Why |
+|---|---|
+| `loadOotb()` | required `DS/ENOXWidgetPreferences/js/ENOXWidgetPreferences`, which 404s from an external widget |
+| `OOTB_MODULE`, `OOTB_TIMEOUT_MS` | only used by `loadOotb()` |
+| `state.source` and `info().source` | with one path there is nothing to report |
+| the `console.info("OOTB path not used, fallback: ...")` line | the fallback is now simply the behaviour |
+| "Credential source" row on the Hello page | same reason |
+
+`loadFallback()` was renamed **`loadPreference()`** - it is not a fallback any
+more, it is the way this works. `init()` no longer wraps it in an extra
+`get3DSpaceUrl()`; `loadPreference()` already resolves the URL and the result is
+cached.
+
+### Unchanged on purpose
+
+- The preference **key stays `xPref_CREDENTIAL`**, and the values, labels and
+  ordering still match `DS/ENOXWidgetPreferences`, so our widget and the OOTB
+  apps remain interchangeable on the same dashboard.
+- Storage is still the server-side widget preference, so the choice still
+  survives refresh, dashboard reload and another browser.
+- The public API is otherwise identical: `init()`, `get()`,
+  `getSecurityContext()`, `getLabel()`, `list()`, `set()`, `onChange()`,
+  `info()`, `get3DSpaceUrl()`. **Only `info().source` disappeared**, and
+  `HelloView` was the one caller.
+
+### Tests
+
+`src/test/js/jazzysole-credentials.test.js` was reduced from 7 scenarios to 6 -
+the three OOTB scenarios (module loads, load error, timeout) no longer describe
+anything real. Added instead:
+
+- a user with no credential at all -> `init()` rejects with
+  "No credentials assigned";
+- a **guard against regression**: the module source must contain no `require(`
+  call and no `loadOotb` / `OOTB_MODULE` / `OOTB_TIMEOUT` identifier, and
+  `info()` must not carry `source`. If someone re-adds a `DS/<app>` require, the
+  suite fails with the reason.
+
+Both suites pass (`ALL CREDENTIALS TESTS PASSED`, `ALL ROUTER TESTS PASSED`).
+
+### Note on sections 1a and 5 above
+
+They are kept as the record of the original decision and are **superseded** by
+§6 and §7. Section 1a's recommendation to call
+`ENOXWidgetPreferences.addCredentialPreferenceToWidget()` was the right call on
+the evidence available then; it is simply not possible from an external widget.
+Q1 (confirm reusing the OOTB credential preference through a wrapper) is
+answered by events: the key is reused, the module is not.
+
+## 8. Adding roles later (noted 2026-09-24)
+
+User point: as IRS adds roles - a Reader role was the example - they will need
+handling here.
+
+Clarified: **only if they should not be the default.** `ADMIN_ROLE_PATTERN` in
+`JazzySole/Credentials` decides which roles sort to the **bottom** of the picker,
+nothing else. Every credential the user holds is always offered; no role is ever
+filtered out, so new platform roles work with no code change. Test `5b` in
+`src/test/js/jazzysole-credentials.test.js` asserts exactly that, using a role the
+code has never seen.
+
+The reason the bottom of the list matters: the **first** option becomes the active
+credential when the user has nothing stored yet, or when their stored value is no
+longer valid. So the pattern exists to stop a privileged role becoming somebody's
+default by alphabetical accident.
+
+### When a Reader role arrives
+
+It should probably go in the pattern, for the same reason as admin: a user holding
+both a reader and an author credential should not silently default into a
+read-only context and wonder why nothing can be edited. That is a one-word change
+to the regex in `Credentials.js`, plus a line in the test.
+
+### The trade-off to accept knowingly
+
+The three names in the pattern are exactly the set `DS/ENOXWidgetPreferences`
+uses, so our ordering currently matches the OOTB apps that share the
+`xPref_CREDENTIAL` preference. Adding a fourth name makes our order differ from
+theirs. Because the stored **value** is shared, the only effect is on a user who
+has no credential stored yet: whichever app they open first picks their default.
+Minor, and worth it if the alternative is defaulting somebody into a read-only
+context - but it should be a decision, not a surprise.
