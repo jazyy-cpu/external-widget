@@ -21,6 +21,88 @@ The platform leaf has no SAN. Current TLS identity standards and Chromium browse
 
 Keep certificate and hostname verification enabled. TLS trust, HTTP authentication, browser CORS, and iframe/CSP policy are separate integration checks.
 
+## The widget's own HTTPS endpoint (inbound)
+
+Everything above is the **outbound** direction: our Spring client calling the
+platform. This section is the **inbound** direction: 3DDashboard and the
+browser fetching our widget. Set up 2026-09-24, worklog `2026-09-24-01`.
+
+### The existing Apache certificates cannot be reused
+
+All three leaf certificates in `C:\DassaultSystemes\Apache24\conf\ssl\` on the
+VM - `3dexperience.crt`, `untrusted3dexperience.crt`, `3dswym3dexperience.crt` -
+are **X.509 v1 with no extensions at all**, so none of them has a SAN and no
+browser will accept any of them, whatever hostname they are served under. Their
+CNs are also the VM's own hostnames, which both hosts files resolve to the VM,
+so they cannot name a widget host on the developer machine. `ServerRootCA.crt`
+could sign a correct SAN leaf, but `ServerRootCA.key` is
+`-----BEGIN ENCRYPTED PRIVATE KEY-----` and the passphrase is not ours.
+
+The considered alternative was to keep the existing certificate where it is and
+add a `ProxyPass /WidgetPacket` to the platform's own `:443` vhost
+(`mod_proxy_http` is already loaded). That needs no certificate at all and
+makes the widget same-origin with 3DSpace. It was not taken, because it edits
+platform Apache configuration; it stays on the table if the certificate route
+becomes a maintenance burden.
+
+### What is in place
+
+| Piece | Value |
+|---|---|
+| URL | `https://external.solize.com/WidgetPacket/IRSProjects/IRSProjects.html` |
+| Certificate | our own, self-signed (its own trust anchor), RSA 2048, SHA-256, v3, 10 years, `CN=external.solize.com` |
+| SANs | `DNS:external.solize.com`, `DNS:localhost`, `IP:127.0.0.1`, `IP:192.168.125.1`, `IP:192.168.1.6` |
+| Keystore | `~\.irs-certs\external-widget.p12`, alias `external-widget` - **outside the repository** |
+| Password | user environment variable `WIDGET_KEYSTORE_PASSWORD`, never in a file |
+| Spring | `server.port=443`, `server.ssl.*` in `application.properties`, keystore path via `${user.home}` |
+| Host setup | `scripts/setup-https-host.ps1` - hosts entry, trusted root, firewall rule (needs elevation, idempotent) |
+
+### Who actually needs to trust this certificate (corrected 2026-09-24)
+
+Only the **platform VM's JVM**. 3DDashboard does not let the browser talk to our
+server: it fetches our files server-side and re-serves them from its own origin
+under `/3ddashboard/api/widget/proxy/external/...`, so the browser only ever
+sees the platform's own certificate.
+
+That means the hosts entry and the trusted-root import in
+`scripts/setup-https-host.ps1` are **not required** for the widget to load in
+the dashboard - they only let a developer open
+`https://external.solize.com/...` directly in a browser. The firewall rule is
+still worth having, to move off the Wi-Fi address (below). Confirmed from the
+browser console log in devlog `2026-09-24-02`.
+
+### The trust step that is easy to miss
+
+The dashboard fetches the widget HTML **server-side**, from the VM's TomEE JVM
+(Eclipse OpenJ9 17, `C:\Program Files\Semeru\jdk-17.0.8.7-openj9`). No TomEE
+instance sets `-Djavax.net.ssl.trustStore`, so the JDK default `cacerts`
+decides. Before importing, that JVM failed with
+`SSLHandshakeException: PKIX path building failed`; after importing the
+certificate as alias `irs-external-widget` it returned HTTP 200. A **running**
+JVM caches the default SSLContext, so the `3DDashboard_R2024x` service has to
+be restarted for the import to take effect.
+
+Worth probing this directly with a throwaway single-file Java program run by
+that exact JVM before changing anything - it turns a guess into a fact and
+costs no downtime.
+
+### Reachability, and the address that keeps breaking
+
+The VM reaches the host over VMware NAT. The host's **VMnet8** address
+`192.168.125.1` is stable; its Wi-Fi address changes with the network. The VM
+hosts file pointing `external.solize.com` at the Wi-Fi address is what produced
+the original `HttpHostConnectException ... Connection refused`. Use
+`192.168.125.1`, which needs the inbound firewall rule from
+`setup-https-host.ps1` because VMnet8 is not on the Private profile that the
+existing `java.exe` rules cover.
+
+### Rules for this endpoint
+
+- The keystore and its password never enter the repository, and neither does
+  any platform private key.
+- Verify with `curl --cacert <our crt>`, never `curl -k` - `-k` would hide
+  exactly the SAN and chain problems this setup exists to avoid.
+
 ## Sources
 
 - [Spring Boot SSL bundles](https://docs.spring.io/spring-boot/reference/features/ssl.html)

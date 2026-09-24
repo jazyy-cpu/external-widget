@@ -16,24 +16,43 @@ The selected Spring Boot version and requirements are based on the official Spri
 
 ## Run locally
 
-From this directory, run:
+The application serves **HTTPS on port 443** - 3DDashboard loads widgets over
+HTTPS only. It needs two things that live outside this repository:
+
+| | |
+|---|---|
+| Keystore | `~\.irs-certs\external-widget.p12` |
+| Password | environment variable `WIDGET_KEYSTORE_PASSWORD` |
+
+First time on a machine, from an **elevated** PowerShell (hosts entry, trusted
+root, firewall rule - idempotent):
 
 ```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-https-host.ps1
+```
+
+Then, from this directory:
+
+```powershell
+$env:WIDGET_KEYSTORE_PASSWORD = [Environment]::GetEnvironmentVariable('WIDGET_KEYSTORE_PASSWORD','User')
 mvn spring-boot:run
 ```
 
-Then verify the application:
+Verify the application and the widget:
 
 ```powershell
-Invoke-RestMethod http://localhost:8080/api/status
+Invoke-RestMethod https://external.solize.com/api/status
+# -> {"status":"UP","application":"irclass-external-widget"}
+
+Start-Process https://external.solize.com/WidgetPacket/IRSProjects/IRSProjects.html
 ```
 
-Expected response:
+If the keystore is missing, or you need to recreate it, see worklog entry
+`2026-09-24-01` for the exact OpenSSL commands.
 
-```json
-{"status":"UP","application":"irclass-external-widget"}
-```
+## HTTPS
 
-## Platform HTTPS
-
-See the [3DEXPERIENCE TLS findings](docs/3dexperience-tls.md) for the verified certificate and Java trust baseline.
+[docs/3dexperience-tls.md](docs/3dexperience-tls.md) covers both directions:
+the platform's certificate and Java trust baseline for our **outbound** calls,
+and the widget's own **inbound** HTTPS endpoint - including why the platform's
+Apache certificates cannot be reused for it.

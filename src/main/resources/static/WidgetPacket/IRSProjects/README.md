@@ -34,6 +34,10 @@ Everything renders into `widget.body`. User-visible text is set with
 
 ## URL
 
-`https://<widget-host>/WidgetPacket/IRSProjects/IRSProjects.html` - must be
-HTTPS for 3DDashboard (WP03 open item O1). Locally Spring serves it on
-`http://localhost:8080/WidgetPacket/IRSProjects/IRSProjects.html`.
+`https://external.solize.com/WidgetPacket/IRSProjects/IRSProjects.html`
+
+HTTPS is required by 3DDashboard (WP03 open item O1, done 2026-09-24). Spring
+serves port 443 with our own SAN certificate; `https://localhost/...` works too,
+since `localhost` is one of the certificate's SANs. See
+[3dexperience-tls.md](../../../../../../docs/3dexperience-tls.md) for the
+certificate, the keystore and the truststore step on the platform VM.

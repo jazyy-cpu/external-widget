@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | **built, step 1** (2026-09-23): `JazzySole/Credentials` 1.0.0 + widget `IRSProjects` showing Hello World and the credential bar; Node-tested; dashboard test pending |
+| Status | **working in 3DDashboard** (2026-09-24): `JazzySole/Credentials` 1.0.0 + widget `IRSProjects` showing Hello World and the credential bar; T1 done - the OOTB module is not reachable from an external widget, the fallback carries it (§6); T2-T4 pending |
 | Work package | [WP03](../../../../documents/work-packages/03-project-widget/README.md) |
 
 ## What is asked (user, 2026-09-23)
@@ -181,10 +181,73 @@ same applies to Tabulator's UMD build - to handle when WGT-01 is built.
 
 ### First dashboard test - what to look at
 
-| # | Check |
-|---|---|
-| T1 | Hello page appears; "Credential source" = OOTB or Fallback - answers whether the OOTB module is reachable from our server |
-| T2 | Change the credential in the bar, press the widget's Refresh: same credential still selected |
-| T3 | Log in from another browser: same credential (C3) |
-| T4 | Change it in the widget Preferences dialog: the bar follows after save |
-| T5 | Browser console: no RequireJS errors |
+| # | Check | Result |
+|---|---|---|
+| T1 | Hello page appears; "Credential source" = OOTB or Fallback - answers whether the OOTB module is reachable from our server | **done 2026-09-24: Fallback** - see §6 |
+| T2 | Change the credential in the bar, press the widget's Refresh: same credential still selected | pending |
+| T3 | Log in from another browser: same credential (C3) | pending |
+| T4 | Change it in the widget Preferences dialog: the bar follows after save | pending |
+| T5 | Browser console: no RequireJS errors | done - the only errors are the two `DS/...` 404s explained in §6, both expected |
+
+## 6. T1 answered (2026-09-24): the OOTB module is NOT reachable
+
+Ran in 3DDashboard on the VM, widget instance `#AQtD0p30g7qAFd5j4G0Y`. The
+widget loaded, the whole UWA chain fired (`registerWidget` -> `onDomReady` ->
+`launchWidget` -> `onLoad` -> `App.start()` -> `Credentials.init()`), and the
+credential survived a browser reload. Console:
+
+```
+Credentials.js:167 [JazzySole/Credentials] OOTB path not used, fallback:
+  Script error for: DS/ENOXWidgetPreferences/js/ENOXWidgetPreferences
+```
+
+So `info().source === 'fallback'`. **The concern that raised this design was
+correct**, and the reason is structural, not a configuration mistake.
+
+### Why `DS/` module ids cannot work from an external widget
+
+3DDashboard does not let the browser talk to our server at all. It fetches our
+files **server-side** and re-serves them from its own origin under
+
+```
+https://<platform>/3ddashboard/api/widget/proxy/external/<appId>/<base64 widget url>/<token>/<platform version>/WidgetPacket/...
+```
+
+The AMD loader therefore has our widget's package root as its base, and it
+resolved the OOTB module id against **that**, not against 3DSpace:
+
+```
+GET .../WidgetPacket/ENOXWidgetPreferences/js/ENOXWidgetPreferences.js  404
+```
+
+`DS/` is a platform namespace only for widgets hosted inside the platform's own
+webapps. For an external widget it maps into our own served directory, where the
+module cannot exist. `requireDs` tried all three variants it knows -
+concatenated, individual scripts, and `_v2.1` - and each returned 404.
+
+One good outcome: it failed through RequireJS's **script-error** callback, not
+our `OOTB_TIMEOUT_MS` timer, so the fallback starts immediately with no 6 s
+stall.
+
+### Decision
+
+Stay on the fallback (Get Me + `widget.addPreference`, same `xPref_CREDENTIAL`
+key). Making the OOTB module load would mean a RequireJS `paths` mapping to an
+absolute 3DSpace URL, which buys nothing - the fallback produces the same
+preference key, the same labels and the same ordering, and it is ours to
+maintain. The OOTB path stays in the code because a widget hosted inside the
+platform would still use it.
+
+### Two 404s in the console are expected
+
+| Module | Whose | Verdict |
+|---|---|---|
+| `DS/ENOXWidgetPreferences/...` | ours, via `loadOotb()` | expected; the fallback handles it |
+| `DS/3DXContentChecker/...` | **the dashboard's own**, requested by `FrameExtension.js:234` | not ours, fails for the same namespace reason, nothing to fix |
+
+### Caching caution for development
+
+The proxy serves our files with the **platform's** resource version as the
+cache-buster (`Credentials.js?v=20240118T194043Z`), not ours. That key only
+changes when the platform is updated, so edited files can be served stale.
+Hard-reload when a change does not show up.
