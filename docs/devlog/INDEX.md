@@ -4,7 +4,7 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
-| [2026-09-24-08](2026/2026-09-24-08_project-detail-skeleton.md) | Project detail page skeleton: field catalogue from WP02 doc 05, tabs, Project No. button (UI only), router wired in at last | WGT-04, WGT-02 | skeleton built |
+| [2026-09-24-08](2026/2026-09-24-08_project-detail-skeleton.md) | Project detail page skeleton: field catalogue from WP02 doc 05, tabs, Project No. button (UI only), router wired in at last. Update: Overview reworked into a two-column Bootstrap form, and `JazzySole/Notify` 1.0.0 added | WGT-04, WGT-02 | skeleton built |
 | [2026-09-24-07](2026/2026-09-24-07_project-grid-first-live-run.md) | Grid live in the dashboard: A2 answered (`state` works), then pager pinned to the bottom, one search control, compact rows | WGT-01 | done |
 | [2026-09-24-06](2026/2026-09-24-06_wgt-01-project-list.md) | WGT-01 project list built: 8 modules, shared `JazzySole/Request` wrapper and `TabulatorLoader`; HelloView deleted | WGT-01 | built; dashboard checks pending |
 | [2026-09-24-05](2026/2026-09-24-05_3dxcontentchecker-control-widget.md) | Why DS/3DXContentChecker 404s (it lives in 3dspace/webapps); confirmed with a minimal control widget, then deleted | - | done |

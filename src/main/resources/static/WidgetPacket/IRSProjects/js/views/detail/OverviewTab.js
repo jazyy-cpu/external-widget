@@ -34,7 +34,7 @@ define('IRSProjects/views/detail/OverviewTab', [
         render: function (pane, project, options) {
             options = options || {};
 
-            var intro = el('div', 'text-body-secondary small mb-3',
+            var intro = el('div', 'text-body-secondary mb-3',
                 'Form ' + ProjectForm.FORM + ', in the order the form asks for it.');
             pane.appendChild(intro);
 

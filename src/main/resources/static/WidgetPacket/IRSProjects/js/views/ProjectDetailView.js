@@ -14,6 +14,7 @@
  * Panes build lazily (see components/Tabs): opening the page costs one request.
  */
 define('IRSProjects/views/ProjectDetailView', [
+    'JazzySole/Notify',
     'IRSProjects/services/ProjectDetailService',
     'IRSProjects/components/ProjectHeader',
     'IRSProjects/components/Tabs',
@@ -21,7 +22,7 @@ define('IRSProjects/views/ProjectDetailView', [
     'IRSProjects/views/detail/OrganisationTab',
     'IRSProjects/views/detail/RisksTab',
     'IRSProjects/views/detail/LessonsTab'
-], function (ProjectDetailService, ProjectHeader, Tabs,
+], function (Notify, ProjectDetailService, ProjectHeader, Tabs,
              OverviewTab, OrganisationTab, RisksTab, LessonsTab) {
     'use strict';
 
@@ -68,9 +69,6 @@ define('IRSProjects/views/ProjectDetailView', [
                     onAssignNumber: function () { showNumberNotice(); }
                 });
 
-                var notice = el('div');
-                root.appendChild(notice);
-
                 function goTo(id) { if (tabs) { tabs.show(id); } }
 
                 tabs = Tabs.render(root, [
@@ -94,17 +92,18 @@ define('IRSProjects/views/ProjectDetailView', [
                  * needs the numbering scheme (R20) and a verified write call,
                  * neither of which exists. It says so rather than writing
                  * something invented to a real project.
+                 *
+                 * A warning, not an info: the user pressed a button and nothing
+                 * happened, which is the one case where the message must not
+                 * slip past unread.
                  */
                 function showNumberNotice() {
-                    clear(notice);
-                    var box = el('div', 'alert alert-info small',
-                        'The project number is not generated yet: the numbering scheme (R20) ' +
-                        'still has to come from IRS, and EPMProjectNo is a plain writable ' +
-                        'string with no generator behind it. Once the scheme exists, this ' +
-                        'button writes the number, the field becomes read-only and the button ' +
-                        'disappears.');
-                    box.setAttribute('role', 'alert');
-                    notice.appendChild(box);
+                    Notify.warning(
+                        'The numbering scheme (R20) still has to come from IRS, and ' +
+                        'EPMProjectNo is a plain writable string with no generator behind ' +
+                        'it. Once the scheme exists this button writes the number, the ' +
+                        'field becomes read-only and the button disappears.',
+                        { title: 'No project number yet' });
                 }
 
                 return project;

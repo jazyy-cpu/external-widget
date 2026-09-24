@@ -37,7 +37,7 @@ define('IRSProjects/views/detail/RisksTab', [
 
     return {
         render: function (pane) {
-            pane.appendChild(el('div', 'text-body-secondary small mb-3',
+            pane.appendChild(el('div', 'text-body-secondary mb-3',
                 'Form section XIII. Risks and opportunities are platform objects with their ' +
                 'own scoring, not a paragraph of text on the project.'));
 

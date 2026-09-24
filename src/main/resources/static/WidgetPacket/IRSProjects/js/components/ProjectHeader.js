@@ -31,7 +31,7 @@ define('IRSProjects/components/ProjectHeader', [
 
     function pair(parent, label, node) {
         var wrap = el('div', 'me-4');
-        wrap.appendChild(el('div', 'text-body-secondary small', label));
+        wrap.appendChild(el('div', 'text-body-secondary small', label));  // the label may stay small
         wrap.appendChild(node);
         parent.appendChild(wrap);
         return wrap;
@@ -58,7 +58,7 @@ define('IRSProjects/components/ProjectHeader', [
             back.addEventListener('click', function () { options.onBack(); });
             top.appendChild(back);
 
-            top.appendChild(el('h6', 'mb-0 ms-2', project.title || '(no title)'));
+            top.appendChild(el('h5', 'mb-0 ms-2', project.title || '(no title)'));
             if (project.category) {
                 top.appendChild(Format.badge(project.category, 'secondary'));
             }
@@ -72,7 +72,7 @@ define('IRSProjects/components/ProjectHeader', [
 
             var numberCell;
             if (project.projectNo) {
-                numberCell = el('div', 'small fw-semibold', project.projectNo);
+                numberCell = el('div', 'fw-semibold', project.projectNo);
             } else {
                 numberCell = el('div');
                 var assign = el('button', 'btn btn-sm btn-outline-primary', 'Assign project number');
@@ -84,11 +84,11 @@ define('IRSProjects/components/ProjectHeader', [
 
             // the relationship does not exist on the platform yet (WP02 doc 05 section 8)
             pair(facts, 'Department',
-                 el('div', 'small fst-italic text-body-secondary', 'Not linked yet'));
+                 el('div', 'fst-italic text-body-secondary', 'Not linked yet'));
             pair(facts, 'Customer',
-                 el('div', 'small fst-italic text-body-secondary', 'Not linked yet'));
-            pair(facts, 'Start', el('div', 'small', Format.date(project.start) || '—'));
-            pair(facts, 'Planned end', el('div', 'small', Format.date(project.finish) || '—'));
+                 el('div', 'fst-italic text-body-secondary', 'Not linked yet'));
+            pair(facts, 'Start', el('div', null, Format.date(project.start) || '—'));
+            pair(facts, 'Planned end', el('div', null, Format.date(project.finish) || '—'));
 
             root.appendChild(facts);
             parent.appendChild(root);

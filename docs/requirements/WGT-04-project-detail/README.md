@@ -126,6 +126,8 @@ number written onto a real project is expensive to take back.
 | 2026-09-24 | Department, Business Unit and Customer share one "Organisation" tab |
 | 2026-09-24 | The Project No. button is built, the number generation is not |
 | 2026-09-24 | Every field is declared once in `config/ProjectForm.js`, including the ones that do not exist yet, so the page can say *why* a box is empty |
+| 2026-09-24 | Overview is a Bootstrap read-only form, **two fields to a row**, at full text size - the first version was stacked and small |
+| 2026-09-24 | Messages go through the new shared `JazzySole/Notify`; page state stays an inline alert |
 
 ## 6. Open questions
 

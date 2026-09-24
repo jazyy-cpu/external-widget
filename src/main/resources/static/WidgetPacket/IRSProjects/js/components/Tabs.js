@@ -29,7 +29,7 @@ define('IRSProjects/components/Tabs', [], function () {
         render: function (parent, tabs, options) {
             options = options || {};
             var root = el('div');
-            var nav = el('ul', 'nav nav-tabs small');
+            var nav = el('ul', 'nav nav-tabs');
             var body = el('div', 'pt-3');
             var links = {};
             var panes = {};

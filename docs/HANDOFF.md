@@ -21,7 +21,7 @@ One UWA widget, `IRSProjects`, served as static content by the Spring app
 | [WGT-03](requirements/WGT-03-credential/README.md) credential | **working in the dashboard**, survives a browser reload. Checks T2-T4 pending |
 | [WGT-02](requirements/WGT-02-navigation-state/README.md) router | **wired into the widget** 2026-09-24: `projects` and `project/:id`, state in the hidden preference `jzRoute`. Checks N1-N3 pending |
 | [WGT-01](requirements/WGT-01-project-landing/README.md) project list | **running in the dashboard** 2026-09-24. G1-G3 pass; G4-G16 open, in [test.md](requirements/WGT-01-project-landing/test.md) §3 |
-| [WGT-04](requirements/WGT-04-project-detail/README.md) project detail | **skeleton built** 2026-09-24, never opened in the dashboard. Overview shows the form in order; Organisation, Risks and Lessons are deliberate placeholders. **Nothing on this page writes anything** |
+| [WGT-04](requirements/WGT-04-project-detail/README.md) project detail | **skeleton built** 2026-09-24 and opened once, then reworked: Overview is a two-column Bootstrap form, messages go through `JazzySole/Notify`. Organisation, Risks and Lessons are deliberate placeholders. **Nothing on this page writes anything** |
 
 So the immediate next action is not to write code: **open a project from the
 list in the dashboard**. That first click answers three things at once - does
@@ -42,7 +42,7 @@ cd 'D:\PROJECT DATA\19 IRCLASS\external-widget'
 .\scripts\start-widget.ps1 -Background      # logs to target\widget-run.log
 .\scripts\stop-widget.ps1
 
-# all five unit-test suites, no browser needed
+# all seven unit-test suites, no browser needed
 Get-ChildItem src\test\js\*.test.js | ForEach-Object { node $_.FullName }
 ```
 
@@ -77,6 +77,8 @@ src/main/resources/static/WidgetPacket/
 │   ├── PlatformService/Request.js       1.0.0  THE request wrapper - rules R3, R5
 │   ├── Router/Router.js                 1.0.0  navigation across refresh (WGT-02)
 │   ├── Tabulator/TabulatorLoader.js     1.0.0  UMD-safe Tabulator load
+│   ├── Notify/Notify.js                 1.0.0  sliding notifications; ONE policy table
+│   │                                           decides how long each type stays
 │   ├── Tabulator/, bootstrap/                  the libraries themselves
 │   └── */README.md                             each library documents itself
 └── IRSProjects/               the widget

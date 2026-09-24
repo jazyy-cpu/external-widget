@@ -26,7 +26,7 @@ define('IRSProjects/views/detail/LessonsTab', [
 
     return {
         render: function (pane) {
-            pane.appendChild(el('div', 'text-body-secondary small mb-3',
+            pane.appendChild(el('div', 'text-body-secondary mb-3',
                 'Form section XII, for design and development of a new product or service.'));
 
             FieldList.placeholder(pane, 'The field does not exist yet', [

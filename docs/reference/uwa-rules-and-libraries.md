@@ -113,6 +113,7 @@ hierarchy.
 | Credentials | `PlatformService/Credentials.js`, `PlatformService/README.md` | **1.1.0 - our own** (2026-09-24) | - | AMD `JazzySole/Credentials`; the OOTB credential preference key, built with Get Me + `addPreference`. One path - the `DS/ENOXWidgetPreferences` branch was removed per rule C6 |
 | Request | `PlatformService/Request.js`, `PlatformService/README.md` | **1.0.0 - our own** (2026-09-24) | - | AMD `JazzySole/Request`; THE request wrapper (rules R3, R5): 3DSpace root, tenant, SecurityContext, CSRF tracked and retried once |
 | TabulatorLoader | `Tabulator/TabulatorLoader.js`, `Tabulator/README.md` | **1.0.0 - our own** (2026-09-24) | - | AMD `JazzySole/TabulatorLoader`; the only supported way to load the Tabulator UMD bundle in a widget - see rule C7 |
+| Notify | `Notify/Notify.js`, `Notify/Notify.css`, `Notify/README.md` | **1.0.0 - our own** (2026-09-24) | - | AMD `JazzySole/Notify`; sliding notifications. How long a message stays is decided by its type in one table, overridable per message; critical and error wait for the user |
 | Router | `Router/Router.js`, `Router/README.md` | **1.0.0 - our own** (2026-09-23) | - | new shared library, AMD module `JazzySole/Router`; see its README |
 
 Not copied: `Tabulator/Tabulator.js`, a **0-byte placeholder** in the POC.

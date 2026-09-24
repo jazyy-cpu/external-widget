@@ -4,7 +4,7 @@
 |---|---|
 | Date | 2026-09-24 |
 | Requirement | [WGT-04](../../requirements/WGT-04-project-detail/README.md) (new), [WGT-02](../../requirements/WGT-02-navigation-state/README.md) |
-| Status | skeleton built and unit-tested; not yet opened in the dashboard |
+| Status | skeleton built, opened in the dashboard, then reworked - see the update below |
 | Done by | agent (Claude Opus 5) |
 | Follows | [2026-09-24-07](2026-09-24-07_project-grid-first-live-run.md) |
 
@@ -139,3 +139,87 @@ the detail call returns what the catalogue expects are all untested in reality.
    objects, then build that grid.
 5. **B4**: create `EPMLessonsLearnt` and `EPMScreeningApprovalObtained` on the
    platform - that is VM work and gets a `worklog/` entry of its own.
+
+## Update 2026-09-24 - the first look: a form layout, and a notification library
+
+The user opened the detail page and asked for two things.
+
+### 1. Overview reads as a form now, two fields to a row
+
+The first version stacked every field full width in 14px text: a lot of
+scrolling for very little information. It is now Bootstrap's own read-only form
+- `row g-3` with `col-12 col-xl-6`, values in `form-control-plaintext`, labels
+in `form-label` - so two fields sit side by side on a wide widget and fall to
+one on a narrow one. The `small` class was taken off the page: values are 1rem,
+and the tabs, the header facts and the tab intros are no longer shrunk.
+
+Three rules were added to `css/IRSProjects.css` (still the only custom CSS in
+the widget, still all under `.irs-projects`): `white-space: pre-wrap` on a value,
+because a multiline attribute must keep the author's line breaks and no
+Bootstrap class does that; the monospace form numeral; and a hairline between
+fields so two columns read as a form rather than a block of text.
+
+A field can ask for the full width with `wide: true` in the catalogue. Nothing
+uses it yet - it is there for the long prose sections, once they have content
+and two narrow columns start making the page very tall.
+
+### 2. `JazzySole/Notify` 1.0.0 - a shared notification library
+
+Asked for: sliding, bigger, and **the time must depend on the kind of
+notification** - critical waits for a click, medium and normal go away after 5
+seconds - with a central place for the times, an override per message, and the
+whole thing reusable and maintainable.
+
+Built as a **shared library**, not a widget component, because "reusable for the
+future" is the point. One policy table:
+
+| Type | Stays | |
+|---|---|---|
+| `critical`, `error` | **until the user closes it** (`timeout: 0`) | `role="alert"`, `aria-live="assertive"` |
+| `warning`, `success`, `info` | 5 s | `role="status"`, polite |
+
+- An explicit `timeout` overrides the type's own, in both directions:
+  `Notify.info(msg, { timeout: 1500 })` or `Notify.warning(msg, { timeout: 0 })`.
+- **A message that can never time out is always given a close button**, whatever
+  the caller asked - otherwise it would be permanent.
+- `Notify.configure({ types: { warning: { timeout: 8000 } } })` merges rather
+  than replaces, and accepts a severity that does not exist yet, so a widget can
+  add its own without editing the library.
+- An auto-closing message pauses while the pointer is over it.
+- At most four on screen; over that the oldest **closable** one goes, so a
+  critical message is not pushed out by chatter.
+
+Two things are worth knowing about the implementation. The stack hangs off
+`document.body`, **not** `widget.body`: the widget clears `widget.body` on every
+page re-render, which would silently wipe a message the user has not read. And
+the box is Bootstrap's `alert` - only the placement and the slide are ours,
+because Bootstrap's own sliding components are all driven by its JavaScript,
+which a UWA widget cannot load (rule C7).
+
+A line was drawn and written down: **`Notify` is for events** (something just
+happened, usually because a button was pressed); **the state of a page stays an
+inline alert** (this project could not be loaded, this list is empty, the state
+filter was refused) - because that is still true after five seconds. The
+existing page-level alerts were deliberately not converted.
+
+### Verification
+
+`src/test/js/jazzysole-notify.test.js` (new) tests the **policy without a
+browser** - `_resolve` is a pure function for exactly that reason: the type
+defaults, the override in both directions, `0` meaning sticky, a sticky message
+always being closable, junk in the override falling back rather than producing a
+notification that never leaves, an unknown type falling back to `info`,
+`configure` merging rather than replacing, `types()` handing back a copy, and
+that the library never attaches to `widget.body` and never logs.
+
+Seven suites pass. One assertion had to be corrected: it forbade the string
+`widget.body` anywhere in the file, which tripped on the comment explaining why
+`document.body` is used instead. Narrowed to "must not *attach* to widget.body",
+which is the real rule and lets the explanation stand.
+
+`node --check` clean, `IRSProjects.html` still well-formed XML, application
+restarted (1.858 s), and `Notify.js`, `Notify.css`, the reworked
+`IRSProjects.css` and `FieldList.js` all verified served.
+
+**The visual result is again unverified** - the two-column form and the sliding
+notification have not been looked at.

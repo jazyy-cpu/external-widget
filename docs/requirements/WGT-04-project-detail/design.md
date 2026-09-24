@@ -15,7 +15,7 @@ All under `static/WidgetPacket/IRSProjects/js/`.
 | `IRSProjects/services/ProjectDetailService` | `services/ProjectDetailService.js` | read one project |
 | `IRSProjects/components/ProjectHeader` | `components/ProjectHeader.js` | the form's header block + the Project No. control |
 | `IRSProjects/components/Tabs` | `components/Tabs.js` | Bootstrap nav-tabs without Bootstrap's JS; panes build lazily |
-| `IRSProjects/components/FieldList` | `components/FieldList.js` | renders fields, and says *why* one is empty |
+| `IRSProjects/components/FieldList` | `components/FieldList.js` | renders fields as a Bootstrap read-only form, two to a row - and says *why* one is empty |
 | `IRSProjects/views/ProjectDetailView` | `views/ProjectDetailView.js` | header + tabs, and the page's load/error states |
 | `IRSProjects/views/detail/OverviewTab` | `views/detail/OverviewTab.js` | the project information, in form order |
 | `IRSProjects/views/detail/OrganisationTab` | `views/detail/OrganisationTab.js` | Department, Business Unit, Customer |
@@ -102,8 +102,39 @@ Each of these is a tab or a control that **says what it is waiting for**, rather
 than a blank area. That is deliberate: the skeleton has to be readable as a
 plan, not look like a half-finished page.
 
-## 6. CSS
+## 6. The Overview layout (reworked 2026-09-24, after the first look)
 
-None added. The page is Bootstrap `nav-tabs`, `badge`, `alert`, `border-bottom`
-and flex utilities; the one scoped file from WGT-01 (`css/IRSProjects.css`) is
-about the grid and is untouched.
+The first version stacked every field full width in 14px text, which the user
+found small and wasteful - a lot of scrolling for very little information. It is
+now a **Bootstrap read-only form**:
+
+| | |
+|---|---|
+| Grid | `row g-3` with `col-12 col-xl-6` - **two fields to a row** on a wide widget, one on a narrow one |
+| Value | `form-control-plaintext`, Bootstrap's own read-only form control |
+| Label | `form-label` with the form numeral beside it; the help text is `form-text` |
+| Size | the `small` class was removed from the page: values are 1rem, and the tabs, the header facts and the tab intros are no longer shrunk |
+| Full width | a field may ask for it with `wide: true` in the catalogue - for a long prose section where two narrow columns would make a very tall page. Nothing uses it yet |
+
+Three rules were added to `css/IRSProjects.css`, all still under
+`.irs-projects`: `white-space: pre-wrap` on a value (a multiline attribute must
+keep the author's line breaks, and no Bootstrap class does that), the monospace
+form numeral, and the hairline between one field and the next so two columns
+read as a form rather than a block of text.
+
+## 7. Notifications
+
+Messages the user should see now go through the new shared library
+**`JazzySole/Notify`** (see its README next to the library). The detail page's
+one message - "the project number cannot be generated yet" - is a `warning`,
+which means it stays on screen for five seconds and can be closed early.
+
+The line between the two ways of telling the user something:
+
+| | Where |
+|---|---|
+| An **event** - something just happened, usually because a button was pressed | `Notify` |
+| The **state of a page** - this project could not be loaded, this list is empty, the state filter was refused | an inline Bootstrap `alert`, because it is still true after five seconds |
+
+That is why the page-level failures in `ProjectDetailView` and
+`ProjectListView` are still inline alerts and were not converted.

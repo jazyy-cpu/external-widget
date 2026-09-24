@@ -1,5 +1,12 @@
 /**
- * Renders the form's fields: numeral, label, help text and value.
+ * Renders the form's fields as a Bootstrap read-only form: a label and its
+ * value, **two fields to a row** on a wide widget, one on a narrow one
+ * (user, 2026-09-24 - "show two value side by side, this way we can show more
+ * value"). Values use `form-control-plaintext`, Bootstrap's own read-only form
+ * control, so the page reads as a form rather than a list of paragraphs.
+ *
+ * A field may ask for the full width with `wide: true` - for the long prose
+ * sections, where two narrow columns would make a very tall page.
  *
  * The important part is what it does when there is nothing to show. A field can
  * be empty for four different reasons, and a blank box beside a label is a lie
@@ -31,24 +38,15 @@ define('IRSProjects/components/FieldList', [], function () {
         return node;
     }
 
-    function heading(field) {
-        var head = el('div', 'd-flex align-items-baseline gap-2');
-        head.appendChild(el('span', 'text-body-secondary small font-monospace', field.ref));
-        var label = el('span', 'fw-semibold', field.label);
-        head.appendChild(label);
+    function label(field) {
+        var wrap = el('label', 'form-label mb-0 d-flex align-items-baseline gap-2 flex-wrap');
+        wrap.appendChild(el('span', 'irs-ref', field.ref));
+        wrap.appendChild(el('span', 'fw-semibold', field.label));
         if (field.dd) {
-            head.appendChild(el('span', 'badge text-bg-light border',
+            wrap.appendChild(el('span', 'badge text-bg-light border fw-normal',
                 'design & development only'));
         }
-        return head;
-    }
-
-    /** A value that may be several paragraphs: keep the author's line breaks. */
-    function multiline(text) {
-        var box = el('div', 'mt-1 small text-break');
-        box.style.whiteSpace = 'pre-wrap';
-        box.textContent = text;
-        return box;
+        return wrap;
     }
 
     return {
@@ -61,33 +59,34 @@ define('IRSProjects/components/FieldList', [], function () {
          */
         render: function (parent, fields, values, options) {
             options = options || {};
-            var list = el('div', 'd-flex flex-column gap-3');
+            var row = el('div', 'row g-3');
 
             fields.forEach(function (field) {
-                var row = el('div', 'pb-2 border-bottom');
-                row.appendChild(heading(field));
+                var col = el('div', field.wide ? 'col-12' : 'col-12 col-xl-6');
+                var cell = el('div', 'irs-field h-100');
+                cell.appendChild(label(field));
 
                 if (field.note) {
-                    row.appendChild(el('div', 'text-body-secondary small', field.note));
+                    cell.appendChild(el('div', 'form-text mt-0', field.note));
                 }
 
                 if (field.kind === 'attribute' || field.kind === 'basic') {
                     var raw = values ? values[field.field] : '';
                     if (raw === undefined || raw === null || String(raw).trim() === '') {
-                        row.appendChild(el('div', 'mt-1 small fst-italic text-body-secondary',
+                        cell.appendChild(el('div', 'form-control-plaintext irs-value fst-italic text-body-secondary',
                             'Not filled in'));
                     } else {
-                        row.appendChild(multiline(String(raw)));
+                        cell.appendChild(el('div', 'form-control-plaintext irs-value', String(raw)));
                     }
 
                 } else if (field.kind === 'todo') {
-                    row.appendChild(el('div', 'mt-1 small text-warning-emphasis',
+                    cell.appendChild(el('div', 'form-control-plaintext irs-value text-warning-emphasis',
                         'The attribute ' + field.field + ' does not exist on the platform yet, ' +
                         'so this field cannot be shown or filled in.'));
 
                 } else {
-                    var what = NOT_A_FIELD[field.kind] || '';
-                    var line = el('div', 'mt-1 small text-body-secondary', what);
+                    var line = el('div', 'form-control-plaintext irs-value text-body-secondary',
+                        NOT_A_FIELD[field.kind] || '');
                     if (field.tab && options.onGoTo) {
                         var link = el('a', 'ms-1', 'Open the ' + field.tab + ' tab');
                         link.href = '#';
@@ -97,14 +96,15 @@ define('IRSProjects/components/FieldList', [], function () {
                         });
                         line.appendChild(link);
                     }
-                    row.appendChild(line);
+                    cell.appendChild(line);
                 }
 
-                list.appendChild(row);
+                col.appendChild(cell);
+                row.appendChild(col);
             });
 
-            parent.appendChild(list);
-            return list;
+            parent.appendChild(row);
+            return row;
         },
 
         /** A "nothing here yet, and here is why" pane, used by the skeleton tabs. */
@@ -112,7 +112,7 @@ define('IRSProjects/components/FieldList', [], function () {
             var box = el('div', 'border rounded p-3 bg-body-tertiary');
             box.appendChild(el('h6', 'mb-2', title));
             (lines || []).forEach(function (text) {
-                box.appendChild(el('p', 'small text-body-secondary mb-1', text));
+                box.appendChild(el('p', 'text-body-secondary mb-1', text));
             });
             parent.appendChild(box);
             return box;

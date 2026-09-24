@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="author" content="IRCLASS" />
     <meta name="description" content="IRS projects" />
-    <meta name="version" content="0.4.0" />
+    <meta name="version" content="0.5.0" />
     <meta name="autoRefresh" content="0" />
     <title>IRS Projects</title>
 
@@ -13,6 +13,8 @@
     <!-- tabulator_simple, not bootstrap5: the bootstrap5 theme renders at 16px,
          which is about twice the row height of the OOTB grids next to us -->
     <link rel="stylesheet" type="text/css" href="../JazzySole/Tabulator/css/tabulator_simple.min.css" />
+    <!-- shared: sliding notifications, all rules under .jz-notify-* -->
+    <link rel="stylesheet" type="text/css" href="../JazzySole/Notify/Notify.css" />
     <!-- the widget's only custom CSS, all under .irs-projects (rule R1) -->
     <link rel="stylesheet" type="text/css" href="css/IRSProjects.css" />
 
@@ -28,6 +30,7 @@
     <script type="text/javascript" src="../JazzySole/PlatformService/Credentials.js"></script>
     <script type="text/javascript" src="../JazzySole/PlatformService/Request.js"></script>
     <script type="text/javascript" src="../JazzySole/Router/Router.js"></script>
+    <script type="text/javascript" src="../JazzySole/Notify/Notify.js"></script>
     <script type="text/javascript" src="../JazzySole/Tabulator/TabulatorLoader.js"></script>
 
     <!-- widget modules: one AMD module per file (rule R4) -->

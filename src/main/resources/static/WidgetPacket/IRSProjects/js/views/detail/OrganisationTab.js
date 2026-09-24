@@ -33,7 +33,7 @@ define('IRSProjects/views/detail/OrganisationTab', [
 
     return {
         render: function (pane, project) {
-            pane.appendChild(el('div', 'text-body-secondary small mb-3',
+            pane.appendChild(el('div', 'text-body-secondary mb-3',
                 'Form section II (Customer) and the form header (Department). ' +
                 'Both are relationships, not fields.'));
 

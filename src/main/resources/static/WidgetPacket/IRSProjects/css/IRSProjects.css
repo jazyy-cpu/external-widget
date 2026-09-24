@@ -62,6 +62,32 @@
     padding: 2px 6px;
 }
 
+/* ---- the detail page's read-only form ------------------------------- */
+
+/*
+ * Bootstrap's form-control-plaintext does the label and the box; these three
+ * rules are what it cannot do: keep an author's line breaks in a multiline
+ * attribute, line the form numerals up, and separate one field from the next
+ * when two sit side by side.
+ */
+.irs-projects .irs-value {
+    white-space: pre-wrap;
+    padding-top: 0.15rem;
+    padding-bottom: 0;
+}
+
+.irs-projects .irs-ref {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.8rem;
+    color: #6c757d;
+    min-width: 2.75rem;
+}
+
+.irs-projects .irs-field {
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #eee;
+}
+
 /* ---- badges --------------------------------------------------------- */
 
 /*
