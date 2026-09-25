@@ -14,7 +14,9 @@ Development documentation: `external-widget/docs/` - start at
 IRSProjects/
 ├── IRSProjects.html            UWA shell: metas, preferences, script tags, widget.addEvents - no logic
 ├── css/
-│   └── IRSProjects.css         the widget's ONLY custom CSS: row density, all under .irs-projects
+│   └── IRSProjects.css         the widget's ONLY custom CSS, all under .irs-projects:
+│                                row density, the detail form, the toolbar band,
+│                                and the platform's maturity palette
 └── js/
     ├── App.js                  AMD IRSProjects/App - onLoad / onRefresh / onResize, start sequence
     ├── config/

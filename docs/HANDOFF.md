@@ -91,6 +91,14 @@ src/main/resources/static/WidgetPacket/
         └── views/  + views/detail/   one module per tab of the detail page
 ```
 
+**The MQL state name is not the name the platform shows.** REST returns
+`Create`, every platform screen says `Draft`. `ProjectFields.STATE_LABELS` maps
+them and is **presentation only** - the query parameter, the row data and
+`isClosed` all carry the MQL name, and a test fails if a display name ever
+reaches the query (`state=Draft` returns nothing, silently). `Hold` and `Cancel`
+are still unconfirmed; their policy had no graph in the screenshots.
+**The widget changes no state**: it shows maturity, the platform drives it.
+
 **`js/config/ProjectForm.js` is the field catalogue** - every field of
 R&D-PRJ-01, in the form's order, with whether it exists on the platform. It is
 copied from **WP02 doc 05 §12**, which is verified against MQL. Change the two

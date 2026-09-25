@@ -120,7 +120,7 @@ const ITEM = {
     'the detail call wants the whole object, so no $fields list to keep in step');
 
   assert.strictEqual(p.title, 'AP project');
-  assert.strictEqual(p.category, 'Analysis');
+  assert.strictEqual(p.category, 'Analysis Project', "the platform's own label, as the OOTB grids print it");
   assert.strictEqual(p.projectNo, '');
   assert.strictEqual(p.data.EPMNeedOfTheProject, 'Line one\nLine two',
     'attributes are handed to the page as they came, line breaks included');

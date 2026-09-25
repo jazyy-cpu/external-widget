@@ -60,10 +60,13 @@ define('IRSProjects/components/ProjectHeader', [
 
             top.appendChild(el('h5', 'mb-0 ms-2', project.title || '(no title)'));
             if (project.category) {
-                top.appendChild(Format.badge(project.category, 'secondary'));
+                // plain text, like the OOTB Type column - only the state is coloured
+                top.appendChild(el('span', 'text-body-secondary', project.category));
             }
             if (project.state) {
-                top.appendChild(Format.badge(project.state, Fields.stateBadge(project.state)));
+                // the platform's display name, as the grid and the OOTB screens show it
+                top.appendChild(Format.badge(Fields.stateLabel(project.state),
+                                             Fields.stateBadge(project.state)));
             }
             root.appendChild(top);
 

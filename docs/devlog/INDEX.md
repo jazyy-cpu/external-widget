@@ -4,6 +4,8 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-09-25-02](2026/2026-09-25-02_state-names-and-enovia-styling.md) | The platform's real state names mapped (Create=Draft, Active=In Work); maturity palette from the Maturity graph; badge text centred; ENOVIA-blue header | WGT-01 | done |
+| [2026-09-25-01](2026/2026-09-25-01_landing-page-ootb-look.md) | Landing page matched to the OOTB grids: Type as plain text with the platform's label, Maturity State in the platform's palette, darker headings, a visible toolbar band | WGT-01 | done |
 | [2026-09-24-09](2026/2026-09-24-09_credential-right-and-type-filter.md) | Credential picker moved to the far right of one shared toolbar row; the list now shows only Analysis and Research projects (closes A4) | WGT-01, WGT-03 | done |
 | [2026-09-24-08](2026/2026-09-24-08_project-detail-skeleton.md) | Project detail page skeleton: field catalogue from WP02 doc 05, tabs, Project No. button (UI only), router wired in at last. Update: Overview reworked into a two-column Bootstrap form, and `JazzySole/Notify` 1.0.0 added | WGT-04, WGT-02 | skeleton built |
 | [2026-09-24-07](2026/2026-09-24-07_project-grid-first-live-run.md) | Grid live in the dashboard: A2 answered (`state` works), then pager pinned to the bottom, one search control, compact rows | WGT-01 | done |

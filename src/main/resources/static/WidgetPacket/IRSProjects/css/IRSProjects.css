@@ -15,6 +15,27 @@
  * Reasoning kept in docs/requirements/WGT-01-project-landing/design.md section 6.
  */
 
+/* ---- the toolbar band ----------------------------------------------- */
+
+/*
+ * The top row used to float above the grid with nothing separating it, which
+ * made it hard to see at a glance where the controls were (user, 2026-09-24:
+ * "make top bar more visible"). The OOTB widgets put their controls in a
+ * distinct strip; this is that strip. Bootstrap has no toolbar component -
+ * `navbar` is for site navigation and brings its own layout and padding.
+ */
+.irs-projects .irs-toolbar {
+    background: #f5f5f5;
+    border: 1px solid #dcdcdc;
+    border-radius: 3px;
+    padding: 0.4rem 0.6rem;
+}
+
+.irs-projects .irs-toolbar .form-check-label,
+.irs-projects .irs-toolbar .text-body-secondary {
+    font-size: 0.8rem;
+}
+
 /* ---- density ------------------------------------------------------- */
 
 .irs-projects .tabulator {
@@ -22,10 +43,25 @@
     font-size: 13px;
 }
 
+/*
+ * The column headings: a light ENOVIA blue rather than a neutral grey
+ * (user, 2026-09-25), with solid dark-blue text and a definite rule underneath.
+ * Tabulator's simple theme gives a white header and a thin #999 rule, which
+ * reads as a different application next to the platform's own grids.
+ */
 .irs-projects .tabulator-header {
-    background-color: #f5f5f5;
-    border-bottom: 1px solid #dcdcdc;
-    color: #333;
+    background-color: #e8f0f7;
+    border-bottom: 2px solid #a9c5db;
+    color: #12395c;
+}
+
+.irs-projects .tabulator-col-title {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.irs-projects .tabulator-header .tabulator-col:hover {
+    background-color: #dbe8f3;
 }
 
 .irs-projects .tabulator-col {
@@ -88,24 +124,59 @@
     border-bottom: 1px solid #eee;
 }
 
-/* ---- badges --------------------------------------------------------- */
+/* ---- badges and the maturity palette -------------------------------- */
 
 /*
  * Bootstrap's badge is sized in em of a 16px body, so inside a 13px grid it is
  * still the tallest thing in the row and sets the row height on its own.
  */
+/*
+ * The OOTB badges carry their text dead centre; ours sat high, because a
+ * Bootstrap badge is an inline-block whose height comes from the inherited
+ * line-height. inline-flex with a fixed height centres it in both directions
+ * and makes every badge in a column the same size whatever the word.
+ */
 .irs-projects .tabulator-cell .badge {
-    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 20px;
+    padding: 0 8px;
+    font-size: 11.5px;
     font-weight: 500;
-    padding: 2px 6px;
+    line-height: 1;
+    vertical-align: middle;
 }
 
-/* ---- the title cell reads as a link --------------------------------- */
-
-.irs-projects .tabulator-cell.irs-link {
-    cursor: pointer;
+/*
+ * The maturity state, in the platform's own colours, read off the Maturity
+ * graph of a real project and the OOTB grid badges (user, 2026-09-25):
+ *
+ *     Draft -> To Do -> In Work -> In Approval -> Completed -> Archived
+ *
+ * The state -> class mapping is in js/config/ProjectFields.js (STATE_CLASS),
+ * and the MQL name -> display name mapping is beside it (STATE_LABELS). Change
+ * a colour here; change which state wears it there.
+ *
+ * Text colour is not uniform, and deliberately so: white on the platform's
+ * light green and grey is about 1.9:1, which is unreadable. Those three keep
+ * the platform's background and take dark text instead.
+ */
+.irs-projects .irs-state {
+    border-radius: 2px;
+    color: #fff;
 }
 
-.irs-projects .tabulator-cell.irs-link:hover {
-    text-decoration: underline;
-}
+.irs-projects .irs-state-draft      { background-color: #a32ba0; }
+.irs-projects .irs-state-todo       { background-color: #d0103a; }
+.irs-projects .irs-state-inwork     { background-color: #0079a8; }
+.irs-projects .irs-state-inapproval { background-color: #8cc98c; color: #14421a; }
+.irs-projects .irs-state-completed  { background-color: #b4b4b4; color: #2b2b2b; }
+.irs-projects .irs-state-archived   { background-color: #b4b4b4; color: #2b2b2b; }
+
+/* the Hold / Cancel policy: not on the platform's graph, so not its colours */
+.irs-projects .irs-state-hold       { background-color: #a9791f; }
+.irs-projects .irs-state-cancel     { background-color: #5d6d7e; }
+
+/* a state nobody mapped still renders, and is visibly unmapped */
+.irs-projects .irs-state-unknown    { background-color: #adb5bd; }

@@ -185,6 +185,74 @@ borders, cell padding 4-6px, 28px minimum row height, alternating row shading an
 a hover colour (both of which the OOTB grids have and `tabulator_simple` does
 not), compact 11px badges, and a pointer cursor on the clickable title cell.
 
+## 6a. Matching the OOTB grids (2026-09-25)
+
+The user asked for the landing page to look professional beside the OOTB
+widgets, "specially status and project type". Read from the OOTB Project Gantt
+and Change Governance grids in the shared screenshots:
+
+| Seen in OOTB | What we did |
+|---|---|
+| The **Type** column is plain text - "Analysis Project", "Project Space" - with no badge | Category renamed **Type**, badge dropped, and `TYPE_LABELS` now carries the platform's own labels ("Analysis Project", not "Analysis") |
+| The **Maturity State** column is a solid rectangular badge in the platform's palette: purple for Draft, teal for In Work | Status renamed **Maturity State**; a state now maps to a CSS class of ours (`irs-state-<key>`), and the eight colours follow that palette - purple Create/Assign, teal Active, amber Review/Hold, green Complete, grey Archive/Cancel |
+| Date headings read "Estimated Finish Date" | Start / Planned end became **Estimated Start** / **Estimated Finish** |
+| Column headings sit on a light band in solid dark text with a definite rule under them | header background `#eef0f2`, a 2px `#c8ccd0` rule, `font-weight: 600` |
+| The controls live in a distinct strip, not floating above the grid | the shared top row is now a toolbar band (`.irs-toolbar`): `#f5f5f5`, a 1px border, 3px radius |
+
+**The trade-off, stated:** "Type" and "Maturity State" are the *platform's*
+vocabulary, while the R&D-PRJ-01 form says "Project Category" and the earlier
+grid said "Status". Matching the OOTB screen was the explicit instruction, and a
+user moving between the two widgets sees one vocabulary. If IRS prefers the
+form's words on this page, both headings are one line each in
+`views/ProjectColumns.js` - the field names and the data do not change.
+
+**Where the colours live.** The mapping state to class is in
+`config/ProjectFields.js` (`STATE_CLASS`); the colours are in
+`css/IRSProjects.css`. They can drift, so a test walks every state of both
+policies, asks for its class, and fails if the CSS defines no rule for it - and
+also fails if any state falls through to `irs-state-unknown`.
+
+### The state names (2026-09-25)
+
+The REST service returns the **MQL** name (`Create`); the platform's screens show
+a **display** name (`Draft`). The grid now shows the display name, from
+`ProjectFields.STATE_LABELS` - see the table in the requirement's README for the
+mapping and which entries are confirmed rather than inferred.
+
+This is presentation only, and the separation is load-bearing:
+
+| Carries the MQL name | Carries the display name |
+|---|---|
+| the `state` query parameter, the row data, `isClosed`, the Tabulator cell value (so sorting is unaffected) | the badge text, and nothing else |
+
+A test asserts that no display name can reach the query - a `state=Draft` would
+simply return nothing, silently.
+
+**The widget does not change state.** It shows maturity; the platform drives it.
+Nothing here writes, and the maturity graph is the platform's own screen.
+
+### Colours and legibility
+
+The palette is read off the platform's Maturity graph: purple Draft, crimson
+To Do, teal In Work, light green In Approval, grey Completed and Archived.
+
+The three light backgrounds take **dark text** rather than the platform's white:
+white on `#8cc98c` or `#b4b4b4` is about 1.9:1, which cannot be read. The
+background is the platform's; only the text colour differs, and it is the
+smallest deviation that keeps the badge legible.
+
+### Badge alignment
+
+The OOTB badges carry their text dead centre; ours sat high, because a Bootstrap
+badge is an inline-block taking its height from the inherited line-height. The
+badge is now `inline-flex` with `min-height: 20px` and `line-height: 1`, which
+centres the text in both directions and makes every badge in a column the same
+size whatever the word.
+
+This is the third and last block of custom CSS in the widget, and it is here for
+the same reason as the first: Bootstrap has no contextual colour anywhere near
+the platform's Draft purple or In Work teal, and `navbar` is not a toolbar.
+
 ## 7. Preferences used
 
 | Name | Type | Set by | Purpose |

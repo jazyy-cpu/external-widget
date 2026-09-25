@@ -18,9 +18,9 @@
  * Changing the credential reopens the current page: a different security
  * context can see a different set of projects, and may not see this one at all.
  *
- * Layout: one shared top row carries the open page's own controls on the left
- * and the credential picker at the **far right** (user, 2026-09-24). A page
- * that has no toolbar simply leaves the left empty.
+ * Layout: one shared top row - a visible toolbar band (`.irs-toolbar`) - carries
+ * the open page's own controls on the left and the credential picker at the
+ * **far right** (user, 2026-09-24). A page with no toolbar leaves the left empty.
  */
 define('IRSProjects/App', [
     'JazzySole/Credentials',
@@ -114,7 +114,7 @@ define('IRSProjects/App', [
 
         // the shared top row: the page's controls, then the credential, hard right
         var bar = document.createElement('div');
-        bar.className = 'd-flex flex-wrap align-items-center gap-2 mb-2';
+        bar.className = 'irs-toolbar d-flex flex-wrap align-items-center gap-2 mb-2';
         slot = document.createElement('div');
         slot.className = 'd-flex flex-wrap align-items-center gap-2 flex-grow-1';
         bar.appendChild(slot);

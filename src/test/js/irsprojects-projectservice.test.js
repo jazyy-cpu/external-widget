@@ -59,7 +59,10 @@ function setup(replies) {
   assert.strictEqual(t.calls[0].params['$fields'],
     'none,title,state,estimatedStartDate,estimatedFinishDate,EPMProjectNo',
     'exactly the field list that was tested on 2026-09-23');
-  assert.strictEqual(t.calls[0].params.state, 'Create,Assign,Active,Review,Hold,Cancel');
+  assert.strictEqual(t.calls[0].params.state, 'Create,Assign,Active,Review,Hold,Cancel',
+    'the MQL names go on the wire - the display names are presentation only');
+  assert.ok(!/Draft|In Work|Completed/.test(JSON.stringify(t.calls[0].params)),
+    'a display name must never reach the query');
   assert.ok(!/percentComplete|tasks|members/.test(JSON.stringify(t.calls[0].params)),
     'no task data on the landing page');
 
@@ -67,7 +70,7 @@ function setup(replies) {
   assert.deepStrictEqual(res.rows[0], {
     id: 'B159953C6DCA4634803A88CA3FBBF26E',
     type: 'EPMAnalysisProject',
-    category: 'Analysis',
+    category: 'Analysis Project',
     projectNo: 'PRJ-0001',
     title: 'Hull analysis 2026',
     state: 'Active',
@@ -86,15 +89,18 @@ function setup(replies) {
   //     Since 2026-09-24 the LIST drops it (see 3b), so this is asserted on the
   //     label map itself - the detail page opens any type and still needs it.
   assert.strictEqual(t.F.typeLabel('EPMSomethingNew'), 'EPMSomethingNew');
-  assert.strictEqual(t.F.typeLabel('Project Space'), 'Project');
   assert.strictEqual(t.F.typeLabel(''), '');
+  // the labels are the platform's own, so the same project reads the same in
+  // our grid and in an OOTB one (user, 2026-09-24)
+  assert.strictEqual(t.F.typeLabel('EPMAnalysisProject'), 'Analysis Project');
+  assert.strictEqual(t.F.typeLabel('Project Space'), 'Project Space');
 
   // 2d. a missing field is an empty string, not undefined (Tabulator would show "undefined")
   t = setup([{ body: { data: [{ id: 'x', type: 'EPMResearchProject', dataelements: {} }] } }]);
   res = await t.S.list();
   assert.deepStrictEqual(
     [res.rows[0].projectNo, res.rows[0].title, res.rows[0].start, res.rows[0].category],
-    ['', '', '', 'Research']);
+    ['', '', '', 'Research Project']);
 
   // 2e. a body with no data array is an empty list, not a crash
   t = setup([{ body: { success: true } }]);
@@ -167,8 +173,34 @@ function setup(replies) {
   assert.strictEqual(t.F.isClosed('Complete'), true);
   assert.strictEqual(t.F.isClosed('Cancel'), false,
     'Cancel is a Hold/Cancel state, not a closed one - it stays in the default view');
-  assert.strictEqual(t.F.stateBadge('Active'), 'primary');
-  assert.strictEqual(t.F.stateBadge('Whatever'), 'secondary', 'an unknown state still renders');
+  // the platform's display names, from the Maturity graph (user, 2026-09-25).
+  // Create -> Draft and Active -> In Work are confirmed by observation; the
+  // other four follow the graph's order against the policy's order.
+  assert.deepStrictEqual(t.F.ALL_STATES.map(t.F.stateLabel),
+    ['Draft', 'To Do', 'In Work', 'In Approval', 'Hold', 'Cancel',
+     'Completed', 'Archived']);
+  assert.strictEqual(t.F.stateLabel('Whatever'), 'Whatever',
+    'an unmapped state shows its own name rather than nothing');
+  assert.strictEqual(t.F.stateLabel(''), '');
+
+  // maturity colours are ours, not Bootstrap's: a state maps to a CSS class
+  assert.strictEqual(t.F.stateBadge('Active'), 'irs-state irs-state-inwork');
+  assert.strictEqual(t.F.stateBadge('Create'), 'irs-state irs-state-draft');
+  assert.strictEqual(t.F.stateBadge('Whatever'), 'irs-state irs-state-unknown',
+    'an unmapped state still renders, and is visibly unmapped');
+  // every state of both policies has a colour - no silent grey
+  t.F.ALL_STATES.forEach(st => assert.ok(!/unknown/.test(t.F.stateBadge(st)),
+    st + ' has no maturity colour'));
+
+  // 6b. the colours live in CSS and the mapping lives in JS, so they can drift.
+  //     Every class the mapping can produce must actually be defined.
+  const css = fs.readFileSync(path.join(__dirname,
+    '../../main/resources/static/WidgetPacket/IRSProjects/css/IRSProjects.css'), 'utf8');
+  t.F.ALL_STATES.concat(['Whatever']).forEach(st => {
+    const cls = t.F.stateBadge(st).split(' ').pop();
+    assert.ok(css.includes('.irs-' + cls.replace(/^irs-/, '')),
+      'css/IRSProjects.css defines no rule for .' + cls + ' (state ' + st + ')');
+  });
 
   console.log('ALL PROJECT SERVICE TESTS PASSED');
 })().catch(e => { console.error('FAIL', e); process.exit(1); });

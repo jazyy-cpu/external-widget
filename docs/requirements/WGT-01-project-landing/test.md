@@ -95,6 +95,8 @@ resource version, so the browser will otherwise serve yesterday's JS).
 | G6 | Narrow the widget column on the dashboard | a **horizontal scroll bar**; Project No. and Title stay frozen and visible | |
 | G7 | Resize the widget | `onResize` -> `setHeight` + `redraw(true)`: columns not clipped, **and the pager follows the new bottom edge** | |
 | G8 | The search control: pick a field, type, press the magnifier or Enter; then Clear | only Project No. and Title match; Clear restores every row and resets the picker to All fields | |
+| G18 | **Hold and Cancel**: open a project in either state and read what the platform calls it - the two display names that could not be confirmed | correct the table in README section 1 | new 2026-09-25 |
+| G17 | Beside an OOTB grid on the same tab: the Type column plain, the Maturity State badge purple for Create and teal for Active, the headings and the toolbar band comparable | not a different application | new 2026-09-25 |
 | G16 | The toolbar is one row - switch, field picker, input, magnifier, Clear, Refresh - with no heading and no row count | the row count appears only in Tabulator's footer | new 2026-09-24 |
 | G9 | Click a project title | the information alert "the detail page is not built yet" | |
 | G10 | Change the credential in the top bar | the grid reloads for the new security context | |

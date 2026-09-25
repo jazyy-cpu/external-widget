@@ -20,13 +20,19 @@ define('IRSProjects/utils/Format', [], function () {
         },
 
         /**
-         * A Bootstrap badge as a DOM node - never an HTML string (no injection).
-         * Square, like the OOTB ENOVIA grids; `rounded-pill` was dropped with
-         * the density pass on 2026-09-24.
+         * A badge as a DOM node - never an HTML string (no injection). Square,
+         * like the OOTB ENOVIA grids; `rounded-pill` was dropped on 2026-09-24.
+         *
+         * @param {string} text
+         * @param {string} style  either a Bootstrap contextual suffix ("secondary")
+         *        or a ready class list of ours ("irs-state irs-state-active").
+         *        Anything containing a space or starting with "irs-" is taken as
+         *        classes; otherwise it is treated as a Bootstrap suffix.
          */
-        badge: function (text, suffix) {
+        badge: function (text, style) {
             var span = document.createElement('span');
-            span.className = 'badge text-bg-' + suffix;
+            var own = /\s|^irs-/.test(style || '');
+            span.className = 'badge ' + (own ? style : 'text-bg-' + style);
             span.textContent = text;
             return span;
         }
