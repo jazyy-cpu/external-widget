@@ -14,6 +14,13 @@
  *
  * The "show completed / archived" choice is kept in the hidden preference
  * xPrefShowClosed, so a widget refresh comes back to the same view (rule R6).
+ *
+ * **Tabulator's constructor is asynchronous.** It defers its own `_create()` into
+ * a `setTimeout`, so right after `new Tabulator(...)` the column manager has no
+ * element yet. Calling `setHeight` or `setFilter` in that window throws inside
+ * Tabulator ("Cannot read properties of null (reading 'getBoundingClientRect')")
+ * and leaves the grid half-built. Everything that touches the table therefore
+ * waits for the `tableBuilt` event - see `built` and `ready()` below.
  */
 define('IRSProjects/views/ProjectListView', [
     'JazzySole/TabulatorLoader',
@@ -78,6 +85,7 @@ define('IRSProjects/views/ProjectListView', [
             options = options || {};
             var includeClosed = readShowClosed();
             var table = null;
+            var built = null;             // resolves when Tabulator says tableBuilt
             var search = { term: '', field: 'all' };
             var destroyed = false;
 
@@ -112,8 +120,22 @@ define('IRSProjects/views/ProjectListView', [
                 return Math.max(MIN_HEIGHT, Math.round(viewport - top - BOTTOM_GAP));
             }
 
+            /**
+             * True only when the table exists AND Tabulator has finished building
+             * it. `initialized` is Tabulator's own flag, set once its element tree
+             * is up; its public methods are unsafe before that.
+             */
+            function ready() {
+                return !destroyed && !!table && table.initialized === true;
+            }
+
+            /** Re-measure the frame. Silently skipped while the table is not ready. */
+            function fitHeight() {
+                if (ready()) { table.setHeight(availableHeight()); }
+            }
+
             function applySearch() {
-                if (!table) { return; }
+                if (!ready()) { return; }
                 var fn = matcher(search.term, search.field);
                 if (fn) { table.setFilter(fn); } else { table.clearFilter(true); }
             }
@@ -150,8 +172,16 @@ define('IRSProjects/views/ProjectListView', [
                         paginationSizeSelector: [10, 20, 50, 100],
                         paginationCounter: 'rows'
                     });
-                    applySearch();
-                    return table;
+
+                    // the constructor returns before the table exists - wait for it
+                    built = new Promise(function (resolve) {
+                        table.on('tableBuilt', function () { resolve(); });
+                    });
+                    return built.then(function () {
+                        if (destroyed) { return null; }
+                        applySearch();
+                        return table;
+                    });
                 });
             }
 
@@ -167,17 +197,25 @@ define('IRSProjects/views/ProjectListView', [
                     if (!result.serverFiltered) { note(result.note); }
 
                     if (table) {
-                        return table.replaceData(result.rows);
+                        // a reload while the first build is still running would
+                        // call replaceData on a half-built table
+                        return (built || Promise.resolve()).then(function () {
+                            return destroyed ? null : table.replaceData(result.rows);
+                        });
                     }
                     return build(result.rows);
                 }).then(function () {
-                    toolbar.setBusy(false);
-                    // a warning strip above the grid moves it down: re-measure
-                    if (table) { table.setHeight(availableHeight()); }
-                }, function (err) {
                     if (destroyed) { return; }
                     toolbar.setBusy(false);
-                    clear(host);
+                    // a warning strip above the grid moves it down: re-measure
+                    fitHeight();
+                }).catch(function (err) {
+                    // one handler for both the call and the render: a failure
+                    // while building used to become an unhandled rejection, which
+                    // left the spinner turning and said nothing
+                    if (destroyed) { return; }
+                    toolbar.setBusy(false);
+                    if (!ready()) { clear(host); }
                     note('The projects could not be loaded: ' +
                          (err && err.message ? err.message : err), 'danger');
                 });
@@ -188,7 +226,7 @@ define('IRSProjects/views/ProjectListView', [
             return {
                 /** called from UWA onResize */
                 redraw: function () {
-                    if (!table) { return; }
+                    if (!ready()) { return; }
                     table.setHeight(availableHeight());
                     table.redraw(true);
                 },
@@ -197,6 +235,7 @@ define('IRSProjects/views/ProjectListView', [
                     destroyed = true;
                     if (table) { try { table.destroy(); } catch (e) { /* already gone */ } }
                     table = null;
+                    built = null;
                 }
             };
         }

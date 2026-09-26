@@ -4,6 +4,8 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-09-26-02](2026/2026-09-26-02_no-store-static-resources.md) | The fixed grid crash reappeared verbatim: the browser was running the cached module. Static resources now go out `no-store` - the widget's files are no longer cacheable at all | WGT-01 | done |
+| [2026-09-26-01](2026/2026-09-26-01_tabulator-async-build-crash.md) | Grid empty and a null `getBoundingClientRect` in the console: `setHeight` was called before Tabulator had built itself. The view now waits for `tableBuilt` | WGT-01 | fixed; needs a look in the dashboard |
 | [2026-09-25-02](2026/2026-09-25-02_state-names-and-enovia-styling.md) | The platform's real state names mapped (Create=Draft, Active=In Work); maturity palette from the Maturity graph; badge text centred; ENOVIA-blue header | WGT-01 | done |
 | [2026-09-25-01](2026/2026-09-25-01_landing-page-ootb-look.md) | Landing page matched to the OOTB grids: Type as plain text with the platform's label, Maturity State in the platform's palette, darker headings, a visible toolbar band | WGT-01 | done |
 | [2026-09-24-09](2026/2026-09-24-09_credential-right-and-type-filter.md) | Credential picker moved to the far right of one shared toolbar row; the list now shows only Analysis and Research projects (closes A4) | WGT-01, WGT-03 | done |

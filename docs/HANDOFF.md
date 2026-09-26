@@ -60,13 +60,14 @@ Never `curl -k`. Certificate and hostname verification stay on.
 
 | # | Trap | What to do |
 |---|---|---|
-| 1 | **Stale JavaScript.** The dashboard proxy cache-busts our files with the *platform's* resource version, so the browser happily serves yesterday's code | DevTools open with **"Disable cache"** ticked, always. The dashboard's own HTML/CSS cache is already disabled on this VM |
+| 1 | **Stale JavaScript.** The `?v=` the dashboard appends is the *platform's* resource version and never changes when we edit a file. Spring sent only `Last-Modified` and no `Cache-Control`, so the browser applied heuristic freshness and served yesterday's code without revalidating - it cost two rounds of chasing an already-fixed bug on 2026-09-26 | **Fixed at the server**: `spring.web.resources.cache.cachecontrol.no-store=true` in `application.properties`. Keep DevTools "Disable cache" ticked anyway, and **read the `?v=...:<line>` in any stack trace against the served file** - if that line is not what you edited, you are looking at a cached copy, not a live bug |
 | 2 | **`DS/<app>/...` is unreachable** from an external widget (UWA rule **C6**). The proxy makes the AMD loader's base our own package root, so a platform module id 404s inside our directory | Never `require` a `DS/<app>/…` id. `DS/WAFData` and `DS/i3DXCompassPlatformServices` are injected by the frame and do work. The credentials test fails the build if a `require(` reappears |
 | 3 | `Failed to load module "DS/3DXContentChecker/3DXContentChecker_v2.1"` in the console | **Not ours.** The dashboard's `FrameExtension.js` asks for it for *every* external widget; proved with a bare control widget (devlog 2026-09-24-05). Ignore it |
 | 4 | **A UMD bundle loaded with a `<script>` tag** raises `Mismatched anonymous define()` under the AMD loader | Bootstrap's JS is not used at all; Tabulator goes through `JazzySole/TabulatorLoader`. Load one UMD library at a time - see [WGT-01 design.md §3](requirements/WGT-01-project-landing/design.md) |
 | 5 | `wss://<platform>/socketio.rtc/` WebSocket errors | Platform-wide: Apache has no `/socketio.rtc` rule. User decision: note it, do not touch it |
 | 6 | **A Tabulator grid with no explicit `height`** puts its footer under the last row, half way up the frame, and never fills the widget | measure the height and `setHeight()` on every resize, as `ProjectListView` does. `height: '100%'` does not work - a UWA body has no height to inherit |
-| 7 | **The dashboard cache is off for development** | Re-enable it before any production-like use: restore `context.properties.bak-2026-09-24` on the VM and restart `3DDashboard_R2024x` |
+| 7 | **Tabulator's constructor is asynchronous.** It defers its own build into a `setTimeout`, so immediately after `new Tabulator(...)` the column manager has no element. `setHeight` (which has no init guard of its own) then throws *Cannot read properties of null (reading 'getBoundingClientRect')* and can leave the grid built but empty | wait for the `tableBuilt` event, and guard every call with `ready()` - `ProjectListView` does both. The search test pins it |
+| 8 | **The dashboard cache is off for development** | Re-enable it before any production-like use: restore `context.properties.bak-2026-09-24` on the VM and restart `3DDashboard_R2024x` |
 
 ## 4. Where the code is
 
@@ -121,6 +122,7 @@ render only into `widget.body`.
 | O3 | `JazzySole/PlatformService/PlatformServices.js` still defines ids in the `DS/` namespace. Rename them out of it - now more than cosmetic, since `DS/` ids resolve against our own package root |
 | B1-B6 | The detail page's open questions - see [WGT-04](requirements/WGT-04-project-detail/README.md) §6. B1 and B4 need platform work; B3 (the project **write** call) blocks every edit, including the Project No. button |
 | O5, O6 | API Labs reachability; whether to bundle/minify the widget |
+| - | **Caching is `no-store` for development** (`application.properties`). Before production-like use, make it versioned URLs plus a long `max-age` - the same review as re-enabling the dashboard cache (trap #8) |
 | - | Elevated `scripts\setup-https-host.ps1` on the **host**: hosts entry, trusted root, firewall rule. Only needed to open the widget URL directly in a host browser; the dashboard does not need it |
 | - | After the firewall rule exists, change the VM hosts entry `192.168.1.6 external.solize.com` to the stable VMnet8 address `192.168.125.1` |
 | - | A dangling **HelloTest** Additional App registration still points at a deleted URL; only a Platform Manager can remove it (Platform Management -> Members) |

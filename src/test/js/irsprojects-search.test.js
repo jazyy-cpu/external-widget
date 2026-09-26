@@ -64,4 +64,22 @@ assert.deepStrictEqual(hits('zzz', 'all'), [], 'no match is an empty list, not e
 // 6. the picker offers exactly the fields the matcher supports
 assert.deepStrictEqual(Toolbar.FIELDS.map(f => f.value), ['all', 'projectNo', 'title']);
 
+// 7. Tabulator's constructor is asynchronous: it defers its own build into a
+//    setTimeout, so setHeight / setFilter right after `new Tabulator(...)` throw
+//    inside Tabulator and leave the grid half-built (seen live 2026-09-26).
+//    These are source assertions - the race cannot be reproduced without a DOM,
+//    but the two things that prevent it can be pinned.
+const src = fs.readFileSync(VIEW, 'utf8');
+const lines = src.split('\n');
+assert.ok(/table\.on\('tableBuilt'/.test(src),
+  "the view must wait for Tabulator's tableBuilt event before using the table");
+assert.ok(/function ready\(\)/.test(src) && /table\.initialized === true/.test(src),
+  "ready() must test Tabulator's own initialized flag");
+lines.forEach((line, i) => {
+  if (!/\.setHeight\(/.test(line)) { return; }
+  const near = lines.slice(Math.max(0, i - 3), i + 1).join(' ');
+  assert.ok(/fitHeight|ready\(\)/.test(near),
+    'setHeight on line ' + (i + 1) + ' is not guarded by ready(): ' + line.trim());
+});
+
 console.log('ALL SEARCH TESTS PASSED');

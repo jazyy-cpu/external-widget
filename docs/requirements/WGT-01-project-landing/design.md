@@ -253,6 +253,35 @@ This is the third and last block of custom CSS in the widget, and it is here for
 the same reason as the first: Bootstrap has no contextual colour anywhere near
 the platform's Draft purple or In Work teal, and `navbar` is not a toolbar.
 
+### Tabulator builds itself asynchronously (2026-09-26)
+
+Tabulator's constructor does not build the table. It ends with
+
+```js
+//delay table creation to allow event bindings immediately after the constructor
+setTimeout(() => { this._create(); });
+```
+
+so in the window between `new Tabulator(host, ...)` returning and that timeout
+firing, `columnManager.element` is still null. A promise `.then` is a microtask
+and therefore always runs **inside** that window.
+
+`setHeight()` is one of the few public methods with **no `initGuard()`**, so it
+walks straight into `rowManager.adjustTableSize()`, which reads
+`columnManager.getElement().getBoundingClientRect()` - and throws. It has already
+set `options.height` and the element's style by then, so the table that builds a
+tick later usually looks right, which is why this went unnoticed: the symptom was
+a console error, until the day the half-initialised renderer rendered no rows.
+
+The view therefore keeps a `built` promise resolved from the `tableBuilt` event,
+and a `ready()` test (`table.initialized === true`, Tabulator's own flag). Nothing
+touches the table before both: not `setHeight`, not `setFilter`, and not a
+`replaceData` from a reload that overtakes the first build.
+
+While there: the load chain's error handler was `.then(ok, err)`, so a throw
+inside `ok` - exactly this crash - became an unhandled rejection and the spinner
+kept turning with no message. It is now a `.catch` after the `.then`.
+
 ## 7. Preferences used
 
 | Name | Type | Set by | Purpose |
