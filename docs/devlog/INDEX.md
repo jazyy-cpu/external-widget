@@ -4,6 +4,8 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-10-03-01](2026/2026-10-03-01_task-widget-landing-skeleton.md) | New `IRSTasks` widget: landing page skeleton with an empty grid, columns from the POC task grid, the subtype registry, and `Format` / `CredentialBar` promoted into `JazzySole/Ui` | WGT-06 | built; not yet in the dashboard |
+| [2026-09-29-01](2026/2026-09-29-01_rollback-to-b54dfa4-sn-search-parked.md) | Working tree rolled back to `b54dfa4`: the SN-search attempt and the WGT-05 picker work were uncommitted, so they were committed to `wip/wgt-05-org-pickers-and-sn-search` first and nothing was lost | WGT-05 | parked |
 | [2026-09-26-02](2026/2026-09-26-02_no-store-static-resources.md) | The fixed grid crash reappeared verbatim: the browser was running the cached module. Static resources now go out `no-store` - the widget's files are no longer cacheable at all | WGT-01 | done |
 | [2026-09-26-01](2026/2026-09-26-01_tabulator-async-build-crash.md) | Grid empty and a null `getBoundingClientRect` in the console: `setHeight` was called before Tabulator had built itself. The view now waits for `tableBuilt` | WGT-01 | fixed; needs a look in the dashboard |
 | [2026-09-25-02](2026/2026-09-25-02_state-names-and-enovia-styling.md) | The platform's real state names mapped (Create=Draft, Active=In Work); maturity palette from the Maturity graph; badge text centred; ENOVIA-blue header | WGT-01 | done |

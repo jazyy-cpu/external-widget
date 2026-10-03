@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:widget="http://www.netvibes.com/ns/">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="author" content="IRCLASS" />
+    <meta name="description" content="IRS tasks and approvals" />
+    <meta name="version" content="0.1.0" />
+    <meta name="autoRefresh" content="0" />
+    <title>IRS Tasks</title>
+
+    <link rel="stylesheet" type="text/css" href="../JazzySole/bootstrap/css/bootstrap.min.css" />
+    <!-- tabulator_simple, not bootstrap5: the bootstrap5 theme renders at 16px,
+         which is about twice the row height of the OOTB grids next to us -->
+    <link rel="stylesheet" type="text/css" href="../JazzySole/Tabulator/css/tabulator_simple.min.css" />
+    <!-- shared: sliding notifications, all rules under .jz-notify-* -->
+    <link rel="stylesheet" type="text/css" href="../JazzySole/Notify/Notify.css" />
+    <!-- the widget's only custom CSS, all under .irs-tasks (rule R1) -->
+    <link rel="stylesheet" type="text/css" href="css/IRSTasks.css" />
+
+    <widget:preferences>
+        <widget:preference type="hidden" name="x3dPlatformId" defaultValue="OnPremise"></widget:preference>
+        <widget:preference type="hidden" name="xPrefTasksShowClosed" defaultValue="false"></widget:preference>
+        <!-- the open page, so a refresh comes back to it (JazzySole/Router, rule R6).
+             Its own key, not jzRoute: both widgets can sit on one dashboard and
+             neither should move the other's page. -->
+        <widget:preference type="hidden" name="jzTaskRoute" defaultValue=""></widget:preference>
+    </widget:preferences>
+
+    <!-- shared libraries. Tabulator's JS is NOT a script tag: its UMD bundle would
+         call an anonymous define() and break. TabulatorLoader loads it instead. -->
+    <script type="text/javascript" src="../JazzySole/PlatformService/Credentials.js"></script>
+    <script type="text/javascript" src="../JazzySole/PlatformService/Request.js"></script>
+    <script type="text/javascript" src="../JazzySole/Router/Router.js"></script>
+    <script type="text/javascript" src="../JazzySole/Notify/Notify.js"></script>
+    <script type="text/javascript" src="../JazzySole/Tabulator/TabulatorLoader.js"></script>
+    <script type="text/javascript" src="../JazzySole/Ui/Format.js"></script>
+    <script type="text/javascript" src="../JazzySole/Ui/CredentialBar.js"></script>
+
+    <!-- widget modules: one AMD module per file (rule R4) -->
+    <script type="text/javascript" src="js/config/TaskFields.js"></script>
+    <script type="text/javascript" src="js/services/ConfigService.js"></script>
+    <script type="text/javascript" src="js/services/TaskService.js"></script>
+    <script type="text/javascript" src="js/components/TaskToolbar.js"></script>
+    <script type="text/javascript" src="js/views/TaskColumns.js"></script>
+    <script type="text/javascript" src="js/views/TaskListView.js"></script>
+    <script type="text/javascript" src="js/App.js"></script>
+
+    <!-- UWA events only: no logic here -->
+    <script type="text/javascript">
+    //<![CDATA[
+        widget.addEvents({
+            onLoad: function () {
+                require(['IRSTasks/App'], function (App) { App.onLoad(); });
+            },
+            onRefresh: function () {
+                require(['IRSTasks/App'], function (App) { App.onRefresh(); });
+            },
+            onResize: function () {
+                require(['IRSTasks/App'], function (App) { App.onResize(); });
+            }
+        });
+    //]]>
+    </script>
+</head>
+<body>
+    <div class="d-flex justify-content-center align-items-center p-5">
+        <div class="spinner-border text-secondary" role="status"><span class="visually-hidden">Loading</span></div>
+    </div>
+</body>
+</html>

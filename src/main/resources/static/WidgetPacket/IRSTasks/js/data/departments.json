@@ -1,0 +1,14 @@
+{
+  "_about": "Department id to name mapping, and the per-department field rules. Loaded by IRSTasks/services/ConfigService as 'departments'. Static configuration only - nothing secret, it is downloadable by any widget user.",
+  "_shape": {
+    "<department id>": {
+      "name": "the department's display name",
+      "division": "the division it belongs to",
+      "hideFields": [
+        "field ids hidden for this department (WP06 F2 - a flag on a field, not a separate form)"
+      ]
+    }
+  },
+  "_status": "empty: the department objects exist on the VM but their ids have not been collected, and no form has fields to hide yet. Fill from the project's Department relationship (WP03 WGT-05).",
+  "departments": {}
+}

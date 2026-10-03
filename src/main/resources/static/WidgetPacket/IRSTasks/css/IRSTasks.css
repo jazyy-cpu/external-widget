@@ -1,0 +1,199 @@
+/*
+ * The widget's ONLY custom CSS (development rule R1), everything under the one
+ * root class .irs-tasks so it can never restyle the dashboard (UWA rule C3).
+ *
+ * Why it exists at all: Tabulator's themes are built for a full web page, not
+ * for a dashboard widget. The bootstrap5 theme renders at 16px and the simple
+ * theme at 14px with heavy #999 borders, which gives rows roughly twice the
+ * height of the OOTB ENOVIA grids the widget sits next to. Row density is font
+ * size, line height and border colour - none of which Tabulator exposes as an
+ * option, and none of which Bootstrap can reach inside the Tabulator DOM.
+ *
+ * The density, toolbar and maturity rules are the project widget's, reused
+ * verbatim so the two widgets are visually one application
+ * (user, 2026-10-03: "take look and feel of our old widget that is irs
+ * project"). The only additions are the task-type palette and the
+ * "action required" badge, which the project grid has no equivalent of.
+ *
+ * **Duplication noted on purpose:** these rules now exist in two files. They
+ * belong in a shared JazzySole stylesheet, which is open item O-T1 - doing it
+ * now would mean restyling a live widget in the same change as building a new
+ * one. Reasoning in docs/requirements/WGT-06-task-landing/design.md.
+ *
+ * Base theme: tabulator_simple. Only density and border colour are changed.
+ */
+
+/* ---- the toolbar band ----------------------------------------------- */
+
+/*
+ * The OOTB widgets put their controls in a distinct strip; this is that strip.
+ * Bootstrap has no toolbar component - `navbar` is for site navigation and
+ * brings its own layout and padding.
+ */
+.irs-tasks .irs-toolbar {
+    background: #f5f5f5;
+    border: 1px solid #dcdcdc;
+    border-radius: 3px;
+    padding: 0.4rem 0.6rem;
+}
+
+.irs-tasks .irs-toolbar .form-check-label,
+.irs-tasks .irs-toolbar .text-body-secondary {
+    font-size: 0.8rem;
+}
+
+/* ---- density ------------------------------------------------------- */
+
+.irs-tasks .tabulator {
+    border: 1px solid #dcdcdc;
+    font-size: 13px;
+}
+
+/*
+ * The column headings: a light ENOVIA blue rather than a neutral grey, with
+ * solid dark-blue text and a definite rule underneath. Tabulator's simple theme
+ * gives a white header and a thin #999 rule, which reads as a different
+ * application next to the platform's own grids.
+ */
+.irs-tasks .tabulator-header {
+    background-color: #e8f0f7;
+    border-bottom: 2px solid #a9c5db;
+    color: #12395c;
+}
+
+.irs-tasks .tabulator-col-title {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.irs-tasks .tabulator-header .tabulator-col:hover {
+    background-color: #dbe8f3;
+}
+
+.irs-tasks .tabulator-col {
+    border-right: 1px solid #e6e6e6;
+}
+
+.irs-tasks .tabulator-col-content {
+    padding: 6px 8px;
+}
+
+.irs-tasks .tabulator-cell {
+    border-right: 1px solid #f0f0f0;
+    padding: 4px 8px;
+}
+
+.irs-tasks .tabulator-row {
+    border-bottom: 1px solid #f0f0f0;
+    min-height: 28px;
+}
+
+.irs-tasks .tabulator-row.tabulator-row-even {
+    background-color: #fcfcfc;
+}
+
+.irs-tasks .tabulator-row:hover {
+    background-color: #eef4fa;
+}
+
+.irs-tasks .tabulator-footer {
+    border-top: 1px solid #dcdcdc;
+    font-size: 12px;
+}
+
+/* the clickable title: a link that looks like one without an underline storm */
+.irs-tasks .irs-link {
+    cursor: pointer;
+}
+
+.irs-tasks .irs-link:hover {
+    text-decoration: underline;
+}
+
+/* ---- badges --------------------------------------------------------- */
+
+/*
+ * Bootstrap's badge is sized in em of a 16px body, so inside a 13px grid it
+ * would be the tallest thing in the row and set the row height on its own.
+ * inline-flex with a fixed height centres the text in both directions and makes
+ * every badge in a column the same size whatever the word.
+ */
+.irs-tasks .tabulator-cell .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 20px;
+    padding: 0 8px;
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+/* ---- the maturity palette ------------------------------------------ */
+
+/*
+ * The same colours as the project widget, read off the Maturity graph of a real
+ * project. The state -> class mapping is in js/config/TaskFields.js
+ * (STATE_CLASS) and the display names are beside it (STATE_LABELS): change a
+ * colour here, change which state wears it there.
+ *
+ * Text colour is not uniform, deliberately: white on the platform's light green
+ * and grey is about 1.9:1, which is unreadable. Those keep the platform's
+ * background and take dark text instead.
+ *
+ * `rejected` and `withdrawn` are ours - the task policy has outcomes the
+ * project maturity graph does not.
+ */
+.irs-tasks .irs-state {
+    border-radius: 2px;
+    color: #fff;
+}
+
+.irs-tasks .irs-state-draft      { background-color: #a32ba0; }
+.irs-tasks .irs-state-todo       { background-color: #d0103a; }
+.irs-tasks .irs-state-inwork     { background-color: #0079a8; }
+.irs-tasks .irs-state-inapproval { background-color: #8cc98c; color: #14421a; }
+.irs-tasks .irs-state-completed  { background-color: #b4b4b4; color: #2b2b2b; }
+.irs-tasks .irs-state-rejected   { background-color: #b02a37; }
+.irs-tasks .irs-state-withdrawn  { background-color: #5d6d7e; }
+
+/* a state nobody mapped still renders, and is visibly unmapped */
+.irs-tasks .irs-state-unknown    { background-color: #adb5bd; }
+
+/* ---- the task-type palette ----------------------------------------- */
+
+/*
+ * One class per custom task subtype, named by the `badge` key of its entry in
+ * TaskFields.TASK_TYPES. The subtypes do not exist yet, so only `unknown` is
+ * defined - every type currently draws through it, which is correct: an
+ * unstyled badge saying the raw type name is exactly what should be seen until
+ * the subtype is declared.
+ *
+ * Muted on purpose. The status column is the one that should carry colour in a
+ * grid; two loud columns compete and neither reads.
+ */
+.irs-tasks .irs-type {
+    border-radius: 2px;
+    background-color: #eceff3;
+    color: #2b3a4a;
+    border: 1px solid #d5dce4;
+}
+
+.irs-tasks .irs-type-unknown {
+    background-color: #f3f4f6;
+    color: #4a5560;
+}
+
+/* ---- action required ------------------------------------------------ */
+
+/*
+ * What the route task wants from the current user. Amber, because it is the one
+ * cell in the row that means "you have something to do" - and dark text on it,
+ * since white on amber fails contrast.
+ */
+.irs-tasks .irs-action {
+    border-radius: 2px;
+    background-color: #ffc107;
+    color: #3d2e00;
+}

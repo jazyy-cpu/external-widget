@@ -108,6 +108,7 @@ living page, rewritten rather than appended to; the history stays in the devlog.
 | [3dexperience-tls.md](3dexperience-tls.md) | platform HTTPS certificate and Java trust |
 | [JazzySole PlatformService README](../src/main/resources/static/WidgetPacket/JazzySole/PlatformService/README.md) | shared `JazzySole/Credentials`: install, API, OOTB / fallback behaviour |
 | [IRSProjects widget README](../src/main/resources/static/WidgetPacket/IRSProjects/README.md) | the widget's files and lifecycle |
+| [IRSTasks widget README](../src/main/resources/static/WidgetPacket/IRSTasks/README.md) | the task widget's files and lifecycle; the two Tabulator traps to know before changing it |
 | [JazzySole Router README](../src/main/resources/static/WidgetPacket/JazzySole/Router/README.md) | shared router library: install, API, behaviour. Library docs live next to the library so they travel with it |
 | [JazzySole Tabulator README](../src/main/resources/static/WidgetPacket/JazzySole/Tabulator/README.md) | Tabulator and `TabulatorLoader`: why a loader is needed at all |
 | [JazzySole Notify README](../src/main/resources/static/WidgetPacket/JazzySole/Notify/README.md) | sliding notifications: the one policy table (which type stays how long), the API and the override |
