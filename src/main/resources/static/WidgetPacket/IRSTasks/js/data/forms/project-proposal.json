@@ -1,0 +1,191 @@
+{
+  "_about": "What the PROJECT PROPOSAL / PROFILE task page shows. One file per form (user, 2026-10-07): change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the subtype's entry in js/config/TaskFields.js.",
+  "_generated": "Generated on 2026-10-07 from IRSProjects/js/config/ProjectForm.js, whose source of truth is WP02 doc 05 section 12 - every field verified in MQL on 2026-09-23. Hand edits are expected from now on; if doc 05 changes, check both this file and ProjectForm.js.",
+  "_source": {
+    "project": "read from the PROJECT's dataelements - the proposal form is almost entirely project data, which is why this page calls the project",
+    "task": "read from the TASK's own dataelements (this form has none - EPMPROJECT_PROPOSAL carries no custom attribute, measured 2026-10-07)",
+    "none": "not a value: it lives in a relationship, in its own objects, in the WBS or in the approval route. The page shows the note instead of an empty box, because an empty box reads as 'nothing was entered'."
+  },
+  "_display": {
+    "text": "one line",
+    "longtext": "prose - the form asks for paragraphs here",
+    "pending": "agreed but NOT created on the platform yet: the page says so rather than showing it as empty",
+    "elsewhere": "see the note - another object or tab owns it",
+    "approval": "an approval signature - a route task, not a field",
+    "type": "carried by the project's type itself"
+  },
+  "form": "R&D-PRJ-01-Rev.06",
+  "title": "PROJECT PROPOSAL / PROFILE",
+  "taskType": "EPMPROJECT_PROPOSAL",
+  "fields": [
+    {
+      "ref": "Header",
+      "label": "Project Name",
+      "source": "project",
+      "field": "title",
+      "display": "text"
+    },
+    {
+      "ref": "Header",
+      "label": "Project No.",
+      "source": "project",
+      "field": "EPMProjectNo",
+      "display": "text",
+      "note": "System generated from a numbering scheme (R20) - the scheme is not defined yet"
+    },
+    {
+      "ref": "Header",
+      "label": "Department",
+      "source": "none",
+      "display": "elsewhere",
+      "note": "Department object linked by IRSDepartmentProject; the parent Business Unit gives the stream"
+    },
+    {
+      "ref": "I",
+      "label": "Project Category",
+      "source": "none",
+      "display": "type",
+      "note": "Research or Analysis - carried by the project type itself, not by a field"
+    },
+    {
+      "ref": "II",
+      "label": "Customer Name and Contact",
+      "source": "none",
+      "display": "elsewhere",
+      "note": "A Company object linked by IRSProjectCustomer; name, city, country, phone and e-mail all live on it"
+    },
+    {
+      "ref": "III",
+      "label": "Need of the Project",
+      "source": "project",
+      "field": "EPMNeedOfTheProject",
+      "display": "longtext"
+    },
+    {
+      "ref": "IV",
+      "label": "Project Overview",
+      "source": "project",
+      "field": "EPMProjectOverview",
+      "display": "longtext"
+    },
+    {
+      "ref": "V",
+      "label": "Scope of Work",
+      "source": "project",
+      "field": "EPMScopeofWork",
+      "display": "longtext"
+    },
+    {
+      "ref": "VI",
+      "label": "Input - Technical Data, Information and References",
+      "source": "project",
+      "field": "EPMInput",
+      "display": "longtext"
+    },
+    {
+      "ref": "VII",
+      "label": "Methodology",
+      "source": "project",
+      "field": "EPMMethodology",
+      "display": "longtext"
+    },
+    {
+      "ref": "VIII",
+      "label": "Complexity of the design and development activity",
+      "source": "project",
+      "field": "EPMComplexity",
+      "display": "longtext",
+      "onlyForDesignAndDevelopment": true
+    },
+    {
+      "ref": "IX",
+      "label": "Identified Standards, Codes, Acts, Rules, Regulations, Statutory and legal requirements",
+      "source": "project",
+      "field": "EPMIdentifiedStandards",
+      "display": "longtext",
+      "note": "with version or year, as applicable"
+    },
+    {
+      "ref": "X",
+      "label": "Feedback from previous similar design",
+      "source": "project",
+      "field": "EPMFeedback",
+      "display": "longtext",
+      "onlyForDesignAndDevelopment": true
+    },
+    {
+      "ref": "XI",
+      "label": "Potential consequences of failure",
+      "source": "project",
+      "field": "EPMPotentialConsequencesOfFailure",
+      "display": "longtext",
+      "onlyForDesignAndDevelopment": true
+    },
+    {
+      "ref": "XII",
+      "label": "Lessons learnt from failures",
+      "source": "project",
+      "field": "EPMLessonsLearnt",
+      "display": "pending",
+      "note": "The attribute is agreed but not created on the VM yet (doc 05 section 12)",
+      "onlyForDesignAndDevelopment": true
+    },
+    {
+      "ref": "XIII",
+      "label": "Risks and opportunities",
+      "source": "none",
+      "display": "elsewhere",
+      "note": "Not a text field: OOTB Risk and Opportunity objects linked by the Risk relationship, each with its own RPN scoring (doc 05 section 13.2)"
+    },
+    {
+      "ref": "XIV",
+      "label": "Details of stage-validation, verification and validation",
+      "source": "project",
+      "field": "EPMStageValidation",
+      "display": "longtext"
+    },
+    {
+      "ref": "XV",
+      "label": "Deliverables / Handing Over",
+      "source": "project",
+      "field": "EPMDeliverables",
+      "display": "longtext"
+    },
+    {
+      "ref": "XVI",
+      "label": "Project Planning: task break-up, sequencing, review stages",
+      "source": "none",
+      "display": "elsewhere",
+      "note": "The OOTB work breakdown - Subtask, Task, Phase, Gate, Milestone"
+    },
+    {
+      "ref": "Footer",
+      "label": "Approval from Screening Committee obtained",
+      "source": "project",
+      "field": "EPMScreeningApprovalObtained",
+      "display": "pending",
+      "note": "YES / NO / Not Applicable - a range attribute, not yet created"
+    },
+    {
+      "ref": "Footer",
+      "label": "Project Manager",
+      "source": "none",
+      "display": "approval",
+      "note": "An approval signature - collected by the route task when the approver acts, not typed into the form."
+    },
+    {
+      "ref": "Footer",
+      "label": "In-Charge / HOD",
+      "source": "none",
+      "display": "approval",
+      "note": "An approval signature - collected by the route task when the approver acts, not typed into the form."
+    },
+    {
+      "ref": "Footer",
+      "label": "Divisional Head",
+      "source": "none",
+      "display": "approval",
+      "note": "An approval signature - collected by the route task when the approver acts, not typed into the form."
+    }
+  ]
+}

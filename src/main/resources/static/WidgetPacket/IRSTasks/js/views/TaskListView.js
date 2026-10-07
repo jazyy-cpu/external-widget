@@ -25,9 +25,10 @@
  * xPrefTasksShowClosed, so a widget refresh comes back to the same view
  * (rule R6).
  *
- * The grid is **empty by design** for now: `TaskService` makes no call until
- * the custom task subtypes exist. The service's note is shown above the grid,
- * so the page says why it is empty instead of looking broken.
+ * The grid reads live data since 2026-10-07. `TaskService` applies two filters
+ * of its own - only the four IRS gateway subtypes, and no baseline or snapshot
+ * copies - and reports how many rows each one dropped. That note is shown above
+ * the grid, so a short list says why it is short instead of looking broken.
  */
 define('IRSTasks/views/TaskListView', [
     'JazzySole/TabulatorLoader',
@@ -196,7 +197,7 @@ define('IRSTasks/views/TaskListView', [
 
                 return TaskService.list({ includeClosed: includeClosed }).then(function (result) {
                     if (destroyed) { return null; }
-                    // says why the grid is empty while the service is a stub
+                    // how many rows the service's own filters dropped, and why
                     if (result.note) { note(result.note, 'info'); }
 
                     if (table) {

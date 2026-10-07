@@ -45,13 +45,21 @@ define('IRSTasks/views/TaskColumns', [
 ], function (Fields, Format) {
     'use strict';
 
-    function badgeOf(labelOf, classOf) {
+    /**
+     * The cell keeps the platform's MQL name, so sorting and any state filter
+     * still work; only what is DRAWN is the display name.
+     *
+     * `labelField` is the row key holding the display name the service resolved
+     * - `typeNLS` / `stateNLS` where the platform sent them, our own label
+     * otherwise. The column asks the row rather than the registry, so the name
+     * set in DMC is what shows (user, 2026-10-07).
+     */
+    function badgeOf(labelField, labelOf, classOf) {
         return function (cell) {
             var value = cell.getValue();
             if (!value) { return Format.empty(); }
-            // the cell keeps the platform's own name, so sorting and any state
-            // filter still work; only what is drawn is the display name
-            return Format.badge(labelOf(value), classOf(value));
+            var row = cell.getRow().getData();
+            return Format.badge(row[labelField] || labelOf(value), classOf(value));
         };
     }
 
@@ -80,20 +88,29 @@ define('IRSTasks/views/TaskColumns', [
                 cellClick: function (e, cell) { onOpen(cell.getRow().getData()); }
             },
             {
-                title: 'Task Type', field: 'type', width: 150, minWidth: 120,
-                formatter: badgeOf(Fields.typeLabel, Fields.typeBadge)
+                // wider than it was: the platform's names are long
+                // ("PROJECT PERSONNEL / COST ESTIMATION") where ours were short
+                title: 'Task Type', field: 'type', width: 230, minWidth: 150,
+                formatter: badgeOf('typeLabel', Fields.typeLabel, Fields.typeBadge),
+                tooltip: true
             },
             {
                 title: 'Status', field: 'state', width: 130, minWidth: 110,
-                formatter: badgeOf(Fields.stateLabel, Fields.stateBadge)
+                formatter: badgeOf('stateLabel', Fields.stateLabel, Fields.stateBadge)
             },
             {
                 title: 'Assigned To', field: 'assignedTo', width: 140, minWidth: 110,
                 formatter: textOrDash
             },
             {
+                // the project's NAME, which for an IRS project is its number;
+                // the hover shows the title, because both do not fit a cell
                 title: 'Project', field: 'projectName', width: 180, minWidth: 140,
-                formatter: textOrDash, tooltip: true
+                formatter: textOrDash,
+                tooltip: function (e, cell) {
+                    var row = cell.getRow().getData();
+                    return row.projectTitle || row.projectName || '';
+                }
             },
             {
                 title: 'Department', field: 'department', width: 140, minWidth: 110,

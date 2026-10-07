@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Work package | [WP06](../../../../documents/work-packages/06-task-approval-widget/README.md) |
-| Status | **built 2026-10-03, empty by design.** Not yet opened in 3DDashboard |
+| Status | **reading live data 2026-10-07.** Still not opened in 3DDashboard |
 | Source | user instructions 2026-10-03 (five points, below) |
 | Widget | `WidgetPacket/IRSTasks/` |
 
@@ -29,6 +29,35 @@ remove as of now just create empty table."*
 Also confirmed: **attributes can be created on the task** as well, so a field's
 home is a real choice (WP06 F3).
 
+## The user's instructions of 2026-10-07, and what they settled
+
+> "first lets get all the task, and when we click on task we want to show some
+> data based on the form - for each form we should have some json file, so that
+> we change the json file that what data we want to show ... based on the task
+> state we can give edit option for some task not all task if task in inwork.
+> note this point in requirement document. Lets first show the task, and with
+> task we will show the project also, and we will show only our custom task that
+> we have created."
+
+Four things, two of them built now and two recorded for the task view:
+
+| # | Instruction | State |
+|---|---|---|
+| 1 | **All tasks**, with the **project** on each row | **built** - one call returns both |
+| 2 | **Only our own custom tasks** | **built** - a real allow-list of the four gateway subtypes |
+| 3 | **One JSON file per form** saying which data the task view shows | **the mechanism is declared, the view is not built**. Each descriptor in `TaskFields.TASK_TYPES` carries a `fields` id, which names `js/data/forms/<id>.json`. Changing what a form shows is then changing a JSON file, which is the whole point |
+| 4 | **Edit only when the task is In Work** | **recorded and half-built**: `TaskFields.EDITABLE_STATES = ['Active']`, `isEditable(state)`, and every row carries `editable`. `Active` is the state the platform labels *In Work* - verified, not assumed. No edit control exists yet because no form does |
+
+On (4), one thing is worth stating plainly in this document: **this governs what
+the widget offers, not what the platform permits.** The policy's own access
+decides whether a save succeeds, and a widget can never be the thing that
+enforces a rule - it can only avoid offering what it knows will fail.
+
+On (3), the per-form JSON is the same mechanism as `departments.json` and the
+reason point 2 of the 2026-10-03 list (a field hidden by department or division)
+does not need a form per department: the field list and its per-department rules
+are data in one file, read by one renderer.
+
 ## Scope of this requirement
 
 The landing page only: the shell, the shared top row, the toolbar, the grid, the
@@ -50,7 +79,9 @@ which is platform work recorded in [WP05](../../../../documents/work-packages/05
 | A4 | A refresh returns to the page that was open (`jzTaskRoute`), and does not disturb the project widget's `jzRoute` | not run |
 | A5 | The pager sits at the bottom edge of the widget frame, not under the last row | not run |
 | A6 | A narrow frame gets a horizontal scroll bar, not squeezed columns | not run |
-| A7 | The subtype registry, the search control, the column set and the row shape are unit-tested | **passed 2026-10-03** (`node src/test/js/irstasks-landing.test.js`) |
+| A7 | The subtype registry, the search control, the column set and the row shape are unit-tested | **passed**, extended 2026-10-07 with the live call's parameters and both filters (`node src/test/js/irstasks-landing.test.js`) |
+| A8 | **What does `currentTaskFilter=all` return** - every task the user can read, or every flavour of their own? A PM must see tasks assigned to others | **not run - the one check that could change the call.** Fallback if it is the latter: fan out over `/projects` then `/projects/{id}/tasks` |
+| A9 | A project that has baselines shows each of its tasks **once**, and the note above the grid names what was filtered out | not run |
 
 ## The columns
 
@@ -81,10 +112,12 @@ Changing `js/views/TaskColumns.js` is the only change needed.
 |---|---|
 | O-T1 | **The CSS is duplicated.** Density, toolbar band and maturity palette now exist in both widgets' stylesheets. They belong in a shared JazzySole sheet; doing it now would mean restyling a live widget inside the same change that builds a new one. See design.md §4 |
 | O-T2 | **`ConfigService` fetches a relative URL** (`js/data/*.json`). The dashboard proxies an Additional App, so a relative URL resolves against the proxied document. The module `<script>` tags already load this way, which is good evidence - but XHR has not been observed yet. If it fails, build the URL from `widget.getSettings().baseUrl` |
-| O-T3 | **Which tasks does the landing page list?** Every custom task the user may see across projects, or the tasks of one project picked first? The POC did the second. The first needs a search - there is no "all tasks for me" project resource |
-| O-T4 | **The route task is a second object.** Showing it beside the task may be one extra call per row. Settle whether it arrives with the task before the grid is wired to live data |
-| O-T5 | **The task policy's real states are unverified.** `TaskFields` currently maps both the POC's spellings and the project policy's. Confirm with `print policy "Project Task" select state.name dump \|;` and cut the list down |
-| O-T6 | The `$fields` list in `TaskFields.LIST_FIELDS` is **untested** against the service. An untested name is how a whole call starts returning 400 - verify each before the first live call |
+| ~~O-T3~~ | **Closed 2026-10-07.** Every custom task, from `GET resources/v1/modeler/tasks` with `showProjectTasks=true` - there IS an all-tasks resource, so no search is needed. What `currentTaskFilter=all` scopes it to is check A8 |
+| ~~O-T4~~ | **Closed 2026-10-07.** The route's name and id arrive with the task in `relateddata.route`, as do the project and the assignees - so the grid is one call. The route's individual approval **levels** still need `GET .../dsrt/routes/{id}?$include=tasks`, which belongs to the task view, where it is one call for one task |
+| ~~O-T5~~ | **Closed 2026-10-07.** `Project Task` has `Create`, `Assign`, `Active`, `Review`, `Complete`, and every live custom task carries that policy, not the `Software Task` one its type also names. The POC's spellings are out of the state lists and kept only in the badge map |
+| ~~O-T6~~ | **Closed 2026-10-07 by not doing it.** The list call sends `$fields=basics`, the spelling the POC proved on this platform; an untested name in an explicit list returns 400 for the whole call. The hand-made list survives as `DETAIL_FIELDS` for a single-task call, renamed so nothing implies the list uses it |
+| O-T7 | **Department is empty.** It is not in the task payload - it comes from the project's `IRSDepartmentProject` link, so it needs either a per-project lookup or the id -> name map in `departments.json` once we know which id arrives |
+| O-T8 | **Tasks inside baselines and snapshots are excluded by a deny list.** If DS adds a fourth copy container, it needs a line in `COPY_PROJECT_TYPES`. The same trap waits for anything that COUNTS tasks (R24's quarterly figures) |
 
 ## Files
 

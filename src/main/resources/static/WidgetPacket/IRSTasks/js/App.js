@@ -15,10 +15,10 @@
  * widget preference, so a browser refresh comes back to the page that was open
  * (rule R6).
  *
- *   tasks       the task list        (this file)
- *   task/:id    the approval form    - not built yet; the route is registered
- *               so a title click has somewhere to go, and it says so plainly
- *               rather than doing nothing
+ *   tasks       the task list   (this file)
+ *   task/:id    the task page    - IRSTasks/views/TaskDetailView: a context
+ *               sidebar and the form's content, driven by the subtype's JSON
+ *               form definition. Read-only; approval actions are still to come
  *
  * Changing the credential reopens the current page: a different security
  * context can see a different set of tasks, and may not see this one at all.
@@ -31,8 +31,9 @@ define('IRSTasks/App', [
     'JazzySole/Credentials',
     'JazzySole/Router',
     'JazzySole/CredentialBar',
-    'IRSTasks/views/TaskListView'
-], function (Credentials, Router, CredentialBar, TaskListView) {
+    'IRSTasks/views/TaskListView',
+    'IRSTasks/views/TaskDetailView'
+], function (Credentials, Router, CredentialBar, TaskListView, TaskDetailView) {
     'use strict';
 
     var running = null;
@@ -99,29 +100,18 @@ define('IRSTasks/App', [
         }, 'Tasks');
 
         /**
-         * The approval form's placeholder. It is a real route rather than a
-         * disabled link so that the navigation, the back button and the
-         * remembered page are all exercised from the first day - the detail page
-         * then only has to replace what is rendered here.
+         * The task page. It takes only the id from the route and fetches the
+         * task itself, so a browser refresh on this page works - the router
+         * remembers `task/:id` in a preference, and a page that depended on the
+         * list's in-memory row would be broken every second time (rule R6).
          */
         router.add('task/:id', function (params) {
             var target = freshPage();
-            var box = document.createElement('div');
-            box.className = 'alert alert-secondary small';
-            box.setAttribute('role', 'status');
-            box.textContent = 'The approval form is not built yet. Task id: ' + params.id;
-            target.appendChild(box);
-
-            var back = document.createElement('button');
-            back.type = 'button';
-            back.className = 'btn btn-sm btn-outline-secondary';
-            back.textContent = 'Back to the list';
-            back.addEventListener('click', function () {
-                router.go('tasks', null, { replace: true });
+            view = TaskDetailView.render(target, {
+                id: params.id,
+                toolbar: slot,
+                onBack: function () { router.go('tasks', null, { replace: true }); }
             });
-            slot.appendChild(back);
-
-            view = null;
         }, 'Task');
 
         return router;

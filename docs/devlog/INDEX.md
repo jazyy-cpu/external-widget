@@ -4,6 +4,9 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-10-07-02](2026/2026-10-07-02_task-page-proposal-form.md) | The task page: context sidebar, the PROJECT PROPOSAL / PROFILE form driven by a JSON file and read from the project, and four things the captured log settled (`typeNLS`, task attributes in `basics`, `dataelements.project` is the collab space, no baseline tasks) | WGT-07 | built read-only; dashboard checks B1-B7 open |
+| [2026-10-07-01](2026/2026-10-07-01_task-list-live-data.md) | The task grid reads live data: one call for task + project + route, only the four IRS subtypes, and the baseline-copy trap (a task existed five times) | WGT-06 | built; dashboard checks A1-A9 open |
+| [2026-10-03-02](2026/2026-10-03-02_training-widget-options.md) | Training architecture: Project, Task and Offering Document | WGT-08 | done — architecture selected 2026-10-04 |
 | [2026-10-03-01](2026/2026-10-03-01_task-widget-landing-skeleton.md) | New `IRSTasks` widget: landing page skeleton with an empty grid, columns from the POC task grid, the subtype registry, and `Format` / `CredentialBar` promoted into `JazzySole/Ui` | WGT-06 | built; not yet in the dashboard |
 | [2026-09-29-01](2026/2026-09-29-01_rollback-to-b54dfa4-sn-search-parked.md) | Working tree rolled back to `b54dfa4`: the SN-search attempt and the WGT-05 picker work were uncommitted, so they were committed to `wip/wgt-05-org-pickers-and-sn-search` first and nothing was lost | WGT-05 | parked |
 | [2026-09-26-02](2026/2026-09-26-02_no-store-static-resources.md) | The fixed grid crash reappeared verbatim: the browser was running the cached module. Static resources now go out `no-store` - the widget's files are no longer cacheable at all | WGT-01 | done |

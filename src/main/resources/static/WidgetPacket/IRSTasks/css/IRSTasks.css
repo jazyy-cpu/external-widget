@@ -185,6 +185,17 @@
     color: #4a5560;
 }
 
+/*
+ * The four gateway subtypes, 2026-10-07. Same muted card, told apart by a left
+ * edge rather than by four loud fills - with Status already carrying colour, a
+ * second saturated column makes the row unreadable. The hues follow the gate
+ * order so a scanning eye learns them: proposal, cost, validation, review.
+ */
+.irs-tasks .irs-type-proposal   { border-left: 3px solid #0079a8; }
+.irs-tasks .irs-type-cost       { border-left: 3px solid #7c5cbf; }
+.irs-tasks .irs-type-validation { border-left: 3px solid #1f8a60; }
+.irs-tasks .irs-type-review     { border-left: 3px solid #c2731a; }
+
 /* ---- action required ------------------------------------------------ */
 
 /*

@@ -1,10 +1,16 @@
 # IRS Tasks widget
 
 UWA widget served by `external-widget`, for the **custom task subtypes and
-their approval** (WP06). Current state: **the landing page only** - toolbar,
-Tabulator grid, columns and states - on top of the shared credential bar and
-router. **The grid is empty by design**: the custom task subtypes do not exist
-on the platform yet, so `TaskService` makes no call.
+their approval** (WP06). Current state: **the landing page, reading live data**
+since 2026-10-07 - toolbar, Tabulator grid, columns and states - on top of the
+shared credential bar and router.
+
+One call, `GET resources/v1/modeler/tasks`, returns the task, its **project**,
+its route and its assignees together. The grid shows **only the four IRS
+gateway subtypes** and hides task copies that live inside Project Baselines and
+Snapshots - copying a project copies its whole WBS, so without that filter a
+project with four baselines shows every task five times. The service reports
+how many rows each filter dropped, and the page prints it above the grid.
 
 It is a sibling of the `IRSProjects` widget and deliberately identical in look
 and behaviour (user, 2026-10-03). Both can sit on one dashboard: every
@@ -28,12 +34,16 @@ IRSTasks/
 └── js/
     ├── App.js               AMD IRSTasks/App - onLoad / onRefresh / onResize, start sequence, routes
     ├── config/
-    │   └── TaskFields.js    THE subtype registry (WP06 F1) + states, labels, badges, $fields
+    │   └── TaskFields.js    THE subtype registry (WP06 F1) + states, labels, badges,
+    │                         the copy-container deny list, and EDITABLE_STATES -
+    │                         the one state ("Active" = In Work) in which the widget
+    │                         offers an edit control
     ├── data/
     │   └── departments.json department id -> name + per-department field rules (empty for now)
     ├── services/
     │   ├── ConfigService.js loads js/data/*.json once each and caches it
-    │   └── TaskService.js   the list call - a deliberate stub; the real calls are written down in it
+    │   └── TaskService.js   the list call: one request, two filters of its own
+    │                         (our subtypes only, no baseline copies) and the counts
     ├── components/
     │   └── TaskToolbar.js   the completed switch, the search control, Clear, Refresh
     └── views/
