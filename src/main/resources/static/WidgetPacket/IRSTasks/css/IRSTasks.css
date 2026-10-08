@@ -208,3 +208,325 @@
     background-color: #ffc107;
     color: #3d2e00;
 }
+
+/* ---- the scrolling region of a long page ---------------------------- */
+
+/*
+ * The task page's form is 23 sections tall. A widget has no page behind it to
+ * scroll, and `widget.body` has no height of its own, so without this the
+ * dashboard simply clips the form - which is what happened on 2026-10-08: the
+ * user could see as far as section IV and no further.
+ *
+ * Bootstrap has `overflow-auto`, but no utility that says "as tall as the
+ * viewport allows", and that is the whole requirement. The real height is
+ * measured in `TaskDetailView.fit()` on every render and resize, because the
+ * toolbar, the credential bar and any warning banner above it all take space
+ * and a fixed calc() would be wrong as soon as one of them wraps.
+ *
+ * These two rules are the FALLBACK: they hold for the first paint, before the
+ * measurement runs, and on any host where it cannot. 220px is the toolbar plus
+ * credential bar at their usual height - deliberately generous, since a region
+ * slightly too short scrolls, while one too tall clips again.
+ */
+.irs-tasks .irs-scroll {
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+    /* vertical only: a horizontal bar here would mean the form is too wide,
+       which is a layout fault to fix rather than to scroll around */
+    overflow-x: hidden;
+}
+
+/* the scrolled content must not sit under the scrollbar */
+.irs-tasks .irs-scroll > .row {
+    padding-right: 0.25rem;
+}
+
+/* ---- the form's type scale ------------------------------------------ */
+
+/*
+ * The task form read noticeably smaller than the grid it sits beside
+ * (user, 2026-10-08: "the elements are very small as of now, lets make them
+ * lil big, its looking small in comparison to our main table"). Two causes,
+ * and only one of them was CSS: several blocks carried Bootstrap's `small`
+ * (0.875em of an already reduced body), which those classes no longer do.
+ *
+ * The grid is 13px, deliberately, to match the density of the OOTB grids. A
+ * FORM is read, not scanned, so it is set one step up at 15px - big enough to
+ * read a paragraph of prose, and still clearly part of the same application.
+ * The notes under each field stay smaller: they are guidance about the field,
+ * not its content, and they must not compete with the value above them.
+ */
+.irs-tasks .irs-form {
+    font-size: 15px;
+}
+
+.irs-tasks .irs-form .card-header {
+    font-size: 15px;
+}
+
+/*
+ * The two object sections. A shade under the form's body text, because a table
+ * of short values reads denser than prose at the same size - and still two
+ * points above the grid.
+ */
+.irs-tasks .irs-form .table {
+    font-size: 14px;
+}
+
+.irs-tasks .irs-form .table > thead th {
+    font-weight: 600;
+}
+
+
+/* ---- the Summary Report look ---------------------------------------- */
+
+/*
+ * The task form follows the platform's own `Summary Report` page (user,
+ * 2026-10-08, with a screenshot of `CA-98456-00000715`): a bold label, its
+ * value beside it, two pairs to a line, hairlines between rows, and a ruled
+ * heading over each full-width section.
+ *
+ * Why this is not Bootstrap: `dl.row` is the nearest component and it gives a
+ * label column and nothing else - no rule between rows, its own margins, and a
+ * label that wraps to full width rather than holding a column. A report's
+ * attribute block is a specific, dense thing, and these six rules are it. They
+ * stay inside `.irs-form`, so nothing outside the task page can see them.
+ */
+
+.irs-tasks .irs-kv-grid {
+    border-top: 1px solid #e7e9ec;
+}
+
+/*
+ * The hairline is on each cell, not on the row, so the two halves of a line
+ * keep their rules even when one of them wraps to two lines. The left border
+ * is the gutter between the pairs - at md and up only, since on a phone the
+ * cells stack and a vertical rule between stacked rows means nothing.
+ */
+.irs-tasks .irs-kv {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 4px 8px;
+    border-bottom: 1px solid #e7e9ec;
+    min-height: 30px;
+}
+
+@media (min-width: 768px) {
+    .irs-tasks .irs-kv-grid > div:nth-child(even) .irs-kv {
+        border-left: 1px solid #e7e9ec;
+    }
+}
+
+/*
+ * A fixed label column, because a report is read by running down the labels -
+ * and `flex-shrink: 0` keeps a long label from stealing the value's room.
+ * Labels wrap instead: some of this form's are a full sentence
+ * ("Identified Standards, Codes, Acts, Rules, ...").
+ */
+.irs-tasks .irs-form .irs-kv-label {
+    flex: 0 0 11rem;
+    font-weight: 600;
+    color: #2b3a4a;
+}
+
+.irs-tasks .irs-form .irs-kv-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    word-break: break-word;
+}
+
+/* the section rule: the report's Attributes / Approvals / Routes band */
+.irs-tasks .irs-form .irs-sum-head {
+    margin: 1rem 0 0.35rem;
+    padding-bottom: 0.2rem;
+    border-bottom: 1px solid #c8ced6;
+    font-weight: 600;
+    color: #12395c;
+}
+
+/* `Risks` and `Opportunities` inside one section - a step below the band */
+.irs-tasks .irs-form .irs-sum-sub {
+    margin: 0.6rem 0 0.25rem;
+    font-weight: 600;
+    color: #4a5560;
+}
+
+/* prose, set plainly - no panel. See the view's module comment */
+.irs-tasks .irs-form .irs-sum-text {
+    padding: 0.15rem 8px;
+}
+
+/*
+ * The tables lose their box. A bordered grid inside a form competes with the
+ * attribute block's hairlines; the report rules its header and nothing else.
+ */
+/*
+ * Fixed layout, so a declared column width is honoured and two tables under one
+ * heading come out identical. Automatic layout sizes each table from its own
+ * contents, which is why Risks and Opportunities did not line up.
+ */
+.irs-tasks .irs-form .irs-sum-table {
+    table-layout: fixed;
+}
+
+.irs-tasks .irs-form .irs-sum-table > thead th {
+    border-bottom: 2px solid #c8ced6;
+    background: transparent;
+    color: #12395c;
+}
+
+.irs-tasks .irs-form .irs-sum-table > tbody td {
+    border-bottom: 1px solid #eceef1;
+}
+
+/* ---- the documents panel -------------------------------------------- */
+
+/*
+ * The task's deliverables and attachments, beside the form (user, 2026-10-08:
+ * *"show me how it will look in the side panel with deliverables and
+ * attachment header, and one button that will collapse and expand"*).
+ *
+ * Sticky rather than fixed: it rides inside `.irs-scroll` with the form, so
+ * there is still ONE scrollbar on the page. `top: 0` pins it to the top of that
+ * region as the form scrolls past.
+ *
+ * `max-height` + its own overflow is the guard for the day a task carries
+ * fifteen attachments - the panel must never grow taller than the viewport, or
+ * sticky stops working and the bottom of it becomes unreachable.
+ */
+.irs-tasks .irs-docs-sticky {
+    position: sticky;
+    top: 0;
+}
+
+.irs-tasks .irs-docs {
+    font-size: 14px;
+}
+
+.irs-tasks .irs-docs-header {
+    padding: 0;
+    background: #e8f0f7;
+    border-bottom: 1px solid #a9c5db;
+}
+
+/*
+ * The whole header IS the toggle - a 32px caret beside a clickable heading is a
+ * target people miss. Bootstrap's `btn` is restyled to a flat bar here rather
+ * than wrapped in one, because a button with a border inside a card header
+ * reads as a second control.
+ */
+.irs-tasks .irs-docs-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border: 0;
+    border-radius: 0;
+    color: #12395c;
+    text-align: left;
+    font-size: 14px;
+}
+
+.irs-tasks .irs-docs-toggle:hover {
+    background: #dbe8f3;
+}
+
+.irs-tasks .irs-docs-toggle:focus-visible {
+    outline: 2px solid #0079a8;
+    outline-offset: -2px;
+}
+
+.irs-tasks .irs-docs-body {
+    padding: 0.5rem 0.6rem;
+    max-height: calc(100vh - 320px);
+    overflow-y: auto;
+}
+
+/* the group heading: Deliverables / Attachments */
+.irs-tasks .irs-doc-group + .irs-doc-group {
+    margin-top: 0.75rem;
+}
+
+.irs-tasks .irs-doc-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding-bottom: 0.2rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid #c8ced6;
+    font-weight: 600;
+    color: #2b3a4a;
+}
+
+/* the count stays visible while the panel is collapsed - see the module note */
+.irs-tasks .irs-doc-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 9px;
+    background: #d7e3ee;
+    color: #12395c;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.irs-tasks .irs-doc {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 5px 2px;
+    border-bottom: 1px solid #eceef1;
+}
+
+.irs-tasks .irs-doc:last-child {
+    border-bottom: 0;
+}
+
+/* `min-width: 0` is what lets a long file name ellipsis instead of pushing the
+   download button out of the panel */
+.irs-tasks .irs-doc-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.irs-tasks .irs-doc-title {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.irs-tasks .irs-doc-meta {
+    font-size: 11.5px;
+    color: #6c757d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.irs-tasks .irs-doc-btn {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+/* a document with nothing checked in - said, not silently buttonless */
+.irs-tasks .irs-doc-nofile {
+    flex: 0 0 auto;
+    font-size: 11.5px;
+    font-style: italic;
+    color: #9aa3ab;
+}
+
+.irs-tasks .irs-doc-empty {
+    font-size: 12.5px;
+    font-style: italic;
+    color: #6c757d;
+}

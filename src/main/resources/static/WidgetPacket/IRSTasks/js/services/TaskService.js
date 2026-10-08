@@ -32,7 +32,7 @@
  *     tasks are the only kind this widget shows, so it is sent explicitly rather
  *     than relying on a default that a preference could flip.
  *
- * `$fields=basics,typeNLS,stateNLS` - the set, plus two named fields.
+ * `$fields=basics,nlsType` - the set, plus the platform's display name.
  *
  * `basics` alone is what the POC sent, and in the one captured response it does
  * NOT carry `typeNLS` on the task items, which is why the grid showed our own
@@ -78,7 +78,8 @@ define('IRSTasks/services/TaskService', [
     var FILTER = 'all';
 
     /** The set, plus the platform's own display names for type and state. */
-    var FIELDS = 'basics,typeNLS,stateNLS';
+    // `nlsType`, NOT `typeNLS` - see the module comment. Proved live.
+    var FIELDS = 'basics,nlsType';
     var FIELDS_FALLBACK = 'basics';
 
     /** A field may arrive inside `dataelements` or as a sibling of it. */
@@ -115,7 +116,12 @@ define('IRSTasks/services/TaskService', [
         var route = related(item, 'route')[0] || null;
         var state = value(item, 'state') || '';
         // the platform's own names when it sends them, ours when it does not
-        var typeNLS = value(item, 'typeNLS') || '';
+        // `nlsType` is what the platform returns when asked for it by that
+        // name; `typeNLS` is the key it uses on RELATED objects. Both are read,
+        // so this works whichever shape a response happens to carry
+        var typeNLS = value(item, 'nlsType') || value(item, 'typeNLS') || '';
+        // there is no `nlsState` field - tested 2026-10-08 - so a task's own
+        // state label still comes from our map
         var stateNLS = value(item, 'stateNLS') || '';
 
         return {
@@ -204,15 +210,17 @@ define('IRSTasks/services/TaskService', [
         if (!sample) { Log.warn('list: nothing came back to inspect.'); return; }
 
         var de = sample.dataelements || {};
-        var hasType = Object.prototype.hasOwnProperty.call(de, 'typeNLS');
+        var hasType = Object.prototype.hasOwnProperty.call(de, 'nlsType') ||
+                      Object.prototype.hasOwnProperty.call(de, 'typeNLS');
         var hasState = Object.prototype.hasOwnProperty.call(de, 'stateNLS');
         Log.info('list: sample item type=' + sample.type +
-                 ' | typeNLS ' + (hasType ? '= "' + de.typeNLS + '"' : 'NOT RETURNED') +
+                 ' | nlsType ' + (hasType ? '= "' + (de.nlsType || de.typeNLS) + '"'
+                                             : 'NOT RETURNED') +
                  ' | stateNLS ' + (hasState ? '= "' + de.stateNLS + '"' : 'NOT RETURNED'));
         if (!hasType) {
-            Log.warn('list: the platform did not return typeNLS, so the Task Type ' +
+            Log.warn('list: the platform did not return nlsType, so the Task Type ' +
                      'column shows the label from TaskFields.TASK_TYPES. The keys it ' +
-                     'DID return are listed next - if typeNLS is absent from them, ' +
+                     'DID return are listed next - if nlsType is absent from them, ' +
                      'asking for it in $fields does not work on this resource.');
             Log.info('list: dataelements keys =', Object.keys(de).sort().join(', '));
         }

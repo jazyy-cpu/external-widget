@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -60,14 +61,40 @@ public final class ProjectContextService extends RestService {
         "does not exist", "not a valid", "invalid object", "no such object"
     };
 
+    /**
+     * @param include optional {@code $include} - a comma-separated list of
+     *        sections. Omitted means all of them, so a caller written before
+     *        this parameter existed is unaffected.
+     *
+     *        <pre>
+     *        ?$include=risks
+     *        ?$include=risks,opportunities
+     *        ?$include=learnings.reused
+     *        </pre>
+     *
+     *        A section that is not asked for is <b>absent</b> from the
+     *        response rather than present and empty, so the caller can tell
+     *        "I did not ask" from "there are none". The response's own
+     *        {@code included} array says which it carries.
+     */
     @GET
     @Path("/{projectId}/context")
     @Produces(MediaType.APPLICATION_JSON)
     public Response context(@Context HttpServletRequest request,
-                            @PathParam("projectId") String projectId) {
+                            @PathParam("projectId") String projectId,
+                            @QueryParam("$include") String include) {
         if (projectId == null || projectId.trim().isEmpty()) {
             return error(Response.Status.BAD_REQUEST, "MISSING_PROJECT_ID",
                     "A project id is required.");
+        }
+
+        java.util.Set<String> sections;
+        try {
+            sections = ProjectContextReader.parseInclude(include);
+        } catch (IllegalArgumentException e) {
+            // a typo is rejected rather than ignored: silently dropping an
+            // unknown section would look exactly like a project with no risks
+            return error(Response.Status.BAD_REQUEST, "BAD_INCLUDE", e.getMessage());
         }
 
         matrix.db.Context platform;
@@ -84,7 +111,7 @@ public final class ProjectContextService extends RestService {
 
         try {
             Map<String, Object> payload =
-                    ProjectContextReader.readProjectContext(platform, projectId);
+                    ProjectContextReader.readProjectContext(platform, projectId, sections);
             // no-store: risks, opportunities and learnings change while a
             // project runs, and a cached panel showing a closed risk as open is
             // worse than a second call

@@ -6,6 +6,7 @@
     "task": "read from the TASK's own dataelements (this form has none - EPMPROJECT_PROPOSAL carries no custom attribute, measured 2026-10-07)",
     "none": "not a value: it lives in a relationship, in its own objects, in the WBS or in the approval route. The page shows the note instead of an empty box, because an empty box reads as 'nothing was entered'."
   },
+  "_hidden": "A field with \"hidden\": true is not drawn at all - not resolved, not counted, and its $include section is not fetched. This is how a row is commented out (user, 2026-10-08: 'as of now remove these column just comment the code later when required we will show them'). The five currently hidden are the ones that have no value to show yet: XVI lives in the WBS, the screening-approval attribute is not created on the platform, and the three signatures are collected by the approval route. Delete the one line to bring a row back.",
   "_display": {
     "text": "one line",
     "longtext": "prose - the form asks for paragraphs here",
@@ -22,10 +23,10 @@
       "ref": "Header",
       "label": "Project Name",
       "source": "project",
-      "field": "title",
+      "field": "name",
       "display": "text",
-      "fallbackField": "name",
-      "note": "Title is empty on every project measured so far (2026-10-08), so the project name is shown instead"
+      "fallbackField": "title",
+      "note": "The project's name. On R2024x a project is created with a name only, so Title stays empty - this is the field, not a fallback"
     },
     {
       "ref": "Header",
@@ -38,24 +39,24 @@
     {
       "ref": "Header",
       "label": "Department",
-      "source": "none",
-      "display": "elsewhere",
-      "note": "Department object linked by IRSDepartmentProject; the parent Business Unit gives the stream"
+      "source": "service",
+      "display": "department",
+      "note": "The Department linked by IRSDepartmentProject, with the Business Unit that owns it (relationship Company Department) - the stream the project belongs to"
     },
     {
       "ref": "I",
       "label": "Project Category",
       "source": "derived",
       "display": "type",
-      "note": "Research or Analysis - carried by the project subtype itself, shown with the platform's own display name (typeNLS)",
+      "note": "Research or Analysis - carried by the project subtype itself, shown with the platform's own display name (the nlsType field)",
       "field": "typeLabel"
     },
     {
       "ref": "II",
       "label": "Customer Name and Contact",
-      "source": "none",
-      "display": "elsewhere",
-      "note": "A Company object linked by IRSProjectCustomer; name, city, country, phone and e-mail all live on it"
+      "source": "service",
+      "display": "customer",
+      "note": "The customer linked by IRSProjectCustomer. An EXTERNAL project's customer is a Company and carries an e-mail address; an INTERNAL project's is a Business Unit or a Department, which has none - the attribute is on Company only, so the rows differ by kind"
     },
     {
       "ref": "III",
@@ -129,8 +130,9 @@
       "label": "Lessons learnt from failures",
       "source": "service",
       "display": "learnings",
-      "note": "The key learnings linked to this project: the ones it produced, and the ones it reuses from earlier projects with their project number. Not an attribute - EPMLessonsLearnt was cancelled when the IRSLearning object replaced it (WP02 doc 08)",
-      "onlyForDesignAndDevelopment": true
+      "note": "Lessons this proposal cites from EARLIER projects, each with the project it came from. The learnings this project itself produces are captured at closure (R&D-COM) and shown on that form, not here",
+      "onlyForDesignAndDevelopment": true,
+      "learningScope": "reused"
     },
     {
       "ref": "XIII",
@@ -156,6 +158,7 @@
     {
       "ref": "XVI",
       "label": "Project Planning: task break-up, sequencing, review stages",
+      "hidden": true,
       "source": "none",
       "display": "elsewhere",
       "note": "The OOTB work breakdown - Subtask, Task, Phase, Gate, Milestone"
@@ -163,6 +166,7 @@
     {
       "ref": "Footer",
       "label": "Approval from Screening Committee obtained",
+      "hidden": true,
       "source": "project",
       "field": "EPMScreeningApprovalObtained",
       "display": "pending",
@@ -171,6 +175,7 @@
     {
       "ref": "Footer",
       "label": "Project Manager",
+      "hidden": true,
       "source": "none",
       "display": "approval",
       "note": "An approval signature - collected by the route task when the approver acts, not typed into the form."
@@ -178,6 +183,7 @@
     {
       "ref": "Footer",
       "label": "In-Charge / HOD",
+      "hidden": true,
       "source": "none",
       "display": "approval",
       "note": "An approval signature - collected by the route task when the approver acts, not typed into the form."
@@ -185,6 +191,7 @@
     {
       "ref": "Footer",
       "label": "Divisional Head",
+      "hidden": true,
       "source": "none",
       "display": "approval",
       "note": "An approval signature - collected by the route task when the approver acts, not typed into the form."

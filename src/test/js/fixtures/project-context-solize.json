@@ -1,0 +1,99 @@
+{
+    "_comment": [
+        "The REAL body the deployed REST JAR returned in the browser for project",
+        "Solize XYZ on 2026-10-08, kept here as a committed fixture.",
+        "",
+        "It was first read from `As-Is  Understanding/manual logs/`, which is a",
+        "scratch folder the user prunes - and the test broke when it was pruned,",
+        "the same day. A capture a test depends on belongs in the test tree.",
+        "",
+        "Do not hand-edit. Replace it only with another real response, and say",
+        "in the commit which call produced it.",
+        "",
+        "The two reused learnings have an EMPTY originProject. That is not",
+        "damage in the capture: a learning may legitimately have no origin",
+        "project (WP02 doc 08), and preserving that case is half the value of",
+        "this file."
+    ],
+    "project": {
+        "id": "39261.35329.61044.48333",
+        "physicalId": "299036CE0000CE606AC5E68D0000041E",
+        "name": "Solize XYZ",
+        "title": "",
+        "projectNo": "R&D-26010-HY",
+        "type": "EPMAnalysisProject",
+        "state": "Complete"
+    },
+    "risks": [
+        {
+            "id": "39261.35329.61044.49194",
+            "physicalId": "299036CE0000CE606AC5E99E000004C0",
+            "no": "R-0000005",
+            "revision": "1",
+            "title": "RISK 1",
+            "state": "Complete",
+            "type": "Risk"
+        }
+    ],
+    "opportunities": [
+        {
+            "id": "39261.35329.61044.49520",
+            "physicalId": "299036CE0000CE606AC5E9B7000004EE",
+            "no": "OPP-0000006",
+            "revision": "1",
+            "title": "OPPOR1",
+            "state": "Complete",
+            "type": "Opportunity"
+        }
+    ],
+    "learnings": {
+        "createdInThisProject": [
+            {
+                "id": "39261.35329.61044.49102",
+                "physicalId": "299036CE0000CE606AC5E957000004AA",
+                "no": "LRN-0000008",
+                "title": "LEARNING A",
+                "text": "this is good leardign form faluire",
+                "state": "Active"
+            }
+        ],
+        "fromOtherSources": [
+            {
+                "id": "39261.35329.62829.56083",
+                "physicalId": "299036CE000057CC6ABBEBE100000194",
+                "no": "LRN-0000002",
+                "title": "seconf learning",
+                "text": "key learing feature",
+                "state": "Active",
+                "originProject": {
+                    "physicalId": "",
+                    "name": "",
+                    "title": "",
+                    "projectNo": ""
+                }
+            },
+            {
+                "id": "39261.35329.62829.56531",
+                "physicalId": "299036CE000057CC6ABBF3570000021C",
+                "no": "LRN-0000006",
+                "title": "learring 4",
+                "text": "learing 5",
+                "state": "Active",
+                "originProject": {
+                    "physicalId": "",
+                    "name": "",
+                    "title": "",
+                    "projectNo": ""
+                }
+            }
+        ],
+        "error": ""
+    },
+    "counts": {
+        "risks": "1",
+        "opportunities": "1",
+        "learningsCreatedInThisProject": "1",
+        "learningsFromOtherSources": "2"
+    },
+    "riskError": ""
+}

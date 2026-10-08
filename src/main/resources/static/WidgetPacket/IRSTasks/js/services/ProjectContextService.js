@@ -110,6 +110,103 @@ define('IRSTasks/services/ProjectContextService', [
     }
 
     /**
+     * ENOVIA's own placeholders for an unset Organization field. They are real
+     * strings in the database, not empty values - BU-0000002 has
+     * `Organization Name` = "Unknown" and `Country` = "Unassigned" - so a
+     * screen that prints "first non-empty" prints the word **Unknown** as the
+     * customer's name.
+     *
+     * The service filters them out of its display name; everything else is
+     * filtered here, where the decision is about display rather than data.
+     */
+    var PLACEHOLDERS = ['unknown', 'unassigned'];
+
+    function meaningful(value) {
+        var out = text(value);
+        return PLACEHOLDERS.indexOf(out.toLowerCase()) >= 0 ? '' : out;
+    }
+
+    /**
+     * The customer, as section II of the form shows it.
+     *
+     * **Which fields exist depends on what kind of customer it is**, and that
+     * is the platform's rule, not a presentation choice:
+     *
+     *   external   the customer is a Company, which carries Email Address
+     *   internal   the customer is a Business Unit or a Department. Those have
+     *              no Email Address at all - the attribute is on Company only
+     *
+     * So the row list is built per kind, and an empty value is dropped rather
+     * than printed as a dash: on a form, a labelled blank reads as "nobody
+     * filled this in", when the truth for an internal customer is that the
+     * field does not exist.
+     */
+    function toCustomer(raw) {
+        raw = raw || {};
+        var attributes = raw.attributes || {};
+        function attr(name) { return meaningful(attributes[name]); }
+
+        var out = {
+            linked: text(raw.linked) === 'true',
+            kind: text(raw.kind),
+            projectTypeLabel: text(raw.projectTypeLabel),
+            name: meaningful(raw.displayName) || text(raw.name),
+            id: text(raw.physicalId) || text(raw.id),
+            type: text(raw.type),
+            error: text(raw.error),
+            rows: []
+        };
+
+        if (!out.linked) { return out; }
+
+        function row(label, value) {
+            if (value) { out.rows.push({ label: label, value: value }); }
+        }
+
+        row('Customer', out.name);
+        row('Project Type', out.projectTypeLabel);
+        row('Contact No', attr('Organization Phone Number'));
+        // Company only - absent on an internal customer, and correctly so
+        if (out.kind === 'external') { row('Email', attr('Email Address')); }
+        row('City', attr('City'));
+        row('State / Region', attr('State/Region'));
+        row('Country', attr('Country'));
+        row('Address', attr('Address'));
+        row('Postal Code', attr('Postal Code'));
+        row('Web Site', attr('Web Site'));
+        row('Fax', attr('Organization Fax Number'));
+        return out;
+    }
+
+    /**
+     * The department, and the Business Unit that owns it.
+     *
+     * Both, because the form header carries both and a department name alone
+     * does not say which part of the organisation it belongs to - the Business
+     * Unit is what `IRSProjectUI` calls the stream.
+     */
+    function toDepartment(raw) {
+        raw = raw || {};
+        var unit = raw.businessUnit || {};
+        return {
+            linked: text(raw.linked) === 'true',
+            id: text(raw.physicalId) || text(raw.id),
+            name: meaningful(raw.displayName) || text(raw.name),
+            code: text(raw.name),
+            type: text(raw.type),
+            state: text(raw.state),
+            error: text(raw.error),
+            businessUnit: {
+                linked: text(unit.linked) === 'true',
+                id: text(unit.physicalId) || text(unit.id),
+                name: meaningful(unit.displayName) || text(unit.name),
+                code: text(unit.name),
+                type: text(unit.type)
+            }
+        };
+    }
+
+    /**
      * The payload, flattened to what the two form sections need.
      *
      * Pure, so it can be tested against the captured response without a
@@ -131,13 +228,51 @@ define('IRSTasks/services/ProjectContextService', [
             learnings: here.concat(elsewhere),
             learningsHere: here,
             learningsElsewhere: elsewhere,
+            customer: toCustomer(body.customer),
+            department: toDepartment(body.department),
             riskError: text(body.riskError),
             learningError: text(learnings.error),
             counts: body.counts || {}
         };
     }
 
+    /**
+     * The `$include` sections a form definition asks for.
+     *
+     * Risks and opportunities travel together because one relationship carries
+     * both, so the service reads them in a single round trip either way. The
+     * two learning groups do not: they are separate relationships and separate
+     * round trips, and the two **answer different forms** -
+     * `R&D-PRJ-01` XII cites lessons from EARLIER projects, while the
+     * completion form records what this one produced.
+     */
+    function sectionsFor(spec) {
+        var out = [];
+        function add(name) { if (out.indexOf(name) < 0) { out.push(name); } }
+
+        if (!spec || !Array.isArray(spec.fields)) { return out; }
+        spec.fields.forEach(function (field) {
+            if (field.source !== 'service') { return; }
+            if (field.display === 'risks') {
+                add('risks');
+                add('opportunities');
+            } else if (field.display === 'customer') {
+                add('customer');
+            } else if (field.display === 'department') {
+                add('department');
+            } else if (field.display === 'learnings') {
+                var scope = field.learningScope || 'all';
+                if (scope === 'created') { add('learnings.created'); }
+                else if (scope === 'reused') { add('learnings.reused'); }
+                else { add('learnings'); }
+            }
+        });
+        return out;
+    }
+
     return {
+        sectionsFor: sectionsFor,
+
         /**
          * @param {string} projectId physical id or legacy id - the JAR resolves
          *                 either, so the id the list already holds is fine
@@ -145,11 +280,23 @@ define('IRSTasks/services/ProjectContextService', [
          *          call itself failed; a section that failed server-side comes
          *          back in `riskError` / `learningError`.
          */
-        get: function (projectId) {
+        get: function (projectId, sections) {
             if (!projectId) {
                 return Promise.reject(new Error('No project id was given.'));
             }
-            return Request.get(PATH + projectId + '/context').then(function (body) {
+
+            // `$include` asks for only the sections this form actually shows.
+            // Each one is its own round trip server-side, so a form that cites
+            // reused learnings does not pay for the ones this project produced.
+            // Omitting it means everything, which is what the first version of
+            // the service did - so an older JAR simply ignores the parameter
+            // and still answers correctly.
+            var options;
+            if (sections && sections.length) {
+                options = { params: { '$include': sections.join(',') } };
+            }
+
+            return Request.get(PATH + projectId + '/context', options).then(function (body) {
                 var out = shape(body);
                 Log.info('project context: ' + out.risks.length + ' risk(s), ' +
                          out.opportunities.length + ' opportunity(ies), ' +
@@ -163,6 +310,8 @@ define('IRSTasks/services/ProjectContextService', [
 
         /** for tests only */
         _shape: shape,
-        _toLearning: toLearning
+        _toLearning: toLearning,
+        _toCustomer: toCustomer,
+        _toDepartment: toDepartment
     };
 });

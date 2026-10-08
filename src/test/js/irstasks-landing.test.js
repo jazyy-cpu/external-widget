@@ -60,7 +60,7 @@ assert.strictEqual(Fields.isListed(''), false);
 assert.strictEqual(Fields.isListed(undefined), false);
 
 // the labels are the platform's own names, copied from a live response - they
-// are the fallback for when the response does not carry typeNLS
+// are the fallback for when the response does not carry nlsType
 assert.strictEqual(Fields.typeLabel('EPMPROJECT_PROPOSAL'), 'PROJECT PROPOSAL / PROFILE');
 assert.strictEqual(Fields.typeLabel('EPMPROJECT_PERSONNEL_COST'),
   'PROJECT PERSONNEL / COST ESTIMATION');
@@ -233,7 +233,10 @@ Service.list().then(result => {
   assert.strictEqual(call.opts.params.showProjectTasks, 'true');
   assert.strictEqual(call.opts.params.currentTaskFilter, 'all',
     'all tasks, not only the ones assigned to the current user (user, 2026-10-07)');
-  assert.strictEqual(call.opts.params['$fields'], 'basics,typeNLS,stateNLS',
+  // `nlsType` is the REQUESTABLE field name; `typeNLS` is only the key the
+  // platform emits on related objects. Asking for `typeNLS` asks for
+  // nothing, which is why the grid showed our own labels for days
+  assert.strictEqual(call.opts.params['$fields'], 'basics,nlsType',
     'the set plus the platform\'s own display names - without them the grid shows ours');
   assert.ok(/assignees/.test(call.opts.params['$include']),
     'assignees must be included, or Assigned To is always empty');
@@ -254,7 +257,7 @@ Service.list().then(result => {
   assert.strictEqual(r.assignedTo, 'Jiwan Dhiman');
   assert.strictEqual(r.route, 'Route 1');
   assert.strictEqual(r.typeLabel, 'PROJECT REVIEW',
-    'no typeNLS in this fixture, so the registry label shows - and it is now the DMC name');
+    'no nlsType in this fixture, so the registry label shows - and it is now the DMC name');
   assert.strictEqual(r.fromPlatform, false);
   assert.strictEqual(r.stateLabel, 'In Work', 'Active reads as In Work');
   assert.strictEqual(r.editable, true, 'an Active task may be edited');
@@ -284,7 +287,7 @@ Service.list().then(result => {
       id: '9', type: 'EPMPROJECT_PROPOSAL',
       dataelements: {
         title: 'T-9', state: 'Active',
-        typeNLS: 'PROJECT PROPOSAL / PROFILE', stateNLS: 'In Work'
+        nlsType: 'PROJECT PROPOSAL / PROFILE', stateNLS: 'In Work'
       },
       relateddata: {
         DPMProject: [{ id: 'P9', type: 'EPMAnalysisProject',

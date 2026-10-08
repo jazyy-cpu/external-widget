@@ -47,8 +47,10 @@ const Detail = load(path.join(base, 'js/services/TaskDetailService.js'),
   [Request, Fields, Log]);
 const Context = load(path.join(base, 'js/services/ProjectContextService.js'),
   [Request, Log]);
+const PanelStub = { render: () => ({ stub: true }) };
 const View = load(path.join(base, 'js/views/TaskDetailView.js'),
-  [Detail, Context, {}, Fields, { date: v => v, badge: () => ({}), empty: () => ({}) }]);
+  [Detail, Context, {}, PanelStub, Fields,
+   { date: v => v, badge: () => ({}), empty: () => ({}) }]);
 
 // ---- 1. the form definition file --------------------------------------
 
@@ -67,7 +69,7 @@ assert.strictEqual(Fields.fieldSet('EPMPROJECT_PROPOSAL'), 'project-proposal');
 // a field name whenever a value is expected
 const SOURCES = ['project', 'task', 'derived', 'service', 'none'];
 const DISPLAYS = ['text', 'longtext', 'pending', 'elsewhere', 'approval', 'type',
-                  'risks', 'learnings'];
+                  'risks', 'learnings', 'customer', 'department'];
 // a source that reads ONE value must name the field it reads; a source that
 // renders a list or nothing at all must instead explain itself in a note,
 // because the page prints that note where a value would have gone
@@ -87,9 +89,10 @@ spec.fields.forEach(f => {
 // REST JAR exists: OOTB returns the risks empty, has no Opportunity route, and
 // cannot know IRSLearning at all
 const service = spec.fields.filter(f => f.source === 'service');
-assert.strictEqual(service.length, 2, 'exactly two service-backed sections');
-assert.deepStrictEqual(service.map(f => f.ref), ['XII', 'XIII']);
-assert.deepStrictEqual(service.map(f => f.display).sort(), ['learnings', 'risks']);
+assert.strictEqual(service.length, 4, 'four service-backed sections');
+assert.deepStrictEqual(service.map(f => f.ref), ['Header', 'II', 'XII', 'XIII']);
+assert.deepStrictEqual(service.map(f => f.display).sort(),
+  ['customer', 'department', 'learnings', 'risks']);
 
 // EPMLessonsLearnt was CANCELLED when the IRSLearning object replaced it
 // (WP02 doc 08). No row may go looking for it again.
@@ -164,13 +167,20 @@ row = View._resolve({ label: 'Project Category', source: 'derived', field: 'type
   task, null);
 assert.strictEqual(row.missing, true, 'derived needs the project too');
 
-// `fallbackField`: Project Name must not print a dash just because Title is
-// empty, which it is on every project measured
+// `fallbackField`: a second attribute tried when the first is empty. Project
+// Name no longer needs it - on R2024x `name` IS the field - but the mechanism
+// stays, and an empty primary must fall through rather than print a dash
 row = r({ label: 'Project Name', source: 'project', field: 'title',
           fallbackField: 'name', display: 'text' });
 assert.strictEqual(row.value, 'Solize XYZ Ltd');
 assert.strictEqual(row.usedFallback, true);
 assert.strictEqual(row.empty, false);
+
+// and a filled primary must NOT consult the fallback
+row = r({ label: 'Project Name', source: 'project', field: 'name',
+          fallbackField: 'title', display: 'text' });
+assert.strictEqual(row.value, 'Solize XYZ Ltd');
+assert.strictEqual(row.usedFallback, false);
 
 // a service section carries no value of its own - the renderer reads the
 // context for the table - and must never be reported as missing data
@@ -200,27 +210,39 @@ assert.ok(proposal, 'the capture must contain a proposal task with a document');
 const shaped = Detail._toTask(proposal);
 assert.strictEqual(shaped.type, 'EPMPROJECT_PROPOSAL');
 assert.strictEqual(shaped.typeLabel, 'PROJECT PROPOSAL / PROFILE',
-  'the capture has no typeNLS on the task item, so the registry label shows - ' +
+  'the capture has no display name on the task item, so the registry label shows - ' +
   'and that label is now the platform\'s own name, copied from the same capture');
 assert.strictEqual(shaped.typeFromPlatform, false);
 assert.ok(shaped.title, 'the task number');
 assert.ok(shaped.projectId, 'the project arrives with the task');
 assert.ok(shaped.projectTitle, 'and its title');
 assert.strictEqual(shaped.projectTypeLabel, 'Analysis Project',
-  'the project DOES carry typeNLS - the platform display name');
+  'a RELATED project carries typeNLS - the key name the platform emits there');
 assert.ok(/^PPF-/.test(shaped.documentName), 'the generated form document: ' + shaped.documentName);
 assert.ok(shaped.documentRevision !== '', 'and its revision');
 assert.strictEqual(typeof shaped.attributes, 'object');
 Object.keys(shaped).forEach(k => assert.notStrictEqual(shaped[k], undefined, k));
 
-// typeNLS wins where the platform sends it - the point of using it at all
+// `nlsType` wins where the platform sends it - the point of asking at all.
+// This is the shape the live task resource actually returns, measured
+// 2026-10-08: the field is `nlsType`, not `typeNLS`.
 const withNLS = Detail._toTask({
   id: 'X', type: 'EPMPROJECT_PROPOSAL',
-  dataelements: { typeNLS: 'PROJECT PROPOSAL / PROFILE', stateNLS: 'Completed', state: 'Complete' }
+  dataelements: { nlsType: 'PROJECT PROPOSAL / PROFILE', stateNLS: 'Completed', state: 'Complete' }
 });
 assert.strictEqual(withNLS.typeLabel, 'PROJECT PROPOSAL / PROFILE');
 assert.strictEqual(withNLS.typeFromPlatform, true);
 assert.strictEqual(withNLS.stateLabel, 'Completed');
+
+// and `typeNLS` STILL wins where it appears, because that is the key the
+// platform uses on RELATED objects - both spellings are real, which is
+// exactly what hid the bug
+const withKeyName = Detail._toTask({
+  id: 'Y', type: 'EPMPROJECT_REVIEW',
+  dataelements: { typeNLS: 'PROJECT REVIEW', state: 'Complete' }
+});
+assert.strictEqual(withKeyName.typeLabel, 'PROJECT REVIEW');
+assert.strictEqual(withKeyName.typeFromPlatform, true);
 
 // ---- 5. the two calls -------------------------------------------------
 
@@ -232,18 +254,23 @@ Request._bodies = {
     // measured on both TEST PROJECT and Solize XYZ, 2026-10-08
     data: [{ id: 'P1', type: 'EPMAnalysisProject',
              dataelements: { name: 'Solize XYZ', title: '',
-                             EPMProjectNo: 'R&D-26010-HY', typeNLS: 'Analysis Project' } }]
+                             EPMProjectNo: 'R&D-26010-HY', nlsType: 'Analysis Project' } }]
   }
 };
 
 Detail.get('TASK1').then(result => {
   assert.strictEqual(Request._calls.length, 2, 'one call for the task, one for its project');
   assert.strictEqual(Request._calls[0].path, 'resources/v1/modeler/tasks/TASK1');
-  assert.strictEqual(Request._calls[0].opts.params['$fields'], 'basics,typeNLS,stateNLS',
-    'the detail call asks for the display names too');
+  assert.strictEqual(Request._calls[0].opts.params['$fields'], 'basics,nlsType',
+    'the detail call asks for the platform display name, by its REAL field name');
   assert.ok(/projects\//.test(Request._calls[1].path));
   assert.strictEqual(Request._calls[1].opts.params['$include'], 'none',
     'mandatory - the default expands the whole task tree');
+  // the project call must ask for the display name too, or Project Category
+  // prints the raw `EPMResearchProject`. `nlsType` ALONE is what was proved
+  // live on this resource: it adds the field and still returns every EPM
+  // attribute, where a narrower set risks dropping the form's own data
+  assert.strictEqual(Request._calls[1].opts.params['$fields'], 'nlsType');
 
   assert.strictEqual(result.project.projectNo, 'R&D-26010-HY');
   assert.strictEqual(result.note, '');
@@ -252,10 +279,11 @@ Detail.get('TASK1').then(result => {
   const header = spec.fields.filter(f => f.ref === 'Header' && f.source === 'project')
     .map(f => View._resolve(f, result.task, result.project));
   assert.strictEqual(header.find(h => h.field === 'EPMProjectNo').value, 'R&D-26010-HY');
-  // Title is empty on the real project, so the Project Name row shows `name`
-  const nameRow = header.find(h => h.field === 'title');
+  // Project Name reads `name`. On R2024x a project is created with a name
+  // only, so Title stays empty and `name` is the field - not a fallback
+  const nameRow = header.find(h => h.field === 'name');
   assert.strictEqual(nameRow.value, 'Solize XYZ');
-  assert.strictEqual(nameRow.usedFallback, true, 'it came from the fallback');
+  assert.strictEqual(nameRow.usedFallback, false);
 
   // a project that cannot be read leaves the task page usable, and says why
   Request._calls = [];
@@ -295,8 +323,11 @@ Detail.get('TASK1').then(result => {
 // whole point: it is the only way the "empty originProject" case would have
 // been noticed before it reached a screen.
 
-const CONTEXT_CAPTURE = path.join(__dirname,
-  '../../../../As-Is  Understanding/manual logs/data-2026108838.json');
+// a COMMITTED fixture, not a scratch log. The first version of this test read
+// the capture from `As-Is  Understanding/manual logs/`, which the user prunes -
+// and it broke the same day it was pruned. The file is the real response,
+// copied into the test tree where it is owned.
+const CONTEXT_CAPTURE = path.join(__dirname, 'fixtures/project-context-solize.json');
 const live = JSON.parse(fs.readFileSync(CONTEXT_CAPTURE, 'utf8'));
 const live_shaped = Context._shape(live);
 
@@ -450,3 +481,492 @@ failing.get('forms/project-proposal').then(() => {
   delete global.XMLHttpRequest;
   console.log('irstasks-config: all assertions passed');
 });
+
+// ---- 8. $include: the form asks only for what it shows ----------------
+
+// section XIII wants both kinds; they share one relationship server-side, so
+// asking for both costs one round trip either way
+assert.deepStrictEqual(
+  Context.sectionsFor({ fields: [{ source: 'service', display: 'risks' }] }),
+  ['risks', 'opportunities']);
+
+// the two learning groups answer DIFFERENT forms, and each is its own round
+// trip - a proposal citing earlier work must not pay for this project's own
+assert.deepStrictEqual(
+  Context.sectionsFor({ fields: [{ source: 'service', display: 'learnings',
+                                   learningScope: 'reused' }] }),
+  ['learnings.reused']);
+assert.deepStrictEqual(
+  Context.sectionsFor({ fields: [{ source: 'service', display: 'learnings',
+                                   learningScope: 'created' }] }),
+  ['learnings.created']);
+// no scope given: both groups
+assert.deepStrictEqual(
+  Context.sectionsFor({ fields: [{ source: 'service', display: 'learnings' }] }),
+  ['learnings']);
+
+// a form with no service row makes NO call at all
+assert.deepStrictEqual(Context.sectionsFor({ fields: [{ source: 'project', field: 'x' }] }), []);
+assert.deepStrictEqual(Context.sectionsFor(null), []);
+
+// the real proposal form: risks, opportunities, and the REUSED learnings only
+assert.deepStrictEqual(Context.sectionsFor(spec),
+  // the order follows the FORM - XII comes before XIII - which is
+  // incidental to the server but makes the parameter readable in a log
+  ['department', 'customer', 'learnings.reused', 'risks', 'opportunities'],
+  'R&D-PRJ-01 XII cites earlier projects, so it must not fetch this one\'s own');
+
+// a duplicate section is asked for once
+assert.deepStrictEqual(
+  Context.sectionsFor({ fields: [
+    { source: 'service', display: 'risks' },
+    { source: 'service', display: 'risks' }
+  ] }),
+  ['risks', 'opportunities']);
+
+// the parameter actually goes on the wire, and is omitted when nothing is
+// asked for.
+//
+// This section gets its OWN module instance and its own fake, rather than
+// reaching into the shared `Request`: section 5's promise chain is still
+// pending at this point, and replacing a method it is using made IT count
+// THESE calls. Sections of a suite must not share mutable state.
+const wireCalls = [];
+const wireRequest = {
+  get: (p, opts) => {
+    wireCalls.push({ path: p, opts: opts });
+    return Promise.resolve({ risks: [], opportunities: [],
+                             learnings: { createdInThisProject: [], fromOtherSources: [] } });
+  }
+};
+const WireContext = load(path.join(base, 'js/services/ProjectContextService.js'),
+  [wireRequest, Log]);
+
+WireContext.get('P1', ['risks', 'learnings.reused']).then(() => {
+  assert.strictEqual(wireCalls[0].opts.params['$include'], 'risks,learnings.reused');
+  wireCalls.length = 0;
+  return WireContext.get('P1');
+}).then(() => {
+  assert.strictEqual(wireCalls[0].opts, undefined,
+    'no sections means no parameter - which an older JAR needs');
+
+  // a response that carries only the requested section must still shape
+  const partial = Context._shape({
+    included: ['learnings.reused'],
+    learnings: { fromOtherSources: [{ no: 'LRN-1', title: 'a', text: 'b', state: 'Active',
+                                      originProject: { name: 'P', projectNo: 'R&D-1' } }],
+                 error: '' }
+  });
+  assert.strictEqual(partial.learningsElsewhere.length, 1);
+  assert.deepStrictEqual(partial.risks, [], 'an absent section is simply empty here');
+  assert.strictEqual(partial.learningsHere.length, 0);
+  assert.strictEqual(partial.learningsElsewhere[0].originLabel, 'P (R&D-1)');
+
+  console.log('irstasks-include: all assertions passed');
+}).catch(err => { console.error(err); process.exit(1); });
+
+// ---- 9. the customer, and why its rows differ by kind -----------------
+//
+// The platform's rule, already enforced by IRSProjectUI on the AEF form:
+// an EXTERNAL project's customer is a Company and carries Email Address;
+// an INTERNAL one is a Business Unit or a Department, where that attribute
+// does not exist on the type at all.
+
+const external = Context._toCustomer({
+  projectType: 'External_Projects', projectTypeLabel: 'External Project',
+  linked: 'true', kind: 'external', name: 'Comp-0000001', type: 'Company',
+  physicalId: 'C1', displayName: 'GlobalMart Retail Solutions',
+  attributes: {
+    'Organization Name': 'GlobalMart Retail Solutions', 'Title': 'GlobalMart Retail Solutions',
+    'City': 'Chicago', 'Country': 'United States Of America', 'State/Region': '',
+    'Address': '', 'Postal Code': '', 'Organization Phone Number': '+1 312 555 0101',
+    'Organization Fax Number': '', 'Web Site': '', 'Organization ID': '00000001790163459665',
+    'Email Address': 'contact@globalmart.example'
+  },
+  error: ''
+});
+assert.strictEqual(external.linked, true);
+assert.strictEqual(external.kind, 'external');
+assert.strictEqual(external.name, 'GlobalMart Retail Solutions');
+let labels = external.rows.map(r => r.label);
+assert.deepStrictEqual(labels,
+  ['Customer', 'Project Type', 'Contact No', 'Email', 'City', 'Country'],
+  'only the fields that HAVE a value, in form order');
+assert.strictEqual(external.rows.find(r => r.label === 'Email').value,
+  'contact@globalmart.example');
+
+// internal: a Business Unit. No Email row - not empty, absent - and the
+// display name must come from Title, because ENOVIA stores the literal word
+// "Unknown" in an unset Organization Name
+const internal = Context._toCustomer({
+  projectType: 'Internal_Projects', projectTypeLabel: 'Internal Project',
+  linked: 'true', kind: 'internal', name: 'BU-0000002', type: 'Business Unit',
+  displayName: 'RDAREA',
+  attributes: {
+    'Organization Name': 'Unknown', 'Title': 'RDAREA', 'City': '',
+    'Country': 'Unassigned', 'Address': 'Unknown', 'Postal Code': '',
+    'Organization Phone Number': '', 'Organization Fax Number': '',
+    'Web Site': '', 'Organization ID': 'RDAREA'
+  },
+  error: ''
+});
+assert.strictEqual(internal.kind, 'internal');
+assert.strictEqual(internal.name, 'RDAREA');
+labels = internal.rows.map(r => r.label);
+assert.ok(labels.indexOf('Email') < 0,
+  'an internal customer has no Email Address attribute at all');
+// "Unassigned" and "Unknown" are the platform's placeholders, not values, and
+// printing either on a form states something false
+assert.ok(labels.indexOf('Country') < 0, '"Unassigned" is not a country');
+assert.ok(labels.indexOf('Address') < 0, '"Unknown" is not an address');
+assert.deepStrictEqual(labels, ['Customer', 'Project Type']);
+
+// no customer linked: said in words, and never as an empty table
+const none = Context._toCustomer({ projectType: '', linked: 'false', kind: '', error: '' });
+assert.strictEqual(none.linked, false);
+assert.deepStrictEqual(none.rows, []);
+
+// a failed read stays distinguishable from "no customer"
+const brokenCustomer = Context._toCustomer({ error: 'no such relationship' });
+assert.strictEqual(brokenCustomer.error, 'no such relationship');
+assert.strictEqual(brokenCustomer.linked, false);
+
+// a response with no customer key at all must not throw
+assert.strictEqual(Context._shape({}).customer.linked, false);
+
+// and the form asks for the section
+assert.deepStrictEqual(
+  Context.sectionsFor({ fields: [{ source: 'service', display: 'customer' }] }),
+  ['customer']);
+assert.ok(Context.sectionsFor(spec).indexOf('customer') >= 0,
+  'R&D-PRJ-01 II needs the customer');
+
+console.log('irstasks-customer: all assertions passed');
+
+// ---- 10. the department, and the Business Unit that owns it -----------
+
+const dept = Context._toDepartment({
+  linked: 'true', id: '39261.35329.25183.13796',
+  physicalId: '299036CE000033A46AB12391000000AC',
+  name: '0000000001', type: 'Department', state: 'Active',
+  displayName: 'Hydrodynamics and Multiphysics',
+  businessUnit: {
+    linked: 'true', id: '39261.35329.25183.13161',
+    physicalId: '299036CE000033A46AB11A1500000020',
+    name: 'BU-0000001', type: 'Business Unit',
+    displayName: 'Research and Development'
+  },
+  error: ''
+});
+assert.strictEqual(dept.linked, true);
+assert.strictEqual(dept.name, 'Hydrodynamics and Multiphysics');
+// the autonamed id is kept but never shown as the name: "0000000001" tells a
+// reader nothing
+assert.strictEqual(dept.code, '0000000001');
+assert.strictEqual(dept.id, '299036CE000033A46AB12391000000AC', 'the physical id links out');
+assert.strictEqual(dept.businessUnit.linked, true);
+assert.strictEqual(dept.businessUnit.name, 'Research and Development');
+
+// a department with no owning Business Unit reports that, rather than
+// arriving as a row of empty strings
+const orphan = Context._toDepartment({
+  linked: 'true', name: '0000000002', displayName: 'Loose Department',
+  businessUnit: { linked: 'false' }, error: ''
+});
+assert.strictEqual(orphan.businessUnit.linked, false);
+assert.strictEqual(orphan.name, 'Loose Department');
+
+// the platform's placeholder is not a name here either
+const placeheld = Context._toDepartment({
+  linked: 'true', name: 'BU-0000002', displayName: 'Unknown',
+  businessUnit: { linked: 'false' }, error: ''
+});
+assert.strictEqual(placeheld.name, 'BU-0000002',
+  '"Unknown" is a placeholder, so the code is the better answer');
+
+const noDept = Context._toDepartment({ linked: 'false', error: '' });
+assert.strictEqual(noDept.linked, false);
+assert.strictEqual(Context._shape({}).department.linked, false, 'absent must not throw');
+
+assert.deepStrictEqual(
+  Context.sectionsFor({ fields: [{ source: 'service', display: 'department' }] }),
+  ['department']);
+assert.ok(Context.sectionsFor(spec).indexOf('department') >= 0,
+  'the form header needs the department');
+
+// ---- 11. the Summary Report layout ------------------------------------
+//
+// The layout the user asked for on 2026-10-08 is a DOM decision, and until now
+// nothing tested the DOM at all - the suite stopped at the resolver. A stub
+// `document` is enough: the questions are which element a row lands in and
+// what text it carries, not how a browser paints it.
+
+const DOC = {
+  createElement: (tag) => ({
+    tagName: tag.toUpperCase(), className: '', textContent: '',
+    children: [], style: {}, setAttribute() {},
+    // the panel wires click handlers and toggles `disabled`; the stub only has
+    // to accept them - the suite asserts structure, not interaction
+    listeners: {},
+    addEventListener(name, fn) { this.listeners[name] = fn; },
+    appendChild(child) { this.children.push(child); return child; },
+    get firstChild() { return this.children[0] || null; },
+    removeChild(child) {
+      this.children.splice(this.children.indexOf(child), 1); return child;
+    }
+  })
+};
+global.document = DOC;
+
+function walk(node, visit) {
+  visit(node);
+  node.children.forEach(child => walk(child, visit));
+}
+
+function findAll(node, className) {
+  const out = [];
+  walk(node, n => {
+    if ((' ' + n.className + ' ').indexOf(' ' + className + ' ') >= 0) { out.push(n); }
+  });
+  return out;
+}
+
+function allText(node) {
+  let out = '';
+  walk(node, n => { out += n.textContent + '\n'; });
+  return out;
+}
+
+const layoutRows = spec.fields.map(f => View._resolve(f, task, project));
+const page = View._main(spec, { typeLabel: 'x' }, project, layoutRows, null);
+
+// short fields pair off: Project Name and Project No. are adjacent on the
+// paper form, so they are adjacent cells of the SAME grid
+const grids = findAll(page, 'irs-kv-grid');
+assert.ok(grids.length >= 1, 'the short fields collect into at least one grid');
+const firstGrid = grids[0].children.map(col => allText(col).trim().split('\n')[0]);
+assert.strictEqual(firstGrid[0], 'Project Name');
+assert.strictEqual(firstGrid[1], 'Project No.');
+
+// every pair is half a line wide - that is what "side by side" is made of
+grids.forEach(grid => grid.children.forEach(col => {
+  assert.ok(col.className.indexOf('col-md-6') >= 0, 'a pair is half a line wide');
+}));
+
+// the long sections get a ruled heading, carrying the form's own numeral
+const heads = findAll(page, 'irs-sum-head').map(n => n.textContent);
+assert.ok(heads.indexOf('III. Need of the Project') >= 0,
+  'a prose section is a ruled heading with its printed section number');
+assert.ok(heads.indexOf('XIII. Risks and opportunities') >= 0);
+// `Header` and `Footer` are our grouping words, not printed on the form
+assert.ok(!allText(page).match(/\bHeader\b|\bFooter\b/),
+  'our own grouping words never reach the page');
+
+// and NOT one of the notes - the user asked for the form, not guidance about it
+const text = allText(page);
+spec.fields.filter(f => f.note).forEach(f => {
+  assert.ok(text.indexOf(f.note) < 0,
+    'the note for "' + f.label + '" must not be rendered');
+});
+
+// a field the platform did not return says so in its own cell, with no banner
+// and no second line under the row
+const missingRow = View._resolve(
+  { label: 'Nope', source: 'project', field: 'EPMNotThere' }, task, project);
+assert.strictEqual(missingRow.missing, true);
+const missingPage = View._main(spec, { typeLabel: 'x' }, project, [missingRow], null);
+assert.ok(allText(missingPage).indexOf('not returned') >= 0);
+
+// the two tables under one heading must come out identical, or their columns
+// do not meet - which is what the user saw. Equal declared widths is the whole
+// fix; `table-layout: fixed` in the CSS makes the browser honour them
+const cols = [
+  { label: 'No.', key: 'no', width: '10rem' },
+  { label: 'Title', key: 'title' },
+  { label: 'State', key: 'state', width: '9rem' }
+];
+const t1 = View._table(cols, [{ no: 'R-0000006', title: 'TEST RISK', state: 'Complete' }]);
+const t2 = View._table(cols, [{ no: 'OPP-0000007', title: 'OPPRTUNIT!', state: 'Complete' }]);
+const widths = (t) => findAll(t, 'irs-sum-table')[0]
+  .children[0].children[0].children.map(th => th.style.width);
+assert.deepStrictEqual(widths(t1), widths(t2),
+  'Risks and Opportunities declare the same column widths');
+assert.strictEqual(widths(t1)[0], '10rem',
+  'a risk number is about twelve characters - it does not get a third of the row');
+
+// the parked rows: hidden, not deleted. Every one of them is a row with no
+// value to show yet, and the file still carries its field name and its note
+const hidden = spec.fields.filter(f => f.hidden);
+assert.strictEqual(hidden.length, 5);
+hidden.forEach(f => {
+  assert.ok(f.source === 'none' || f.display === 'pending',
+    '"' + f.label + '" is hidden, so it must be a row that has no value yet');
+  assert.ok(f.note, 'a hidden row keeps its note - that is the point of parking it');
+});
+assert.strictEqual(spec.fields.length, 23, 'nothing was removed from the file');
+
+delete global.document;
+
+// ---- 12. deliverables and attachments ---------------------------------
+//
+// Both come from the task call the page already makes. Measured live on
+// T-85756263-0000137 (2026-10-08), which is the shape this fixture copies:
+//   relateddata.deliverables -> DOC-...0021 "config.toml" .toml  hasfiles TRUE
+//   relateddata.references   -> DOC-...0019 "JIWAN TEST"  .pdf   hasfiles TRUE
+// `references` is the ATTACHMENTS slot. It was empty in the October capture
+// only because nothing had been attached, which is why it looked unused.
+
+const withDocs = Detail._toTask({
+  id: 'T1', type: 'EPMPROJECT_PROPOSAL',
+  dataelements: { state: 'Assign' },
+  relateddata: {
+    deliverables: [{
+      id: 'D21', type: 'Document',
+      dataelements: {
+        name: 'DOC-85756263-0000021', title: 'config.toml', revision: '0',
+        stateNLS: 'In Work', typeNLS: 'Document',
+        hasfiles: 'TRUE', fileExtension: '.toml'
+      }
+    }],
+    references: [{
+      id: 'D19', type: 'Document',
+      dataelements: {
+        name: 'DOC-85756263-0000019', title: 'JIWAN TEST', revision: '0',
+        stateNLS: 'In Work', typeNLS: 'Document',
+        hasfiles: 'TRUE', fileExtension: '.pdf'
+      }
+    }]
+  }
+});
+
+assert.strictEqual(withDocs.deliverables.length, 1);
+assert.strictEqual(withDocs.attachments.length, 1);
+assert.strictEqual(withDocs.deliverables[0].title, 'config.toml');
+assert.strictEqual(withDocs.attachments[0].title, 'JIWAN TEST');
+assert.strictEqual(withDocs.deliverables[0].kind, 'deliverable');
+assert.strictEqual(withDocs.attachments[0].kind, 'attachment');
+// the platform spells its booleans as the STRINGS "TRUE"/"FALSE"
+assert.strictEqual(withDocs.attachments[0].hasFiles, true);
+assert.strictEqual(withDocs.attachments[0].extension, '.pdf');
+// the first deliverable is still exposed the old way - nothing that read it broke
+assert.strictEqual(withDocs.documentId, 'D21');
+
+// a Document with nothing checked in is NORMAL here: every deliverable in the
+// October capture was one, and the panel must not offer a button for it
+const noFile = Detail._toTask({
+  id: 'T2', type: 'EPMPROJECT_PROPOSAL', dataelements: {},
+  relateddata: { deliverables: [{ id: 'D1', dataelements: { name: 'PPF-0000004', hasfiles: 'FALSE' } }] }
+});
+assert.strictEqual(noFile.deliverables[0].hasFiles, false);
+assert.deepStrictEqual(noFile.attachments, [], 'no references key must not throw');
+
+// and the call asks for them. This is the whole reason the panel costs no
+// round trip of its own.
+//
+// Its OWN Request and its OWN module instance: sections above still have
+// promise chains in flight against the shared fake, and replacing its bodies
+// underneath them is exactly the bug that bit section 8
+const DocRequest = {
+  _calls: [],
+  get: function (p, opts) {
+    DocRequest._calls.push({ path: p, opts: opts });
+    return Promise.resolve({ data: [{ id: 'T1', dataelements: {} }] });
+  }
+};
+const DocDetail = load(path.join(base, 'js/services/TaskDetailService.js'),
+  [DocRequest, Fields, Log]);
+DocDetail.get('T1');
+assert.strictEqual(DocRequest._calls[0].opts.params['$include'],
+  'assignees,deliverables,references',
+  'deliverables AND references ride in the call the page already makes');
+
+// ---- the download: ticket, then the browser --------------------------
+
+const TicketRequest = {
+  _calls: [],
+  _body: null,
+  send: function (p, opts) {
+    TicketRequest._calls.push({ path: p, opts: opts });
+    return TicketRequest._body instanceof Error
+      ? Promise.reject(TicketRequest._body)
+      : Promise.resolve(TicketRequest._body);
+  }
+};
+const Docs = load(path.join(base, 'js/services/DocumentService.js'),
+  [TicketRequest, Log]);
+
+// the response shape is the vendor's `x-schemas/DownloadTicket`, read out of
+// the OpenAPI document - the guide lists the endpoint but never prints it
+TicketRequest._body = {
+  data: [{ dataelements: {
+    ticketURL: 'https://host/fcs/servlet/fcs/checkout?__fcs__jobTicket=ABC',
+    fileName: 'config.toml'
+  } }]
+};
+
+const ticketChecks = Docs._ticket('D21').then(t => {
+  assert.strictEqual(t.url, 'https://host/fcs/servlet/fcs/checkout?__fcs__jobTicket=ABC');
+  assert.strictEqual(t.fileName, 'config.toml');
+  const call = TicketRequest._calls[0];
+  assert.strictEqual(call.path, 'resources/v1/modeler/documents/D21/files/DownloadTicket');
+  // PUT, so Request.send attaches the CSRF token and retries once on a token
+  // failure - which is why this does not call fetch itself
+  assert.strictEqual(call.opts.method, 'PUT');
+}).then(() => {
+  // a 200 carrying no ticket is the platform's answer, not a transport fault
+  TicketRequest._body = { data: [{ dataelements: {} }] };
+  return Docs._ticket('D21').then(
+    () => { throw new Error('a ticketless 200 must reject'); },
+    err => assert.ok(/no download ticket/i.test(err.message)));
+}).then(() => {
+  return Docs._ticket('').then(
+    () => { throw new Error('a missing id must reject'); },
+    err => assert.ok(/document id/i.test(err.message)));
+});
+
+// ---- the panel ---------------------------------------------------------
+
+const PANEL_DOC = {
+  createElement: DOC.createElement,
+  createElementNS: (ns, tag) => Object.assign(DOC.createElement(tag), { ns: ns })
+};
+global.document = PANEL_DOC;
+const Panel = load(path.join(base, 'js/views/TaskDocumentsPanel.js'), [Docs, Log]);
+
+Panel._setCollapsed(false);
+const rendered = Panel.render(withDocs);
+const panelText = allText(rendered);
+assert.ok(panelText.indexOf('Deliverables') >= 0 && panelText.indexOf('Attachments') >= 0,
+  'two headed groups, never merged - they mean different things');
+assert.ok(panelText.indexOf('config.toml') >= 0 && panelText.indexOf('JIWAN TEST') >= 0);
+// the autonamed id identifies the object but describes nothing, so the TITLE
+// is the line that gets scanned and the id goes underneath
+assert.ok(panelText.indexOf('DOC-85756263-0000021') >= 0);
+assert.strictEqual(findAll(rendered, 'irs-doc-btn').length, 2,
+  'both documents have a file, so both get a download button');
+
+// no file, no button - and it says so rather than leaving a silent gap
+const bare = Panel.render(noFile);
+assert.strictEqual(findAll(bare, 'irs-doc-btn').length, 0);
+assert.ok(allText(bare).indexOf('no file') >= 0);
+assert.ok(allText(bare).indexOf('None on this task.') >= 0,
+  'an empty group still states itself, so a reader knows it was checked');
+
+// the collapse state is module-level: it follows the user between tasks in a
+// session, and a reload goes back to open because that is the frequent case
+Panel._setCollapsed(true);
+assert.strictEqual(Panel._isCollapsed(), true);
+const shut = Panel.render(withDocs);
+assert.ok(allText(shut).indexOf('Documents') >= 0 &&
+          allText(shut).indexOf('2') >= 0,
+  'a collapsed panel keeps its counts - otherwise it must be opened to find out');
+Panel._setCollapsed(false);
+
+global.document = DOC;
+
+delete global.document;
+
+ticketChecks.then(() => console.log('irstasks-documents: all assertions passed'))
+  .catch(err => { console.error(err); process.exit(1); });
+
+console.log('irstasks-department: all assertions passed');

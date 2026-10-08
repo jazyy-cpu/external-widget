@@ -3,7 +3,7 @@
  *
  * ## Why two calls, and why the page refetches at all
  *
- *     GET resources/v1/modeler/tasks/{id}?$include=assignees,deliverables&$fields=basics
+ *     GET resources/v1/modeler/tasks/{id}?$include=assignees,deliverables,references&$fields=basics,nlsType
  *     GET resources/v1/modeler/projects/{projectId}?$include=none
  *
  * The list already has most of the task in memory, but the page **must not**
@@ -30,6 +30,17 @@
  * `dataelements` by itself (api.md WGT-04 section 2), and a field list would
  * have to be kept in step with the form spec for no gain.
  *
+ * ## Deliverables and attachments ride along
+ *
+ * `deliverables` and `references` are both `relateddata` of the task, so the
+ * documents panel adds **no call at all** - it reads two lists out of the
+ * response the page already has. Measured on T-85756263-0000137, 2026-10-08:
+ * `deliverables` held `config.toml`, `references` held the `JIWAN TEST` PDF,
+ * both with `hasfiles: "TRUE"`.
+ *
+ * Downloading a file IS a call, and it is `DocumentService`'s, made only when
+ * the user clicks.
+ *
  * ## The parameters, and the one retry
  *
  * The list call's spelling is proven on this platform; the **single**-task
@@ -50,6 +61,48 @@ define('IRSTasks/services/TaskDetailService', [
     function value(item, name) {
         var de = item.dataelements || {};
         return de[name] !== undefined ? de[name] : item[name];
+    }
+
+    /**
+     * The platform's display name for an object's type.
+     *
+     * `nlsType` is the field you ASK for in `$fields`; `typeNLS` is the key the
+     * platform emits on RELATED objects. Both are read, so this works whichever
+     * shape a response carries - and reading only `typeNLS`, as this file did
+     * until 2026-10-08, meant the request asked for a field that does not exist
+     * and the fallback label fired every time.
+     */
+    function nlsType(item) {
+        return value(item, 'nlsType') || value(item, 'typeNLS') || '';
+    }
+
+    /**
+     * One document on the task - a deliverable or an attachment.
+     *
+     * The two are the same object type and the same JSON, and differ only in
+     * which relationship holds them, so one shaper serves both and `kind` says
+     * which list it came from.
+     *
+     * `hasFiles` decides whether a download can be offered at all. A Document
+     * may exist with nothing checked in - every deliverable in the October
+     * capture was like that - and the panel must not offer a button that can
+     * only fail.
+     */
+    function toDocument(entry, kind) {
+        var de = (entry && entry.dataelements) || {};
+        return {
+            id: (entry && entry.id) || '',
+            kind: kind,                              // 'deliverable' | 'attachment'
+            name: de.name || '',
+            title: de.title || '',
+            revision: de.revision || '',
+            type: de.typeNLS || (entry && entry.type) || '',
+            state: de.stateNLS || '',
+            // the platform spells these booleans as the STRINGS "TRUE"/"FALSE"
+            hasFiles: String(de.hasfiles || '').toUpperCase() === 'TRUE',
+            extension: de.fileExtension || '',
+            icon: de.image || ''
+        };
     }
 
     function related(item, key) {
@@ -100,8 +153,8 @@ define('IRSTasks/services/TaskDetailService', [
         return {
             id: item.id || '',
             type: type,
-            typeLabel: value(item, 'typeNLS') || Fields.typeLabel(type),
-            typeFromPlatform: !!value(item, 'typeNLS'),
+            typeLabel: nlsType(item) || Fields.typeLabel(type),
+            typeFromPlatform: !!nlsType(item),
             title: value(item, 'title') || '',
             description: value(item, 'description') || '',
             state: state,
@@ -117,11 +170,27 @@ define('IRSTasks/services/TaskDetailService', [
             actualFinishDate: value(item, 'actualFinishDate') || '',
             projectId: (project && project.id) || '',
             projectType: (project && project.type) || '',
-            projectTypeLabel: projectData.typeNLS || (project && project.type) || '',
+            projectTypeLabel: projectData.nlsType || projectData.typeNLS ||
+                              (project && project.type) || '',
             projectName: projectData.name || '',
             projectTitle: projectData.title || '',
             route: (route && (route.dataelements || {}).name) || '',
-            // the generated form document - PPF-0000004 rev 01, In Work
+            /**
+             * Everything the task carries as a file.
+             *
+             * Two lists, not one, because the platform keeps two relationships
+             * and they mean different things to a reader: a DELIVERABLE is what
+             * this task is meant to produce, an ATTACHMENT is supporting
+             * material somebody added. Merging them would lose that, and the
+             * panel heads them separately for the same reason.
+             */
+            deliverables: related(item, 'deliverables').map(function (entry) {
+                return toDocument(entry, 'deliverable');
+            }),
+            attachments: related(item, 'references').map(function (entry) {
+                return toDocument(entry, 'attachment');
+            }),
+            // the FIRST deliverable, kept for the fields the page already reads
             documentId: (document && document.id) || '',
             documentName: documentData.name || '',
             documentRevision: documentData.revision || '',
@@ -138,7 +207,7 @@ define('IRSTasks/services/TaskDetailService', [
         return {
             id: item.id || '',
             type: item.type || '',
-            typeLabel: value(item, 'typeNLS') || item.type || '',
+            typeLabel: nlsType(item) || item.type || '',
             name: value(item, 'name') || '',
             title: value(item, 'title') || '',
             projectNo: value(item, 'EPMProjectNo') || '',
@@ -151,8 +220,11 @@ define('IRSTasks/services/TaskDetailService', [
 
     function taskParams() {
         // the set plus the platform's own display names - see TaskService
-        return { '$include': 'assignees,deliverables',
-                 '$fields': 'basics,typeNLS,stateNLS' };
+        // `references` is the ATTACHMENTS slot - proved on T-85756263-0000137,
+        // 2026-10-08. Adding it costs NOTHING: it rides in the call the page
+        // already makes, so the documents panel needs no round trip of its own
+        return { '$include': 'assignees,deliverables,references',
+                 '$fields': 'basics,nlsType' };
     }
 
     function getTask(id) {
@@ -167,8 +239,9 @@ define('IRSTasks/services/TaskDetailService', [
     }
 
     function getProject(id) {
-        return Request.get(PROJECT_PATH + id, { params: { '$include': 'none' } })
-            .then(first);
+        return Request.get(PROJECT_PATH + id, {
+            params: { '$include': 'none', '$fields': 'nlsType' }
+        }).then(first);
     }
 
     return {
@@ -187,7 +260,7 @@ define('IRSTasks/services/TaskDetailService', [
                 var task = toTask(item);
                 Log.info('task ' + task.title + ': Task Type shows "' + task.typeLabel +
                          '", from ' + (task.typeFromPlatform
-                            ? 'the platform (typeNLS)' : 'TaskFields fallback') +
+                            ? 'the platform (nlsType)' : 'TaskFields fallback') +
                          '; status shows "' + task.stateLabel + '".');
                 Log.info('task: dataelements keys =',
                          Object.keys(task.attributes).sort().join(', '));
