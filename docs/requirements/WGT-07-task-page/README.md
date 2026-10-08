@@ -162,16 +162,50 @@ offering what it knows will fail.
 | O-P4 | **The generated form document is named but not opened.** The sidebar shows `PPF-0000004 rev 01`; it could link to the document or offer its file |
 | O-P5 | Department is still absent everywhere (grid O-T7): not in either payload, it comes from the project's `IRSDepartmentProject` link |
 | O-P6 | `onlyForDesignAndDevelopment` is carried through from the catalogue on four fields and **nothing acts on it**. The printed form marks them as applicable only to design and development of a new product or service |
+| O-P7 | **`project.title` is empty on every project measured** (TEST PROJECT, Solize XYZ) while `name` is filled. The Project Name row falls back to `name`; confirm whether `Title` is simply unused on projects before any other screen leans on it |
+| O-P8 | The risk, opportunity and learning rows carry their physical ids but **nothing links out to them** yet. A row could open the object's own page |
+| O-P9 | All four risks and opportunities measured are `Complete`. Whether the section shows closed ones or filters by state is undecided - the service returns all and lets the page choose |
 
 ## Files
 
 ```
-js/services/TaskDetailService.js   the two calls, the shaping, the one retry
-js/views/TaskDetailView.js         sidebar + form, the resolver, read-only
+js/services/TaskDetailService.js     the two calls, the shaping, the one retry
+js/services/ProjectContextService.js our REST JAR - sections XII and XIII
+js/views/TaskDetailView.js           the form, the resolver, the two tables
 js/data/forms/project-proposal.json  the form definition (23 fields)
-js/App.js                          the task/:id route now renders the page
-IRSTasks.html                      two more module script tags
+js/App.js                            the task/:id route now renders the page
+IRSTasks.html                        three more module script tags
 src/test/js/irstasks-detail.test.js
 ```
+
+## Layout: Bootstrap only (decided 2026-10-08)
+
+The user's decision, after an analysis that recommended a Bootstrap form with
+Tabulator confined to the four row blocks:
+
+> *"i think lets use only bootstrap then, because bootstrap also have table
+> elements, and this will keep uniformity across the form"*
+
+So **no grid library on this page at all**. The two object sections are plain
+`table table-sm table-bordered`. Beyond uniformity it is the better fit: sixteen
+sections are paragraphs of prose rather than cells, doc 02's open item **E2**
+already found that a per-person form must print through `printAsHtml` or jsPDF
+*"not the raw grid"*, and an Excel-like grid signals "editable spreadsheet" on a
+controlled approval record.
+
+## Where the 23 rows get their data
+
+Four sources. Fourteen are project attributes, one is derived from the project's
+subtype, **two come from our REST JAR**, and six are not available yet -
+Department, Customer, Project Planning, the screening-approval attribute and the
+three signatures. **17 of 23 render today.**
+
+Sections **XII** (Lessons learnt) and **XIII** (Risks and opportunities) are the
+two the JAR unlocked on 2026-10-08. XII had been marked `pending` against
+`EPMLessonsLearnt`, an attribute that was **cancelled** when the `IRSLearning`
+object replaced it (WP02 doc 08) - the row had been waiting for something that
+was never going to exist.
+
+Full row-by-row map: devlog [2026-10-08-01](../../devlog/2026/2026-10-08-01_proposal-form-sections-and-bootstrap-only.md).
 
 Detail: devlog [2026-10-07-02](../../devlog/2026/2026-10-07-02_task-page-proposal-form.md).

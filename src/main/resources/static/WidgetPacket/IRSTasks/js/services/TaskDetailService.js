@@ -39,8 +39,9 @@
  */
 define('IRSTasks/services/TaskDetailService', [
     'JazzySole/Request',
-    'IRSTasks/config/TaskFields'
-], function (Request, Fields) {
+    'IRSTasks/config/TaskFields',
+    'IRSTasks/Log'
+], function (Request, Fields, Log) {
     'use strict';
 
     var TASK_PATH = 'resources/v1/modeler/tasks/';
@@ -184,6 +185,12 @@ define('IRSTasks/services/TaskDetailService', [
                                     'deleted, or the active credential cannot see it.');
                 }
                 var task = toTask(item);
+                Log.info('task ' + task.title + ': Task Type shows "' + task.typeLabel +
+                         '", from ' + (task.typeFromPlatform
+                            ? 'the platform (typeNLS)' : 'TaskFields fallback') +
+                         '; status shows "' + task.stateLabel + '".');
+                Log.info('task: dataelements keys =',
+                         Object.keys(task.attributes).sort().join(', '));
 
                 if (!task.projectId) {
                     return {
@@ -196,6 +203,10 @@ define('IRSTasks/services/TaskDetailService', [
                 // the two calls are independent: a project that cannot be read
                 // must still leave the task page usable
                 return getProject(task.projectId).then(function (projectItem) {
+                    if (projectItem) {
+                        Log.info('project: dataelements keys =',
+                                 Object.keys(projectItem.dataelements || {}).sort().join(', '));
+                    }
                     return {
                         task: task,
                         project: projectItem ? toProject(projectItem) : null,

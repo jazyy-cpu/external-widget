@@ -200,3 +200,57 @@ J1-J3 were answered by the September build; what is left is narrower.
 - Live source on the VM: `C:\dev\jar-creation\irs-hello-rest\src`.
 - *3DEXPERIENCE Widget Development Fundamentals R2022x v1.8*, pp. 243-247 -
   the concepts only; **its code does not compile against R2024x**.
+
+---
+
+## 8. The second JAR: `irs-project-rest` (2026-10-07)
+
+The first custom service carrying real business logic, built on the user's
+instruction *"lets create one new jar, and this jar return risk opportunity and
+key learning in structured manner"*.
+
+```http
+GET /3dspace/resources/v1/irsproject/projects/{projectId}/context
+```
+
+returns, in one payload: the project header, its **risks**, its
+**opportunities** (number, title, state - limited on purpose), and its **key
+learnings** split into *created in this project* and *from other sources*, the
+latter carrying the origin project's name and `EPMProjectNo`.
+
+| | |
+|---|---|
+| Host master | `external-widget/rest-jar/irs-project-rest/` - its README has the payload, the error shapes and the open items |
+| VM build copy | `C:\dev\jar-creation\irs-project-rest` |
+| Status | **built, zero warnings, verified through its JPO twin. NOT deployed** - that needs the ~216s TomEE restart |
+| Worklog | `worklog/entries/2026/2026-10-07-04_project-context-rest-service.md` |
+
+Three things from this build are worth carrying into the next service.
+
+**A separate application path, not a class added to the hello JAR.**
+`irs-hello-rest` owns `/resources/v1/irs`; nesting a second JAX-RS application
+beneath another's path makes which one serves a URL container-dependent. A
+sibling path keeps the two JARs independent, so redeploying one cannot break the
+smoke-test endpoint that proves the mechanism still works at all.
+
+**Section 3b's practice, applied in full, and it paid.** The reader was written
+as a JPO (`IRSProjectContext`), run against the live system, and only then moved
+into the JAR. The whole payload was agreed before a single TomEE restart - and a
+`StringList` deprecation and the entire four-round-trip read shape were settled
+at JPO cost. The two copies are **twins**: if the reader changes, both change,
+or the self-test proves nothing.
+
+**The widget's id works.** MQL resolves the 3DSpace physical id
+(`299036CE...`) that the widget already holds, as well as the legacy
+`39261.35329...` form, and `physicalid` is a select - so every row returns both
+and the widget can link back to what it read over REST. No id translation layer
+is needed anywhere.
+
+### It also answered an OOTB question
+
+`GET /resources/v1/modeler/projects/{id}/risks` returned an empty list for TEST
+PROJECT. The objects **are** connected by the OOTB `Risk` relationship, proven in
+MQL - so the OOTB service is filtering (all four are `Complete`), not missing the
+link. Reading the relationship directly is therefore a sound basis for the
+widget, and **J4 gets a concrete data point**: for risks the OOTB service exists
+but does not serve this case, and for opportunities there is no route at all.

@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Implementation-Title: IRCLASS Project REST API
+Implementation-Version: 0.1.0
+Implementation-Vendor: IRCLASS
+

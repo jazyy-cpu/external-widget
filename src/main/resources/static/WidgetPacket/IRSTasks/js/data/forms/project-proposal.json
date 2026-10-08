@@ -23,7 +23,9 @@
       "label": "Project Name",
       "source": "project",
       "field": "title",
-      "display": "text"
+      "display": "text",
+      "fallbackField": "name",
+      "note": "Title is empty on every project measured so far (2026-10-08), so the project name is shown instead"
     },
     {
       "ref": "Header",
@@ -43,9 +45,10 @@
     {
       "ref": "I",
       "label": "Project Category",
-      "source": "none",
+      "source": "derived",
       "display": "type",
-      "note": "Research or Analysis - carried by the project type itself, not by a field"
+      "note": "Research or Analysis - carried by the project subtype itself, shown with the platform's own display name (typeNLS)",
+      "field": "typeLabel"
     },
     {
       "ref": "II",
@@ -124,18 +127,17 @@
     {
       "ref": "XII",
       "label": "Lessons learnt from failures",
-      "source": "project",
-      "field": "EPMLessonsLearnt",
-      "display": "pending",
-      "note": "The attribute is agreed but not created on the VM yet (doc 05 section 12)",
+      "source": "service",
+      "display": "learnings",
+      "note": "The key learnings linked to this project: the ones it produced, and the ones it reuses from earlier projects with their project number. Not an attribute - EPMLessonsLearnt was cancelled when the IRSLearning object replaced it (WP02 doc 08)",
       "onlyForDesignAndDevelopment": true
     },
     {
       "ref": "XIII",
       "label": "Risks and opportunities",
-      "source": "none",
-      "display": "elsewhere",
-      "note": "Not a text field: OOTB Risk and Opportunity objects linked by the Risk relationship, each with its own RPN scoring (doc 05 section 13.2)"
+      "source": "service",
+      "display": "risks",
+      "note": "The OOTB Risk and Opportunity objects linked by the Risk relationship. Read through our own REST service: the OOTB risk list returns empty for these, and Opportunity has no OOTB route at all (worklog 2026-10-07-03)"
     },
     {
       "ref": "XIV",

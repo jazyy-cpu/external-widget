@@ -67,8 +67,9 @@
  */
 define('IRSTasks/services/TaskService', [
     'JazzySole/Request',
-    'IRSTasks/config/TaskFields'
-], function (Request, Fields) {
+    'IRSTasks/config/TaskFields',
+    'IRSTasks/Log'
+], function (Request, Fields, Log) {
     'use strict';
 
     var PATH = 'resources/v1/modeler/tasks';
@@ -183,6 +184,40 @@ define('IRSTasks/services/TaskService', [
             : '';
     }
 
+    /**
+     * Says, from the response itself, whether the platform sent its own display
+     * names - the question the screen cannot answer, because our fallback
+     * labels were corrected to the same strings.
+     *
+     * It reports the FIRST item of one of our subtypes, and the keys that item
+     * actually carries, because "is `typeNLS` in `dataelements` at all" is the
+     * whole question and a missing key is invisible in a rendered page.
+     */
+    function diagnose(body, askedFields) {
+        if (!Log.on) { return; }
+        var data = (body && Array.isArray(body.data)) ? body.data : [];
+        Log.info('list: asked for "$fields=' + askedFields + '", got ' +
+                 data.length + ' item(s).');
+
+        var mine = data.filter(function (i) { return Fields.isListed(i.type); });
+        var sample = mine[0] || data[0];
+        if (!sample) { Log.warn('list: nothing came back to inspect.'); return; }
+
+        var de = sample.dataelements || {};
+        var hasType = Object.prototype.hasOwnProperty.call(de, 'typeNLS');
+        var hasState = Object.prototype.hasOwnProperty.call(de, 'stateNLS');
+        Log.info('list: sample item type=' + sample.type +
+                 ' | typeNLS ' + (hasType ? '= "' + de.typeNLS + '"' : 'NOT RETURNED') +
+                 ' | stateNLS ' + (hasState ? '= "' + de.stateNLS + '"' : 'NOT RETURNED'));
+        if (!hasType) {
+            Log.warn('list: the platform did not return typeNLS, so the Task Type ' +
+                     'column shows the label from TaskFields.TASK_TYPES. The keys it ' +
+                     'DID return are listed next - if typeNLS is absent from them, ' +
+                     'asking for it in $fields does not work on this resource.');
+            Log.info('list: dataelements keys =', Object.keys(de).sort().join(', '));
+        }
+    }
+
     return {
         /**
          * @param {Object} [opts]
@@ -194,11 +229,19 @@ define('IRSTasks/services/TaskService', [
 
             // one retry with the plain field set, in case the named fields are
             // refused - see the file comment
-            var call = Request.get(PATH, { params: params() }).catch(function () {
+            var asked = FIELDS;
+            Log.info('list: GET', PATH, params());
+            var call = Request.get(PATH, { params: params() }).catch(function (err) {
+                asked = FIELDS_FALLBACK;
+                Log.warn('list: "$fields=' + FIELDS + '" was refused (' +
+                         (err && err.message ? err.message : err) +
+                         '). Retrying with "$fields=' + FIELDS_FALLBACK + '" - so the ' +
+                         'type name can only come from our own table this time.');
                 return Request.get(PATH, { params: params(FIELDS_FALLBACK) });
             });
 
             return call.then(function (body) {
+                diagnose(body, asked);
                 var rows = toRows(body);
                 var counts = {
                     total: rows.length,
@@ -220,6 +263,21 @@ define('IRSTasks/services/TaskService', [
                 });
                 counts.kept = kept.length;
                 counts.nlsNames = kept.filter(function (r) { return r.fromPlatform; }).length;
+
+                Log.info('list: ' + counts.kept + ' row(s) shown, ' + counts.nlsNames +
+                         ' with a name from the platform.',
+                         counts.kept && !counts.nlsNames
+                            ? 'ALL type names on screen are our own fallback labels.'
+                            : '');
+                Log.table('list: what each row will show', kept.slice(0, 10).map(function (r) {
+                    return {
+                        task: r.title,
+                        type: r.type,
+                        'Task Type shows': r.typeLabel,
+                        'from': r.fromPlatform ? 'platform typeNLS' : 'TaskFields fallback',
+                        'Status shows': r.stateLabel
+                    };
+                }));
 
                 return { rows: kept, counts: counts, note: note(counts) };
             });

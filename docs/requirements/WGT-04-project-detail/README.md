@@ -134,7 +134,7 @@ number written onto a real project is expensive to take back.
 | # | Question |
 |---|---|
 | B1 | **Lessons learnt: one text box, or a list of dated entries?** An attribute cannot become a list later without migrating data, so this decides the schema. The tab states both options |
-| B2 | The read call that returns a project's linked `Risk` / `Opportunity` objects - `$include` documents members and tasks, not risks |
+| ~~B2~~ | ~~The read call that returns a project's linked `Risk` / `Opportunity` objects~~ - **ANSWERED 2026-10-07.** OOTB cannot serve it: `GET /projects/{id}/risks` returns an empty list although the `Risk` relationship IS populated, and Opportunity has no REST route at all. Our own service does: `GET /resources/v1/irsproject/projects/{id}/context`, which returns risks, opportunities **and** the key learnings in one payload. Built, not yet deployed - `external-widget/rest-jar/irs-project-rest/README.md`, worklog 2026-10-07-04 |
 | B3 | The project **write** call (needed by the Project No. button, and by any editing at all) - never tested from the widget |
 | B4 | `EPMLessonsLearnt` and `EPMScreeningApprovalObtained` still have to be created on the platform |
 | B5 | When and how a project is linked to its Department and Customer - carried over from WP02 doc 05 §9.5 (Q18-Q20), still open |

@@ -32,7 +32,10 @@ const Request = {
     return Promise.resolve(Request._body);
   }
 };
-const Service = load(SERVICE, [Request, Fields]);
+// the diagnostic log is silenced here: the suite asserts behaviour, and a
+// console full of diagnostics hides a failing assertion
+const Log = { on: false, info: () => {}, warn: () => {}, table: () => {} };
+const Service = load(SERVICE, [Request, Fields, Log]);
 const Toolbar = load(TOOLBAR, []);
 const View = load(VIEW, [{}, {}, {}, () => []]);   // only _matcher is exercised
 // the column module only needs Format's shape, not a DOM

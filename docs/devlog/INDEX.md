@@ -4,6 +4,7 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-10-08-01](2026/2026-10-08-01_proposal-form-sections-and-bootstrap-only.md) | Proposal form: all 23 rows mapped to four sources; XII and XIII live from the REST JAR; Bootstrap only, no Tabulator | WGT-07, WGT-04 | done |
 | [2026-10-07-02](2026/2026-10-07-02_task-page-proposal-form.md) | The task page: context sidebar, the PROJECT PROPOSAL / PROFILE form driven by a JSON file and read from the project, and four things the captured log settled (`typeNLS`, task attributes in `basics`, `dataelements.project` is the collab space, no baseline tasks) | WGT-07 | built read-only; dashboard checks B1-B7 open |
 | [2026-10-07-01](2026/2026-10-07-01_task-list-live-data.md) | The task grid reads live data: one call for task + project + route, only the four IRS subtypes, and the baseline-copy trap (a task existed five times) | WGT-06 | built; dashboard checks A1-A9 open |
 | [2026-10-03-02](2026/2026-10-03-02_training-widget-options.md) | Training architecture: Project, Task and Offering Document | WGT-08 | done — architecture selected 2026-10-04 |
