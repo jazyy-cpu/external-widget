@@ -278,255 +278,117 @@
 }
 
 
-/* ---- the Summary Report look ---------------------------------------- */
+/* ---- the two things Bootstrap has no utility for --------------------- */
 
 /*
  * The task form follows the platform's own `Summary Report` page (user,
- * 2026-10-08, with a screenshot of `CA-98456-00000715`): a bold label, its
- * value beside it, two pairs to a line, hairlines between rows, and a ruled
- * heading over each full-width section.
+ * 2026-10-08, screenshot of `CA-98456-00000715`), and the documents panel sits
+ * beside it. Both were first written with a block of hand-made CSS; it was
+ * audited against the bundled **Bootstrap 5.3.8** on the same day and almost
+ * all of it turned out to be a utility that already exists:
  *
- * Why this is not Bootstrap: `dl.row` is the nearest component and it gives a
- * label column and nothing else - no rule between rows, its own margins, and a
- * label that wraps to full width rather than holding a column. A report's
- * attribute block is a specific, dense thing, and these six rules are it. They
- * stay inside `.irs-form`, so nothing outside the task page can see them.
+ *   the label / value pairs   `row` + `col-5` / `col-7`, `border-bottom`
+ *   the section rules         `border-top`, `border-bottom`, `pb-1`, `mb-2`
+ *   the panel's sticky box    `sticky-top`
+ *   the collapse control      `btn btn-light w-100 text-start border-0 rounded-0`
+ *                             - which also brings Bootstrap's hover and focus
+ *   the counts                `badge rounded-pill text-bg-light border`
+ *   the document rows         `d-flex align-items-center gap-2 border-bottom`
+ *   the file names            `text-truncate`
+ *   the table rules           the default `.table` already rules every row
+ *
+ * What is left is the two things 5.3.8 genuinely does not ship, plus the type
+ * scale the widget has carried since the grid was built.
  */
 
-.irs-tasks .irs-kv-grid {
-    border-top: 1px solid #e7e9ec;
-}
-
 /*
- * The hairline is on each cell, not on the row, so the two halves of a line
- * keep their rules even when one of them wraps to two lines. The left border
- * is the gutter between the pairs - at md and up only, since on a phone the
- * cells stack and a vertical rule between stacked rows means nothing.
- */
-.irs-tasks .irs-kv {
-    display: flex;
-    align-items: baseline;
-    gap: 0.75rem;
-    padding: 4px 8px;
-    border-bottom: 1px solid #e7e9ec;
-    min-height: 30px;
-}
-
-@media (min-width: 768px) {
-    .irs-tasks .irs-kv-grid > div:nth-child(even) .irs-kv {
-        border-left: 1px solid #e7e9ec;
-    }
-}
-
-/*
- * A fixed label column, because a report is read by running down the labels -
- * and `flex-shrink: 0` keeps a long label from stealing the value's room.
- * Labels wrap instead: some of this form's are a full sentence
- * ("Identified Standards, Codes, Acts, Rules, ...").
- */
-.irs-tasks .irs-form .irs-kv-label {
-    flex: 0 0 11rem;
-    font-weight: 600;
-    color: #2b3a4a;
-}
-
-.irs-tasks .irs-form .irs-kv-value {
-    flex: 1 1 auto;
-    min-width: 0;
-    word-break: break-word;
-}
-
-/* the section rule: the report's Attributes / Approvals / Routes band */
-.irs-tasks .irs-form .irs-sum-head {
-    margin: 1rem 0 0.35rem;
-    padding-bottom: 0.2rem;
-    border-bottom: 1px solid #c8ced6;
-    font-weight: 600;
-    color: #12395c;
-}
-
-/* `Risks` and `Opportunities` inside one section - a step below the band */
-.irs-tasks .irs-form .irs-sum-sub {
-    margin: 0.6rem 0 0.25rem;
-    font-weight: 600;
-    color: #4a5560;
-}
-
-/* prose, set plainly - no panel. See the view's module comment */
-.irs-tasks .irs-form .irs-sum-text {
-    padding: 0.15rem 8px;
-}
-
-/*
- * The tables lose their box. A bordered grid inside a form competes with the
- * attribute block's hairlines; the report rules its header and nothing else.
- */
-/*
- * Fixed layout, so a declared column width is honoured and two tables under one
- * heading come out identical. Automatic layout sizes each table from its own
- * contents, which is why Risks and Opportunities did not line up.
+ * Bootstrap has `w-25`/`w-50` but nothing that makes a declared column width
+ * BINDING. Without fixed layout the browser sizes each table from its own
+ * contents, so the Risks table and the Opportunities table under one heading
+ * chose different widths and their columns did not meet.
  */
 .irs-tasks .irs-form .irs-sum-table {
     table-layout: fixed;
 }
 
-.irs-tasks .irs-form .irs-sum-table > thead th {
-    border-bottom: 2px solid #c8ced6;
-    background: transparent;
-    color: #12395c;
+/*
+ * There is no `min-w-0` utility in 5.3.8 (checked - the class does not exist in
+ * the bundled file). A flex item will not shrink below its content without it,
+ * so `text-truncate` on a long file name never truncates and the download
+ * button is pushed out of the panel instead.
+ */
+.irs-tasks .irs-min0 {
+    min-width: 0;
 }
 
-.irs-tasks .irs-form .irs-sum-table > tbody td {
-    border-bottom: 1px solid #eceef1;
-}
-
-/* ---- the documents panel -------------------------------------------- */
+/* ---- density: the one thing that is ours ---------------------------- */
 
 /*
- * The task's deliverables and attachments, beside the form (user, 2026-10-08:
- * *"show me how it will look in the side panel with deliverables and
- * attachment header, and one button that will collapse and expand"*).
- *
- * Sticky rather than fixed: it rides inside `.irs-scroll` with the form, so
- * there is still ONE scrollbar on the page. `top: 0` pins it to the top of that
- * region as the form scrolls past.
- *
- * `max-height` + its own overflow is the guard for the day a task carries
- * fifteen attachments - the panel must never grow taller than the viewport, or
- * sticky stops working and the bottom of it becomes unreachable.
+ * The panel sits beside a 15px form and above a 13px grid, and Bootstrap's
+ * scale starts at 16px. One declaration, same reason the file exists at all.
  */
-.irs-tasks .irs-docs-sticky {
-    position: sticky;
-    top: 0;
-}
-
 .irs-tasks .irs-docs {
     font-size: 14px;
 }
 
-.irs-tasks .irs-docs-header {
-    padding: 0;
-    background: #e8f0f7;
-    border-bottom: 1px solid #a9c5db;
+/*
+ * `overflow-auto` is Bootstrap's; the height is not. The panel must never grow
+ * taller than the viewport, or `sticky-top` stops working and the bottom of it
+ * becomes unreachable - the day a task carries fifteen attachments.
+ */
+.irs-tasks .irs-docs-body {
+    max-height: calc(100vh - 320px);
+}
+
+/* ---- the approval chain: two more that Bootstrap has no utility for --- */
+
+/*
+ * The chain is a horizontal strip of fixed-width boxes that SCROLLS rather than
+ * wrapping or shrinking (the user's choice, 2026-10-08). `flex-shrink-0` holds
+ * the width Bootstrap-side, but 5.3.8 ships no `min-w-*` / `w-56` scale, so the
+ * width itself has to be declared. 15rem is what fits a role, a full name, a
+ * 3:1 signature and a date without wrapping any of them.
+ */
+.irs-tasks .irs-step-box {
+    width: 15rem;
 }
 
 /*
- * The whole header IS the toggle - a 32px caret beside a clickable heading is a
- * target people miss. Bootstrap's `btn` is restyled to a flat bar here rather
- * than wrapped in one, because a button with a border inside a card header
- * reads as a second control.
+ * The specimen SVGs are about 500x190 - a 3:1 landscape strip. `img-fluid`
+ * would cap the WIDTH, which is the dimension that does not matter here; what
+ * must be capped is the height, so a box is the same height whichever signature
+ * lands in it. `object-fit` has no Bootstrap utility at all.
  */
-.irs-tasks .irs-docs-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    width: 100%;
-    padding: 0.4rem 0.6rem;
-    border: 0;
-    border-radius: 0;
-    color: #12395c;
-    text-align: left;
-    font-size: 14px;
+.irs-tasks .irs-sign {
+    height: 3rem;
+    max-width: 100%;
+    object-fit: contain;
 }
 
-.irs-tasks .irs-docs-toggle:hover {
-    background: #dbe8f3;
+/* ---- the decision bar: absolute, because Bootstrap's scale is rem --- */
+
+/*
+ * The one part of this page that is read carefully and then acted on, so the
+ * user asked for it bigger than the panel around it (2026-10-08).
+ *
+ * It cannot be a Bootstrap utility. `fs-5`, `fs-6` and the rest are all `rem`,
+ * and this widget scales its own root - 1rem measures **10px** inside the
+ * frame, so `fs-6` made the bar smaller than the 14px it inherited from
+ * `.irs-docs`. Only an absolute size says what is meant here.
+ *
+ * 15px, which is the form's own body size: the approver reads the form and
+ * then acts, and the two should not change size between those steps.
+ */
+.irs-tasks .irs-decide {
+    font-size: 15px;
 }
 
-.irs-tasks .irs-docs-toggle:focus-visible {
-    outline: 2px solid #0079a8;
-    outline-offset: -2px;
-}
-
-.irs-tasks .irs-docs-body {
-    padding: 0.5rem 0.6rem;
-    max-height: calc(100vh - 320px);
-    overflow-y: auto;
-}
-
-/* the group heading: Deliverables / Attachments */
-.irs-tasks .irs-doc-group + .irs-doc-group {
-    margin-top: 0.75rem;
-}
-
-.irs-tasks .irs-doc-head {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding-bottom: 0.2rem;
-    margin-bottom: 0.25rem;
-    border-bottom: 1px solid #c8ced6;
-    font-weight: 600;
-    color: #2b3a4a;
-}
-
-/* the count stays visible while the panel is collapsed - see the module note */
-.irs-tasks .irs-doc-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    height: 18px;
-    padding: 0 6px;
-    border-radius: 9px;
-    background: #d7e3ee;
-    color: #12395c;
-    font-size: 11.5px;
-    font-weight: 600;
-}
-
-.irs-tasks .irs-doc {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 5px 2px;
-    border-bottom: 1px solid #eceef1;
-}
-
-.irs-tasks .irs-doc:last-child {
-    border-bottom: 0;
-}
-
-/* `min-width: 0` is what lets a long file name ellipsis instead of pushing the
-   download button out of the panel */
-.irs-tasks .irs-doc-text {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.irs-tasks .irs-doc-title {
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.irs-tasks .irs-doc-meta {
-    font-size: 11.5px;
-    color: #6c757d;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.irs-tasks .irs-doc-btn {
-    display: inline-flex;
-    align-items: center;
-    flex: 0 0 auto;
-    padding: 2px 8px;
-    font-size: 12px;
-}
-
-/* a document with nothing checked in - said, not silently buttonless */
-.irs-tasks .irs-doc-nofile {
-    flex: 0 0 auto;
-    font-size: 11.5px;
-    font-style: italic;
-    color: #9aa3ab;
-}
-
-.irs-tasks .irs-doc-empty {
-    font-size: 12.5px;
-    font-style: italic;
-    color: #6c757d;
+/*
+ * Same reason for the controls. Bootstrap's `.btn` and `.form-control` set
+ * their own rem-based font-size, which the root scale shrinks to ~10px, so
+ * `px-4` widened the buttons but left the text tiny.
+ */
+.irs-tasks .irs-decide .btn,
+.irs-tasks .irs-decide .form-control {
+    font-size: 15px;
 }

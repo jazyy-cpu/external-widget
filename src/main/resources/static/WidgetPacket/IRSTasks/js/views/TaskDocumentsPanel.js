@@ -110,28 +110,36 @@ define('IRSTasks/views/TaskDocumentsPanel', [
      * identifies the object but says nothing about it. Where a document has no
      * title the id is promoted rather than leaving the first line blank.
      */
-    function documentRow(item, onError) {
-        var row = el('div', 'irs-doc');
+    function documentRow(item, onError, last) {
+        var row = el('div', 'irs-doc d-flex align-items-center gap-2 py-1' +
+                            (last ? '' : ' border-bottom'));
 
-        var text = el('div', 'irs-doc-text');
+        // `flex-grow-1` is Bootstrap's; `irs-min0` is not, because Bootstrap
+        // 5.3.8 ships no `min-w-0` - and without it a flex item refuses to
+        // shrink below its content, so `text-truncate` never truncates
+        var text = el('div', 'irs-doc-text flex-grow-1 irs-min0');
         var title = item.title || item.name;
-        text.appendChild(el('div', 'irs-doc-title', title));
+        text.appendChild(el('div', 'irs-doc-title fw-medium text-truncate', title));
 
         var meta = [];
         if (item.name && item.title) { meta.push(item.name); }
         if (item.revision) { meta.push('rev ' + item.revision); }
         if (item.state) { meta.push(item.state); }
-        text.appendChild(el('div', 'irs-doc-meta', meta.join('  ·  ')));
+        text.appendChild(el('div', 'irs-doc-meta small text-secondary text-truncate',
+                            meta.join('  ·  ')));
         row.appendChild(text);
 
         if (!item.hasFiles) {
             // said, not hidden: "no button" and "no file" look identical
             // otherwise, and the second is something the user may want to fix
-            row.appendChild(el('span', 'irs-doc-nofile', 'no file'));
+            row.appendChild(el('span',
+                'irs-doc-nofile small fst-italic text-secondary flex-shrink-0',
+                'no file'));
             return row;
         }
 
-        var button = el('button', 'btn btn-sm btn-outline-primary irs-doc-btn');
+        var button = el('button', 'btn btn-sm btn-outline-primary irs-doc-btn ' +
+                                  'd-inline-flex align-items-center flex-shrink-0');
         button.type = 'button';
         button.title = 'Download' + (item.extension ? ' ' + item.extension : '');
         button.setAttribute('aria-label', 'Download ' + title);
@@ -158,20 +166,28 @@ define('IRSTasks/views/TaskDocumentsPanel', [
         return row;
     }
 
+    /** The count beside a heading - Bootstrap's pill badge, not a drawn one. */
+    function countBadge(total, extra) {
+        return el('span', 'irs-doc-count badge rounded-pill text-bg-light border' +
+                          (extra ? ' ' + extra : ''), String(total));
+    }
+
     /** One headed group, with its count - shown even when the group is empty. */
-    function group(heading, items, onError) {
-        var wrap = el('div', 'irs-doc-group');
-        var head = el('div', 'irs-doc-head');
+    function group(heading, items, onError, first) {
+        var wrap = el('div', 'irs-doc-group' + (first ? '' : ' mt-3'));
+        var head = el('div', 'irs-doc-head d-flex align-items-center gap-2 ' +
+                             'border-bottom pb-1 mb-1 fw-semibold');
         head.appendChild(el('span', '', heading));
-        head.appendChild(el('span', 'irs-doc-count', String(items.length)));
+        head.appendChild(countBadge(items.length));
         wrap.appendChild(head);
 
         if (!items.length) {
-            wrap.appendChild(el('div', 'irs-doc-empty', 'None on this task.'));
+            wrap.appendChild(el('div', 'irs-doc-empty small fst-italic text-secondary',
+                                'None on this task.'));
             return wrap;
         }
-        items.forEach(function (item) {
-            wrap.appendChild(documentRow(item, onError));
+        items.forEach(function (item, index) {
+            wrap.appendChild(documentRow(item, onError, index === items.length - 1));
         });
         return wrap;
     }
@@ -189,13 +205,18 @@ define('IRSTasks/views/TaskDocumentsPanel', [
 
             var panel = el('div', 'card irs-docs');
 
-            var header = el('div', 'card-header irs-docs-header');
-            var toggle = el('button', 'btn btn-sm irs-docs-toggle');
+            // `p-0` so the button fills the header: the whole bar is the
+            // target. `btn-light` brings Bootstrap's own hover and focus ring,
+            // which is why this needs no hover rule of its own
+            var header = el('div', 'card-header irs-docs-header p-0');
+            var toggle = el('button', 'btn btn-light btn-sm irs-docs-toggle w-100 ' +
+                                      'text-start border-0 rounded-0 d-flex ' +
+                                      'align-items-center gap-2 py-2 px-3');
             toggle.type = 'button';
             toggle.setAttribute('aria-expanded', String(!collapsed));
 
             var label = el('span', 'fw-semibold', 'Documents');
-            var count = el('span', 'irs-doc-count ms-2', String(total));
+            var count = countBadge(total, 'ms-1');
 
             function paintToggle() {
                 while (toggle.firstChild) { toggle.removeChild(toggle.firstChild); }
@@ -208,18 +229,18 @@ define('IRSTasks/views/TaskDocumentsPanel', [
             header.appendChild(toggle);
             panel.appendChild(header);
 
-            var body = el('div', 'card-body irs-docs-body');
-            var problem = el('div', 'alert alert-danger py-1 px-2 mb-2 d-none');
+            var body = el('div', 'card-body irs-docs-body p-2 overflow-auto');
+            var problem = el('div', 'alert alert-danger py-1 px-2 mb-2 small d-none');
             problem.setAttribute('role', 'alert');
             body.appendChild(problem);
 
             function onError(message) {
                 problem.textContent = message;
-                problem.className = 'alert alert-danger py-1 px-2 mb-2';
+                problem.className = 'alert alert-danger py-1 px-2 mb-2 small';
             }
 
-            body.appendChild(group('Deliverables', deliverables, onError));
-            body.appendChild(group('Attachments', attachments, onError));
+            body.appendChild(group('Deliverables', deliverables, onError, true));
+            body.appendChild(group('Attachments', attachments, onError, false));
             panel.appendChild(body);
 
             function paint() {

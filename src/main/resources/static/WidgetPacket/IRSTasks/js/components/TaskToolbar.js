@@ -59,27 +59,98 @@ define('IRSTasks/components/TaskToolbar', [], function () {
         return svg;
     }
 
+    /**
+     * What the search box may look in when the APPROVALS view is showing.
+     *
+     * A different set because the rows are different objects: an approval has
+     * no title and no project of its own, and the useful handles are the role,
+     * the task it is approving and the route it belongs to.
+     */
+    var APPROVAL_FIELDS = [
+        { value: 'all', label: 'All fields' },
+        { value: 'role', label: 'Role' },
+        { value: 'connectedName', label: 'On task' },
+        { value: 'routeName', label: 'Route' }
+    ];
+
     return {
         FIELDS: FIELDS,
+        APPROVAL_FIELDS: APPROVAL_FIELDS,
 
         /**
          * @param {HTMLElement} parent
          * @param {Object} options
          * @param {boolean}  options.includeClosed  initial state of the switch
+         * @param {string}   [options.mode]       'tasks' (default) or 'approvals'
          * @param {Function} options.onRefresh
          * @param {Function} options.onToggleClosed  called with the new boolean
          * @param {Function} options.onSearch        called with (term, field)
-         * @returns {{root: HTMLElement, setBusy: Function}}
+         * @param {Function} [options.onMode]        called with the new mode
+         * @returns {{root, setBusy, setMode, setCount, setFields}}
          */
         render: function (parent, options) {
             var root = el('div', 'd-flex flex-wrap align-items-center gap-2 flex-grow-1');
+            var mode = options.mode || 'tasks';
+
+            /*
+             * Two views, one grid.
+             *
+             * An inbox task is not an IRS task - the landing grid has filtered
+             * them out by type since 2026-10-07 - so they get their own view
+             * rather than a second kind of row in the same list. A segmented
+             * control rather than a tab strip: there are exactly two, and the
+             * widget frame has no room for a tab row above the toolbar.
+             *
+             * The count rides on the Approvals button, because "how many are
+             * waiting on me" is the reason to look at all.
+             */
+            var modes = el('div', 'btn-group btn-group-sm');
+            modes.setAttribute('role', 'group');
+            modes.setAttribute('aria-label', 'Which list to show');
+
+            var countBadge = el('span', 'badge rounded-pill text-bg-light border ms-1');
+
+            function modeButton(value, text, withCount) {
+                var button = el('button', 'btn btn-outline-secondary');
+                button.type = 'button';
+                button.appendChild(document.createTextNode(text));
+                if (withCount) { button.appendChild(countBadge); }
+                button.addEventListener('click', function () {
+                    if (mode === value) { return; }
+                    // everything `setMode` does, and then the callback: one
+                    // function for both routes, or the label and the search
+                    // fields drift out of step with the buttons
+                    applyMode(value);
+                    if (options.onMode) { options.onMode(value); }
+                });
+                modes.appendChild(button);
+                return button;
+            }
+
+            var tasksButton = modeButton('tasks', 'IRS Tasks', false);
+            var approvalsButton = modeButton('approvals', 'Approvals', true);
+
+            function paintModes() {
+                tasksButton.className = 'btn btn-sm btn-' +
+                    (mode === 'tasks' ? 'secondary' : 'outline-secondary');
+                approvalsButton.className = 'btn btn-sm btn-' +
+                    (mode === 'approvals' ? 'secondary' : 'outline-secondary');
+                tasksButton.setAttribute('aria-pressed', String(mode === 'tasks'));
+                approvalsButton.setAttribute('aria-pressed', String(mode === 'approvals'));
+            }
+            paintModes();
+            root.appendChild(modes);
 
             var check = el('div', 'form-check form-switch mb-0 me-auto');
             var input = el('input', 'form-check-input');
             input.type = 'checkbox';
             input.id = SWITCH_ID;
             input.checked = !!options.includeClosed;
-            var label = el('label', 'form-check-label small', 'Show completed');
+            // the same switch means the same thing in both views - "also show
+            // the ones that are finished with" - but the word differs: a task
+            // is completed, an approval step is decided
+            var label = el('label', 'form-check-label small',
+                           mode === 'approvals' ? 'Show decided' : 'Show completed');
             label.setAttribute('for', SWITCH_ID);
             input.addEventListener('change', function () {
                 options.onToggleClosed(input.checked);
@@ -93,11 +164,16 @@ define('IRSTasks/components/TaskToolbar', [], function () {
 
             var field = el('select', 'form-select flex-grow-0 w-auto');
             field.setAttribute('aria-label', 'Field to search');
-            FIELDS.forEach(function (f) {
-                var opt = el('option', null, f.label);
-                opt.value = f.value;
-                field.appendChild(opt);
-            });
+
+            function fillFields(list) {
+                while (field.firstChild) { field.removeChild(field.firstChild); }
+                list.forEach(function (f) {
+                    var opt = el('option', null, f.label);
+                    opt.value = f.value;
+                    field.appendChild(opt);
+                });
+            }
+            fillFields(mode === 'approvals' ? APPROVAL_FIELDS : FIELDS);
 
             var term = el('input', 'form-control');
             term.type = 'search';
@@ -141,8 +217,48 @@ define('IRSTasks/components/TaskToolbar', [], function () {
 
             parent.appendChild(root);
 
+            /**
+             * Put the toolbar into a view: the buttons, the switch's wording
+             * and what the search box may look in.
+             *
+             * The switch means the same thing in both views - "also show the
+             * ones that are finished with" - but the word differs: a task is
+             * completed, an approval step is decided.
+             */
+            function applyMode(value) {
+                mode = value;
+                paintModes();
+                label.textContent = value === 'approvals'
+                    ? 'Show decided' : 'Show completed';
+                fillFields(value === 'approvals' ? APPROVAL_FIELDS : FIELDS);
+                // the box is cleared with the view: a term that matched a task
+                // title means nothing against a list of roles
+                term.value = '';
+                field.value = 'all';
+            }
+
             return {
                 root: root,
+
+                /** The current view, after a click on the segmented control. */
+                getMode: function () { return mode; },
+
+                /** Switch the view from outside, without firing `onMode`. */
+                setMode: applyMode,
+
+                /** Whether the switch is on, so a view change can keep it. */
+                isIncludeClosed: function () { return input.checked; },
+                setIncludeClosed: function (value) { input.checked = !!value; },
+
+                /**
+                 * How many approvals are waiting. Shown on the button, so the
+                 * reason to switch views is visible without switching.
+                 */
+                setCount: function (count) {
+                    countBadge.textContent = (count === null || count === undefined)
+                        ? '' : String(count);
+                },
+
                 /** Disable the controls while a load is running. */
                 setBusy: function (busy) {
                     refresh.disabled = busy;

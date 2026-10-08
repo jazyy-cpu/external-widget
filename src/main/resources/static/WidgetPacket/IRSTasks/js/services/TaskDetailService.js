@@ -3,7 +3,7 @@
  *
  * ## Why two calls, and why the page refetches at all
  *
- *     GET resources/v1/modeler/tasks/{id}?$include=assignees,deliverables,references&$fields=basics,nlsType
+ *     GET resources/v1/modeler/tasks/{id}?$include=assignees,deliverables,references,route&$fields=basics,nlsType
  *     GET resources/v1/modeler/projects/{projectId}?$include=none
  *
  * The list already has most of the task in memory, but the page **must not**
@@ -40,6 +40,16 @@
  *
  * Downloading a file IS a call, and it is `DocumentService`'s, made only when
  * the user clicks.
+ *
+ * ## The route rides along too, the chain does not
+ *
+ * `route` is `relateddata` as well, so the approval panel's entry point is
+ * free: this call returns the route's id and name. The route's TASKS - the
+ * inbox tasks that are the approval chain - are a second object, and reading
+ * them is one more call, made by `RouteService` only when `task.routes` is
+ * non-empty. 33 of the live routes were measured and 32 have a single route, so
+ * that is one extra call for a task under approval and none for a task that has
+ * never been sent.
  *
  * ## The parameters, and the one retry
  *
@@ -176,6 +186,22 @@ define('IRSTasks/services/TaskDetailService', [
             projectTitle: projectData.title || '',
             route: (route && (route.dataelements || {}).name) || '',
             /**
+             * Every approval route on this task, id first.
+             *
+             * A list, not one route: a task that was rejected and resent has
+             * more than one (one task in the October capture has two), and the
+             * approval panel shows each as its own cycle. `RouteService.forTask`
+             * takes this and reads the chain.
+             */
+            routes: related(item, 'route').map(function (entry) {
+                var rde = entry.dataelements || {};
+                return {
+                    id: entry.id || '',
+                    name: rde.name || '',
+                    title: rde.title || ''
+                };
+            }).filter(function (entry) { return !!entry.id; }),
+            /**
              * Everything the task carries as a file.
              *
              * Two lists, not one, because the platform keeps two relationships
@@ -223,7 +249,10 @@ define('IRSTasks/services/TaskDetailService', [
         // `references` is the ATTACHMENTS slot - proved on T-85756263-0000137,
         // 2026-10-08. Adding it costs NOTHING: it rides in the call the page
         // already makes, so the documents panel needs no round trip of its own
-        return { '$include': 'assignees,deliverables,references',
+        // `route` rides along for the same reason: the approval chain's entry
+        // point is `relateddata.route`, so finding the route costs NOTHING.
+        // `RouteService` makes the one call that reads the chain itself
+        return { '$include': 'assignees,deliverables,references,route',
                  '$fields': 'basics,nlsType' };
     }
 

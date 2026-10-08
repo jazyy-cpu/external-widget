@@ -592,3 +592,881 @@ own module instance rather than reusing the shared one, because earlier sections
 still have promise chains in flight against it - the bug that bit section 8.
 
 All nine suites pass.
+
+## Update 2026-10-08 (8) - the CSS audit: 26 rules down to 4
+
+The user asked that we use Bootstrap out of the box with very little CSS. Both
+the Summary Report layout (Update 5) and the documents panel (Update 7) had
+been written with a block of hand-made rules, so they were audited against the
+**bundled** `bootstrap.min.css` rather than from memory.
+
+Bootstrap here is **5.3.8, CSS only - its JavaScript is not loaded by this
+widget at all.** That settles two questions: the accordion / collapse component
+is unavailable, so the panel keeps its own toggle; and every utility below was
+confirmed present in the bundled file before being used.
+
+Replaced:
+
+| Was hand-written | Is now |
+|---|---|
+| `.irs-kv`, `.irs-kv-label`, `.irs-kv-value` | a nested `row` with `col-5` / `col-7`, `border-bottom`, `px-2 py-1`, `text-break` |
+| `.irs-kv-grid` | `border-top` |
+| `.irs-sum-head`, `.irs-sum-sub`, `.irs-sum-text` | `border-bottom pb-1 mb-2 mt-3 fw-semibold text-primary-emphasis`, `px-2` |
+| `.irs-sum-table > thead/tbody` rules | the default `.table`, which already rules every row |
+| `.irs-docs-sticky` | `sticky-top` |
+| `.irs-docs-toggle` + its hover and focus rules | `btn btn-light w-100 text-start border-0 rounded-0 d-flex align-items-center gap-2` - `btn-light` brings Bootstrap's own hover and focus ring |
+| `.irs-docs-header` | `p-0` |
+| `.irs-doc-count` | `badge rounded-pill text-bg-light border` |
+| `.irs-doc`, `.irs-doc-head`, `.irs-doc-group` | `d-flex align-items-center gap-2 py-1 border-bottom`, `mt-3` |
+| `.irs-doc-title`, `.irs-doc-meta` | `fw-medium text-truncate`, `small text-secondary text-truncate` |
+| `.irs-doc-nofile`, `.irs-doc-empty` | `small fst-italic text-secondary flex-shrink-0` |
+| `.irs-doc-btn` | `d-inline-flex align-items-center flex-shrink-0` |
+
+Kept, four rules, each because 5.3.8 has no utility for it:
+
+- **`table-layout: fixed`** - `w-25`/`w-50` exist but are only suggestions under
+  automatic layout, which is the bug Update (6) fixed;
+- **`min-width: 0`** - there is **no `min-w-0` class in 5.3.8** (checked against
+  the bundled file). Without it a flex item will not shrink below its content,
+  so `text-truncate` never truncates and the download button is pushed out of
+  the panel;
+- **`font-size: 14px`** on the panel - the widget's density scale, the reason
+  this stylesheet exists at all;
+- **`max-height`** on the panel body - `overflow-auto` is Bootstrap's, a
+  viewport-relative max-height is not, and without it a task with fifteen
+  attachments makes the panel taller than the screen and `sticky-top` stops
+  working.
+
+Two things were dropped rather than reimplemented: the vertical rule between
+the two columns of pairs (Bootstrap 5 has no responsive border utilities, and
+the horizontal hairlines carry the structure on their own) and the panel
+header's ENOVIA-blue band (`btn-light` is close enough not to be worth a rule).
+
+**Guarded.** Section 13 of `irstasks-detail.test.js` reads the stylesheet and
+fails if any of the eighteen replaced selectors reappears, asserts the four
+survivors are still there, and checks the two view files actually use
+`sticky-top`, `col-5`, `badge rounded-pill`, `text-truncate` and `btn-light` -
+so the rules are provably replaced rather than merely deleted.
+
+All nine suites pass.
+
+## Update 2026-10-08 (9) - the second download, and multi-file documents
+
+The user reported that the first download worked and the second *"is not
+opening"*, and asked that multi-file documents behave as OOTB does.
+
+### The platform was never at fault
+
+Checked both tickets directly against FCS before touching any code:
+
+| Document | Ticket | FCS reply |
+|---|---|---|
+| `config.toml` (deliverable) | 200 | `attachment`, 231 bytes |
+| `R&D-26003-RR_Project Verification Form.pdf` (attachment) | 200 | `attachment`, 194 335 bytes |
+
+Both correct, both the same `/internal/servlet/fcs/checkout` form. The file
+listing (`GET /documents/{id}/files`) confirmed one file each - so this was
+never the multi-file case either.
+
+**The fault was `window.open`.** FCS answers `Content-Disposition: attachment`,
+so the browser downloads and discards the tab - usually. Measured here: the
+231-byte `.toml` downloaded and its tab vanished; the 194 KB PDF left a tab
+**sitting on a Chrome error page**. An FCS ticket is also single-use, so any
+tab that survives and is later reloaded hits a consumed ticket and errors. A
+tab is simply the wrong instrument for something that is not a page.
+
+### What OOTB does, measured
+
+Opened the platform's own Document Management widget (the dashboard's
+`document` tab) and watched it download a document holding **four** files:
+
+    PUT .../documents/{docId}/files/DownloadTicket
+        ?useDOCMParamSettings=true&useObjectNameForZip=true&lightweight=false
+
+- **the same endpoint we use**, plus three parameters;
+- **no tab opens at all.** After the download nothing matching `fcs` is left
+  anywhere in its DOM - it creates an element, clicks it, removes it;
+- it then shows a toast: *"'multiple documet' download has been started."*
+
+Its list also carries a **`Files` count** column, which is where the four-file
+document was visible in the first place.
+
+### The fix
+
+`DocumentService` now sends those three parameters and hands the file over by
+clicking a detached, hidden `<a>` and removing it immediately. No tab, no popup
+blocker, no dangling error tab, and nothing left in the page pointing at a
+single-use ticket. `rel="noopener noreferrer"` stays, because `download` is
+ignored cross-origin and the FCS origin must never get a handle on the
+dashboard window.
+
+**Multiple files are left to the server, deliberately.** `useDOCMParamSettings`
+is what applies the Document Management zipping rule and `useObjectNameForZip`
+names the zip after the object. The alternative - listing files and zipping
+decisions in the client - costs one extra call per document and would
+re-implement a platform rule that could then drift from it. The response says
+which happened: `fileName` for one file, `fileNames` for several, and
+`DocumentService` reports `zipped` from that.
+
+### Verified live
+
+Reloaded the widget, clicked both buttons in sequence:
+
+    [IRSTasks] download: config.toml -> config.toml
+    [IRSTasks] download: JIWAN TEST -> R&D-26003-RR_Project Verification Form.pdf
+
+Both fired, **no tab opened**, no error shown in the panel.
+
+### Tested
+
+Section 12 gained the case that would have caught this: a stub `document` and
+`window`, asserting `window.open` is called **zero** times, that the anchor is
+created, clicked, and removed from the body, and that it carries
+`rel="noopener noreferrer"`. Plus the OOTB parameter set, and a multi-file
+ticket response resolving to `zipped: true`.
+
+All nine suites pass.
+
+### Two OOTB behaviours we do NOT have
+
+Recorded rather than quietly skipped:
+
+- **no "download has been started" toast.** The file simply downloads. Worth
+  adding through `JazzySole/Notify`.
+- **no `Files` count** in the panel. The task response carries `hasfiles` as a
+  boolean only; a count needs `GET /documents/{id}/files` per document, which
+  is one call per row - against the one-round-trip rule for a page that may
+  show several. Only the ticket response reveals it today, after the click.
+
+
+## Update 2026-10-08 (10) - the route, and the inbox tasks on it
+
+> *"task can have route ... route have inbox task ... we need to understand how
+> we will get route from task, then we need to make api to get the ... so
+> wherever our task is going in approval the inbox task will come ... in the
+> context we need to check whether the task is connected to our custom task ...
+> take the reference our poc widget, there we will find some similar logic"*
+
+### How a task reaches its route - it already carries it
+
+    task.relateddata.route[]  ->  route physical id
+    GET resources/v1/modeler/dsrt/routes/{routeId}?$include=tasks
+
+`route` is `relateddata` of the task, exactly like `deliverables` and
+`references`. So **finding the route costs nothing**: adding `route` to the
+`$include` the page already sends returns the route's id and name in the one
+call. Only the route's own tasks are a second object, and that is the one extra
+call - made only when `task.routes` is non-empty.
+
+### "Is it connected to our custom task" - by construction
+
+We never search routes and then test them. We start from **our** task's
+`relateddata.route`, so every route read is connected to that task by
+definition.
+
+It was checked from the other side too. Reading inbox task
+`IT-85756263-0000169` directly:
+
+    relateddata.scopes[0]    -> EPMPROJECT_PERSONNEL_COST  T-85756263-0000134
+    relateddata.contents[0]  -> EPMPROJECT_PERSONNEL_COST  T-85756263-0000134
+
+The inbox task points **back** at the custom task, carrying its name *and* its
+`EPMPROJECT_*` type. That also settles what `contents`/`scopes` are for - noted
+in Update (7) as "the task being approved", now confirmed as exactly the link.
+
+In the October capture, route `...F67800000BB8` appears twice: once on task
+`...F5AA00000A66` (the custom task `T-85756263-0000134`) and once on
+`...F6A400000C4C` (an Inbox Task titled "Project Manager"). **The shared route
+id is the join.**
+
+### `$include=tasks` - undocumented, and proven
+
+The 2024x `Routes Web Services` spec declares no `$include` on
+`GET /dsrt/routes/{routeId}`, and declares no route-tasks operation at all; the
+API-labs validator refuses the parameter for that reason (`Undocumented query
+parameter: $include`). It nonetheless works, and is the only way to read the
+chain in one call. Both POCs use it - `Task_POC.js` route inspection and the JBM
+`ChangeSummary.js`.
+
+Measured against **33 live routes** - every route reachable from the 75 tasks
+the landing list returns:
+
+| `routeStatus` / `activityState` | count | the chain |
+|---|---|---|
+| `Finished` / `Approved` | 28 | every step an `Inbox Task`, `Complete` |
+| `Not Started` / `Not Started` | 4 | every step a `Route Node` |
+| `Started` / `Awaiting your Approval` | 1 | step 1 `Inbox Task`/`Assigned`, 2-3 still `Route Node` |
+
+### The two kinds of step ARE the state machine
+
+`tasks[]` mixes two types, and the difference is the progress indicator:
+
+- **`Inbox Task`** - activated. Has `current` (`Assigned` while it waits,
+  `Complete` once acted on) and `approvalStatus` (`None`/`Approve`/`Reject`).
+- **`Route Node`** - exists, not reached. Has **neither** field.
+
+So *"the inbox task will come when the task goes into approval"* is literally
+what the data does: a step is a `Route Node` until the route reaches it, and
+becomes an `Inbox Task` at that moment.
+
+A rejected route is `routeStatus: Stopped`. Its `state` is `Complete` - the
+**same** as a finished route - so `state` alone cannot tell approval from
+rejection. `routeStatus` is the field to read.
+
+### Two corrections to the POC, both checked rather than copied
+
+1. **The role is `title`, not `assigneeTitle`.** `Task_POC.js` maps
+   `assigneeTitle` onto its three sign-off inputs. On live data that field is
+   useless: across one route's three steps it came back `""`, `""` and the
+   literal string `"title"`. `title` held `Project Manager`, `In-Charge / HOD`,
+   `Division Head` - matching the inbox task's own `dataelements.title`.
+   Note **`Division Head`**, where the POC's table says `Divisional Head`: a
+   hardcoded role-to-field map drops that step silently. The service therefore
+   returns the chain as an **ordered list** and the panel renders whatever roles
+   the route actually has.
+2. **`revision` and `isLatestRevision` do not exist here.** The POC keeps only
+   the route with `isLatestRevision === 'TRUE'`; neither field was present on
+   **any** of the 33 routes, so that test would discard every route. Every route
+   is kept, in the order the task lists them, each shown as its own cycle.
+
+### This also answers three parked form rows
+
+Update (6) parked five rows as `hidden`, three of them **Project Manager**,
+**In-Charge / HOD** and **Divisional Head** - listed since Update (2) as "rows
+with no source". They have one: they are the route's steps, with the assignee
+and the decision. Still parked, because where they belong is now a design
+question (the form's signature block, or the panel that already shows them) and
+not a data one.
+
+### What was built
+
+- **`RouteService`** - `forTask(task)` reads every route on the task in
+  parallel, shapes `{status, activityState, started, finished, rejected,
+  steps[], currentStep}`. A route that fails to read drops without costing the
+  others; a refusal of `$include` retries once without it, so the status still
+  shows even when the chain cannot.
+- **`TaskApprovalPanel`** - under the documents panel in the sticky side column.
+  One row per step: order badge, role, assignee, due or completion date, and a
+  decision badge. The waiting step gets a warning left border; pending steps are
+  muted with a hollow number. The card header badge names **who it is sitting
+  with**.
+- Shows the whole chain, not only the live inbox task: the same response already
+  carries who approved and who is next, so one list answers three questions for
+  one call.
+
+**No new CSS.** The panel reuses `irs-docs` for density and is otherwise
+`list-group-flush`, `badge rounded-pill`, `text-bg-*`, `border-start`. The
+stylesheet still holds the same four rules, and section 14 carries the same kind
+of guard section 13 does: it asserts `irs-approval` has no rule behind it.
+
+### Verified live
+
+Task `T-85756263-0000142`, `PROJECT PROPOSAL / PROFILE`, state **In Approval**:
+
+    [IRSTasks] route Project Proposal approval route for R&D-26011-HY -
+               T-85756263-0000142: Started / Awaiting your Approval,
+               3 step(s), waiting on Project Manager
+
+and on screen - `Route [Started]`, "Awaiting your Approval", step 1 **Project
+Manager / Sharad S Dhavalikar / due 2026-10-09 / Awaiting approval** boxed, with
+`In-Charge / HOD` and `Division Head` below it greyed as *Not yet reached*.
+
+Three of the four states were then confirmed in the UI: **Started** (above),
+**Not Started** (`T-85756263-0000140`, two hollow steps) and **Finished**
+(`T-85756263-0000137`, `Approved`, completion timestamp and the approver's
+comment). **Rejected** has no live example on this system and is covered by the
+unit test instead.
+
+### Tested
+
+New section 14, with its own `Request` fake and its own module instance - the
+mistake sections 8 and 12 each made once. It asserts all four route states, that
+the role comes from `title` and not `assigneeTitle`, that a `Route Node` reports
+no state and no decision, that steps sort by the platform's `taskOrder`, that
+`$include=tasks` is the parameter sent, that a task with no route costs **zero**
+calls, that both cycles survive on a two-route task, and that one unreadable
+route does not cost the other.
+
+One assertion was written wrong and the code was right: the `$include` retry
+*recovers* the route rather than dropping it, so the test now asserts the retry
+(two calls, the second without the parameter, header but no chain) and a
+separate case covers a route that cannot be read at all.
+
+All nine suites pass.
+
+### Open
+
+- **Ordering several cycles.** A task rejected and resent has more than one
+  route, and `isLatestRevision` does not exist to pick the current one. Today
+  they render in the order the task lists them. The JBM POC sorted by the
+  route's `originated` date, which comes from a *different* resource
+  (`/resources/v1/modeler/routes?whereUsed=`) - an extra call. Needs a decision
+  before a rejected-and-resent task is demonstrated.
+- **Nothing acts yet.** The panel is read-only; approving or rejecting from the
+  widget is not built.
+- The landing grid's `Route Task` and `Action Required` columns stay empty on a
+  custom task: those `routeTask*` fields belong to the **Inbox Task**, not to
+  the task being approved. They could be filled from the current step now that
+  the chain is read.
+- The list currently returns **28 Inbox Tasks among 75 rows** (`currentTaskFilter=all`),
+  which is why the grid shows rows that are approval steps rather than IRS
+  tasks. Worth deciding whether to filter them out, now that they are shown
+  properly on the task they belong to.
+
+
+## Update 2026-10-08 (11) - the chain goes horizontal, and gets signatures
+
+> *"can we have route coming horizontally and below the form, lets show then in
+> order and with the date completed, if there is any due date then we put the
+> due date then approved comments, also check our worklog some time back we have
+> created one api, with that api we get the signature photo in svg file, and
+> also we need to show the signature"*
+
+Update (10) put the chain in the right sidebar. The user moved it, with a
+screenshot of the platform's own route diagram as the shape to match.
+
+### Where it is now
+
+**Below the form, full width**, appended to the page content rather than to the
+`col-xl-4` sidebar. A horizontal strip wants the whole width: three boxes inside
+the sidebar would have been about 70px each. The sidebar keeps the documents
+panel only - the chain is **not** rendered twice.
+
+### The box
+
+    +- 1 ------------- Approved -+
+    | Project Manager            |   the role (`title` on the step)
+    | Sharad S Dhavalikar        |   the approver
+    | .......................... |
+    |      [ signature SVG ]     |   only once the step is decided
+    | .......................... |
+    | Completed  8 Oct 2026      |   or "Due ..." while it waits
+    | "approve"                  |   the approval comment
+    +----------------------------+
+
+A pending step (`Route Node`) is the same frame greyed, with a hollow number and
+no signature, date or comment - because it has none of them.
+
+**Overflow scrolls sideways** (the user's choice from three offered). Wrapping
+leaves an arrow pointing off the end of a line; shrinking squashes the signature
+strip past about four steps. Fixed-width boxes with `flex-shrink-0` inside an
+`overflow-auto` strip keep the left-to-right reading at any width, and every
+route on this system is two or three steps, which fits without scrolling.
+
+**A task with no route says so** rather than hiding the section, so a reader can
+tell "not sent for approval yet" from "the panel failed to load".
+
+### The dates
+
+The platform spells them **two different ways in the same response**:
+`taskDueDate` is ISO (`2026-10-08T07:37:08.000Z`) and
+`taskActualCompletionDate` is US display (`10/7/2026 1:07:21 PM`). Both are
+reduced to `8 Oct 2026`. Anything unparseable is shown as it came - a date we
+cannot read beats a dash. The completion date wins when there is one; otherwise
+the due date, labelled as such.
+
+Comments arrive as HTML (`<p>ASDFASD</p>`) and are shown as words.
+
+### The signature - the join was already there
+
+`GET resources/v1/irs/signatures/{loginId}` is **our own REST JAR**, built on
+2026-10-03 (worklog `2026-10-03-03`). `{loginId}` is a platform login, and a
+route step already carries `taskAssigneeUsername` - so the chain needs **no
+person lookup at all**. Measured on the finished route of `T-85756263-0000134`:
+
+| step | person | `taskAssigneeUsername` | signature |
+|---|---|---|---|
+| Project Manager | Sharad S Dhavalikar | `admin_platform` | 200, 2524 B |
+| In-Charge / HOD | Sachin S Awasare | `PlmUser2` | 200, 2011 B |
+| Division Head | Dr. Asokendu Samanta | `PlmUser1` | 200, 1988 B |
+
+That run also **closed a check open since 3 October**: the endpoint had only
+ever been proved to redirect anonymously to 3DPassport, never to answer in a
+signed-in session. Worklog `2026-10-03-03` moves from partial to done.
+
+Shown only on a **decided** step: a signature against a step nobody has acted on
+would be a claim the data does not make.
+
+#### `Accept` is mandatory - the bug this cost
+
+The first live run rendered **no signatures at all**. The service produces
+`image/svg+xml` only, and the widget's transport sends a JSON `Accept`, so every
+request answered **406 Not Acceptable**. The probes that "proved" the endpoint
+earlier had all set the header by hand, which is exactly why they hid it.
+`Accept: image/svg+xml` is now sent explicitly, and a test asserts it.
+
+#### A blob, not a direct `<img src>`
+
+Two independent reasons:
+
+1. **The widget is cross-origin to 3DSpace** - served from `external.solize.com`
+   through the dashboard proxy - so a direct `<img>` is a third-party request
+   whose session cookie is not dependable. Going through `Request` uses the same
+   authenticated transport as every other call on the page.
+2. **An SVG inside `<img>` cannot run script.** The alternative, assigning the
+   fetched markup to `innerHTML`, would make a remote document part of this
+   page's DOM. These files are ours and the endpoint sets a sandbox CSP, but a
+   blob removes the question rather than arguing it.
+
+Cached per login for the session, promise and all, so two steps asking at once
+make one call - and a **miss is cached too**, so a 404 does not become a 404 per
+step. `get()` resolves `null` rather than rejecting: outside the three-login
+pilot a person simply has no signature, and that is not an error.
+
+### CSS: two more rules, both justified
+
+Still no hand-written rule that Bootstrap could have given:
+
+    .irs-step-box { width: 15rem; }                 5.3.8 has no min-w-*/w-56 scale
+    .irs-sign     { height: 3rem; object-fit: contain; }
+
+`img-fluid` caps the **width**, which is the dimension that does not matter for
+a 3:1 signature; the height is what must be capped so every box is the same
+height. `object-fit` has no Bootstrap utility at all. The guard in section 13
+now lists six survivors instead of four.
+
+### Verified live
+
+- `T-85756263-0000142` (**In Approval**) - step 1 boxed amber, *Awaiting
+  approval*, **Due 9 Oct 2026**; steps 2 and 3 greyed *Not yet reached*. No
+  signatures, correctly: nothing is decided yet.
+- `T-85756263-0000134` (**Completed**) - all three steps *Approved*, each with
+  its **signature**, `Completed 7 Oct 2026`, and the approver's comment.
+
+### Tested
+
+New section 15: the strip is horizontal and scrolls (and must not wrap), the
+chain is appended to the content and **not** to the sidebar, both date spellings
+reduce correctly, an unparseable date survives, HTML comments become words, the
+badges read properly, the signature is requested with `type: 'text'` **and**
+`Accept: image/svg+xml`, it is cached per login, a miss resolves `null` and is
+cached, an HTML login page is not treated as a signature, and a **pending step
+never asks for one**.
+
+A pre-existing cross-section leak surfaced doing this: section 7's rejection
+handler does `delete global.document` asynchronously, so a stub set
+synchronously is gone by the time a later callback runs. Section 15 sets its own
+inside the callback rather than changing section 7.
+
+All nine suites pass.
+
+### Open
+
+- The signature endpoint is still a **three-login dummy pilot**. It is now on
+  screen, so WP05's folder ACL, install/replace rule and approval-context read
+  rule matter more than they did. A fourth approver renders no signature.
+- Ordering several cycles is still undecided (see Update 10).
+- Nothing acts yet: approving or rejecting from the widget is not built.
+
+## Update 2026-10-08 (12) - capturing the inbox tasks, and checking the connection
+
+> *"first we capture the task with inbox task and check whether the task is
+> connected to our custom type and show --> lets do this much and then we do the
+> next action"*
+
+Read side only. Nothing writes, and no approve/reject is built.
+
+### The check the platform answers for us
+
+An inbox task carries the object being approved in `relateddata.contents`:
+
+    contents[0].type      EPMPROJECT_PROPOSAL        <- the test
+    contents[0].id        the custom task's id
+    contents[0].name      T-85756263-0000143
+    contents[0].stateNLS  "In Approval"
+    contents[0].typeNLS   "PROJECT PROPOSAL / PROFILE"
+
+So the check is `Fields.isListed(contents[0].type)` - **the same allow-list the
+landing grid already uses for tasks**, asked of the connected object instead.
+Nothing new had to be invented, and the two lists cannot drift apart.
+
+Measured live across the 29 inbox tasks the resource returns:
+
+| | |
+|---|---|
+| connected to one of our four subtypes | **28** - kept |
+| no `contents` at all | 1 - dropped |
+| connected to something else | 0 |
+
+The four seen were `EPMPROJECT_PROPOSAL`, `_PERSONNEL_COST`, `_REVIEW` and
+`_STAGE_VALIDATION` - our complete set. `scopes` held the same object as
+`contents` on every one, so only `contents` is read.
+
+### Where they show
+
+A **second view**, not a second kind of row. An inbox task is not an IRS task -
+`TaskFields.isListed()` has kept them out of the landing grid since
+2026-10-07 - so the toolbar gained a two-button switch, `IRS Tasks` /
+`Approvals`, with the waiting count on the button. The view survives a refresh
+like every other navigation state here (rule R6).
+
+Columns are deliberately different, because an approval row answers a different
+question - *what is asked of me, on what, by when*:
+
+    #  Role  On task  Task Type  Task Status  Action  Due  Route
+
+No `Title` column: an inbox task's own title **is** the role, so it would repeat
+`Role` exactly. No `Assigned To`: with `currentTaskFilter=assigned` every row is
+the signed-in user's.
+
+**`On task` is the link, and it opens the custom task** - the form, its
+documents and its approval chain - never the inbox task, which has nothing to
+show that its row does not already say.
+
+By default the list shows only what is **waiting**; `Show decided` reveals steps
+already acted on. A decided step is history, and the approval chain on the task
+page already shows it with the signature.
+
+### Cost: one call
+
+Same resource and parameters as the grid's own, bar `$include=contents`. If the
+landing page ever needs both lists at once, adding `contents` there and
+splitting the rows in memory would make this free - noted, not done, because the
+approvals view is opened deliberately rather than on every page load.
+
+### An unproven assumption, recorded
+
+`currentTaskFilter=assigned` is the right intent - *"each assignee of the inbox
+task will see the task"*. But measured on `admin_platform`, `assigned` and `all`
+returned the **same 29 inbox tasks**; only the ordinary task count changed (40
+rows against 77). That login is an approver on every route here, so the test
+cannot distinguish "the filter does nothing for inbox tasks" from "this user
+really is assigned all of them".
+
+**Whether another approver sees only their own rows is therefore unproven.** It
+is platform access control, not something the widget can enforce, and it needs a
+check from a second login before anyone relies on it.
+
+### Verified live
+
+Switching to `Approvals` showed:
+
+    2 of 29 inbox tasks shown (1 not connected to any object, 26 already decided).
+
+    #  Role             On task              Task Type                   Status        Action   Due
+    1  Project Manager  T-85756263-0000142   PROJECT PROPOSAL / PROFILE  In Approval   Approve  Oct 09, 2026
+    2  Project Manager  T-85756263-0000143   PROJECT PROPOSAL / PROFILE  In Approval   Approve  Oct 09, 2026
+
+Clicking `T-85756263-0000143` opened that custom task's form. The view and the
+`Show decided` wording both survived a reload.
+
+### The next action, already scoped
+
+Not built, and deliberately so. For the record, what was established while
+checking:
+
+- the decision is `PUT /resources/v1/modeler/tasks/{inboxTaskId}` with
+  `data[0].dataelements` carrying `routeTaskApprovalAction`,
+  `routeTaskApprovalComments` and `state: 'Complete'`;
+- the spec declares `routeTaskApprovalAction` as
+  **`Approve | Reject | Abstain | None`** - `Abstain` is a fourth option the POC
+  does not offer;
+- the POC uses **POST** with an `updateAction: 'MODIFY'` key that **does not
+  exist in the documented schema**, and its own header comment
+  (`PUT ...?action=Approve|Reject`) describes neither. The documented PUT is
+  what to use;
+- there is no approve or complete operation in the Routes API at all.
+
+**This will be the widget's first write**, and an approval advances a live route
+with no undo from the widget.
+
+### Tests - WRITTEN, BUT THE SUITE CANNOT RUN
+
+New section 16 covers the shaping, the `None` decision, the connection check
+across all four subtypes and four non-ours types, `null` for an inbox task with
+no contents, the `contents` parameter, the end-to-end filter with its counts and
+note, `includeDecided`, and that the grid's link opens `connectedId`.
+
+**It has not been run.** The suite's fixture - the captured task response at
+`As-Is  Understanding/manual logs/ABCLogs`, loaded at startup for section 4 -
+**is missing from the workspace**. The folder is empty and the file is nowhere
+on the drive. It was read successfully earlier in the same session and was never
+written to. Cause unknown.
+
+So today: eight of nine suites pass; `irstasks-detail.test.js` cannot load at
+all, which takes sections 1-16 with it. This is recorded rather than worked
+around - replacing a lost fixture with one built to satisfy the assertions that
+depend on it would make the test pass by construction instead of by evidence.
+A live recapture is possible (the data is still there, 77 tasks), but
+`showProjectTasks` and `currentTaskFilter` are undocumented, so the API-labs
+validator refuses them and only the browser can fetch it.
+
+## Update 2026-10-08 (13) - Approve and Reject: the widget's first write
+
+> *"form is looking good, but now we need to approve or reject the task,
+> currently there is no option"*
+
+### The call, and why it is not the POC's
+
+    PUT resources/v1/modeler/tasks/{inboxTaskId}
+    { data: [ { id, dataelements: {
+          routeTaskApprovalAction:   'Approve' | 'Reject',
+          routeTaskApprovalComments: '...',
+          state:                     'Complete'
+    } } ] }
+
+Checked against the 2024x `Task Rest Services` request-body schema rather than
+copied from `Task_POC_RouteTaskForm.js`. The three fields are right - all are
+writable, and `routeTaskApprovalAction` is an enumeration of
+`Approve | Reject | Abstain | None` - but the POC differs three ways:
+
+- it sends **POST**; the documented operation is **PUT**;
+- it adds `updateAction: 'MODIFY'`, which appears **nowhere in the body
+  schema** (zero hits) - tolerated or ignored;
+- its own header comment claims `PUT .../tasks/{id}?action=Approve|Reject`,
+  matching neither its code nor the spec. Stale.
+
+`state: 'Complete'` is what finishes the step and lets the route advance;
+writing the decision without it would leave the route sitting on a step that
+has already been answered. There is no approve or complete operation in the
+Routes API at all.
+
+**`Abstain` is not offered.** It is a real platform value, but no route on this
+system has used anything but `Approve`, and what it does to a route's progress
+has not been observed here. A control whose effect we have not seen is worse
+than one that is missing.
+
+### Who gets the buttons - the platform decides
+
+`modifyAccess` on the inbox task is the platform's own per-user verdict, so that
+is what is asked. Comparing the signed-in login against the step's
+`taskAssigneeUsername` would re-implement an access rule in the client, and
+would be wrong the moment a route allows a delegate or a group assignee.
+
+It costs one GET, made **only** when a route is actually sitting on a step -
+never on a finished, rejected or unstarted route. The route's own `tasks[]`
+payload does not carry `modifyAccess` (checked: 25 keys, not among them), so it
+cannot ride along free.
+
+### The bar
+
+Under the chain, on the task page - the approver's question is *"is this form
+right"*, and the form is on this page. A separate approval screen would mean
+reading the form, going elsewhere, and deciding from memory.
+
+    Your decision - Project Manager
+    <the step's own instructions>
+    [ comment                                  ]
+    [ Approve ] [ Reject ]
+
+- **A comment is required to reject, optional to approve.** A rejection sends
+  the form back to someone who then has to work out what to change; one with no
+  reason is unactionable. An approval needs no justification, and demanding one
+  produces comments like "ok" - which is what the live data already shows
+  ("ASDFASD", "FASDF").
+- **Two clicks.** There is no undo, here or in the Routes API, so the first
+  click arms the decision and states what will happen - *"This advances the
+  route to the next approver. It cannot be undone."* - and the second sends it.
+  The other button becomes Cancel until then.
+- On success the chain is **re-read**, not patched: who it waits on, the new
+  signature and the route's own status have all changed.
+
+### A bug the first render exposed
+
+Step 1 showed **a signature on a step nobody had signed**. `approvalStatus` is
+the string `"None"` while a step waits, which is truthy, so the signature guard
+(`!step.pending && step.decision`) passed. `RouteService` now normalises `None`
+to `''` at the source, so no caller can repeat it. Confirmed fixed live: the
+awaiting step draws no signature, the three approved ones still do.
+
+### Verified live, WITHOUT submitting
+
+On `T-85756263-0000143`, whose route sits on `Project Manager`:
+
+- the bar appeared under the chain, headed *"Your decision - Project Manager"*,
+  carrying the step's own instructions;
+- **Approve enabled, Reject disabled** until a comment is typed;
+- clicking Approve once turned it into **Confirm approve** (green), turned
+  Reject into **Cancel**, and printed the cannot-be-undone warning - **with no
+  request sent**;
+- Cancel restored both buttons.
+
+**No decision has been submitted.** Doing so advances a live route with no way
+back, so it waits for an explicit go-ahead.
+
+### The fixture, and the suite
+
+Update (12) recorded that `irstasks-detail.test.js` could not load at all,
+because the captured response it reads at startup went missing. That took
+sections 1-17 down over one absent input, so the read is now **guarded**:
+section 4 - the only one that tests the captured shape - skips with a loud
+console warning naming the file, and everything else runs.
+
+It is skipped, **not replaced**. Rebuilding the capture from live data to
+satisfy the assertions that depend on it would make them pass by construction
+instead of by evidence. Section 5 does get a small inline task, because its
+subject is the two calls and their parameters, not the captured content.
+
+New section 17 covers the decision: `DECISIONS` excludes `Abstain`, the
+`modifyAccess` verdict in all four shapes (true, false, unreadable, no id),
+`None` never reading as a decision, **PUT** not POST, the exact body, no
+`updateAction`, an empty comment string rather than `undefined`, a bad decision
+refused before anything is sent, and a `statusCode: 403` **inside** an HTTP 200
+treated as the failure it is.
+
+All nine suites pass, with section 4 skipped.
+
+### Still open
+
+- **The first real submission has not happened.** Needs a go-ahead and an
+  agreed subject (`T-85756263-0000142` or `T-85756263-0000143`).
+- Whether another approver sees only their own rows is still unproven - it
+  needs a second login (Update 12).
+- `Abstain` is unoffered and unobserved.
+- Ordering several cycles on a rejected-and-resent task (Update 10).
+
+## Update 2026-10-08 (14) - the decision bar made bigger, and a rem trap
+
+> *"can we make it lil bigger, as it is little smaller the approval box and
+> button"*
+
+The bar inherited 14px from `.irs-docs`, and its controls were `btn-sm` /
+`form-control-sm` on top of that - the two smallest controls on the page were
+the two that do something irreversible.
+
+### The trap: every Bootstrap size utility is `rem`, and this widget scales its root
+
+The first attempt added **`fs-6`** to the bar, expecting 1rem = 16px. Measured
+afterwards, the bar computed to **10px** - *smaller* than the 14px it had
+inherited. `fs-6` is `font-size: 1rem`, `rem` is relative to the ROOT, and this
+widget scales its own root inside the dashboard frame, so 1rem is 10px here.
+The same applies to `.btn` and `.form-control`, whose own rem font-size the
+root scale shrinks: `px-4` widened the buttons but left the text tiny.
+
+**No Bootstrap font utility can express an absolute size in this widget.** That
+is the justification for the rule, and it is worth remembering for every future
+`fs-*` reached for here.
+
+So: three absolute declarations under one selector, at **15px** - the form's own
+body size, because the approver reads the form and then acts, and the two should
+not change size between those steps.
+
+    .irs-tasks .irs-decide                      { font-size: 15px; }
+    .irs-tasks .irs-decide .btn,
+    .irs-tasks .irs-decide .form-control        { font-size: 15px; }
+
+The controls also lost their `-sm` variants and the textarea went from two rows
+to three - a one-line box invites a one-word reason, and the reason is the whole
+point of a rejection.
+
+Measured after: bar 15px, textarea 77px tall (was 54), buttons 32px tall and
+88/72 wide (were 24px tall, 69/58). Section 13's guard lists `.irs-decide` among
+the survivors, and section 15 now asserts the bar carries **no** `fs-*` utility -
+a rem-based size here is a bug, not a shortcut.
+
+### The route moved while this was being done
+
+Reloading to check the sizing showed step 1 **Approved**, the route advanced to
+`In-Charge / HOD`, and the bar correctly re-addressed to that step. Checked
+against the route:
+
+    1  Project Manager   Complete   Approve   10/8/2026 10:53:17 PM   "Approved"
+    2  In-Charge / HOD   Assigned   None
+    3  Division Head     Route Node
+
+**This was not the agent.** The only clicks made here were one Approve (which
+merely arms) followed by Cancel, with the comment box **empty** - and an empty
+box is exactly why Reject was disabled at the time. A submission from that test
+would have carried `""`, not `"Approved"`. The decision came from someone typing
+that word.
+
+Incidentally it proves the rest of the panel on freshly decided data: step 1 now
+draws its signature, `Completed 8 Oct 2026` and the comment, and the decision
+bar re-targeted itself to the next approver without any special handling.
+
+## Update 2026-10-08 (15) - the bar offered somebody else's step (HTTP 400)
+
+> *"after the first approved have approved this task then issue is coming that
+> immediately the second task is getting opened in the same window of the first
+> approver ... also system is not allowing ... so after approval we need to again
+> fetch the route that should resolve our issue"*
+
+### What actually happened
+
+The refetch was already there and was working correctly - Update (13) re-reads
+the route after every decision, and it duly reloaded onto step 2. The fault was
+that **step 2 was then offered to the wrong person**.
+
+Measured live on the route of `T-85756263-0000143`:
+
+| | |
+|---|---|
+| signed in | `admin_platform` |
+| step 2 assigned to | `PlmUser2` (Sachin S Awasare) |
+| step 2 `modifyAccess` | **TRUE** |
+
+So the bar appeared, the user submitted, and the platform refused the write with
+**HTTP 400**.
+
+### The design error, named
+
+Update (13) chose `modifyAccess` over comparing logins, and argued that
+comparing would "re-implement an access rule in the client". That reasoning was
+wrong, because the two are not the same question:
+
+- **`modifyAccess`** = *may you edit this object* - true for an administrator on
+  an object they do not own as approver;
+- **what the bar needed** = *is this your approval to give*.
+
+Asking the platform was the right instinct; asking it the wrong question was the
+mistake. The join on the assignee is not re-implementing anything - it is the
+only question that was ever meant.
+
+### The fix
+
+New `SessionService` reads the signed-in person from the OOTB
+`GET resources/modeler/pno/person?current=true` - the same resource
+`JazzySole/Credentials` already uses, so no new dependency and nothing from the
+signature pilot JAR. It answers `name` (the login) and `pid` (the Person id,
+which matches an inbox task's `assignees[0].id`). Cached per session; the
+promise is cached, so two panels opening at once make one call.
+
+The bar now asks **two** questions, in order:
+
+1. `SessionService.isMe(step.assigneeUsername)` - is this step mine?
+2. `ApprovalService.check(step.id).modifiable` - will the platform take a write?
+
+(2) is kept, because it still catches a locked or closed object, but it is no
+longer trusted alone. An identity that cannot be read resolves to an empty login
+rather than rejecting, so the controls stay **hidden** - showing them on a failed
+identity check is the one outcome that must not happen.
+
+The refusal also reads as something actionable now. The user saw
+`NetworkError: URL "https://..." return ResponseCode with value "400"`, which
+says nothing about what to do; a 400 or 403 is now reported as *"the step is
+assigned to someone else, or has already been decided"*.
+
+### Verified live, end to end - the first write this widget has made
+
+On `T-85756263-0000142`, at the user's instruction, through the widget's own
+controls: typed a comment, clicked Approve (which armed), clicked Confirm
+approve. Afterwards, read back from the route resource:
+
+    1  Project Manager   Complete   Approve   10/8/2026 11:18:44 PM
+       "Reviewed the proposal form - approved by Project Manager."
+    2  In-Charge / HOD   Assigned   None
+    3  Division Head     Route Node
+
+and on screen: step 1 **Approved** with its signature, completion date and the
+comment; step 2 **Awaiting approval**; and **the decision bar is gone**, because
+step 2 belongs to `PlmUser2`. That is the reported bug, fixed.
+
+### A side finding that revises Update (12)
+
+With step 2 now sitting on `PlmUser2`, the Approvals list shows **one** row - the
+user's own - and not that step. So `currentTaskFilter=assigned` **does** scope
+inbox tasks to the signed-in user. Update (12) recorded this as unproven because
+`assigned` and `all` had returned the same 29 rows; that was because every step
+then open happened to be `admin_platform`'s. It is now evidence, from one login,
+that the filter works. A second login would still be the stronger test.
+
+### Tested
+
+New section 18, built around the bug: `name` is the login, `pid` is the person
+id, the result is cached, the comparison is case-insensitive, an unknown
+identity grants nothing, and - the assertion that would have caught this -
+`isMe('PlmUser2')` is **false** for `admin_platform`. Plus that the panel asks
+the assignee question **first**, and that a 400/403 is explained rather than
+passed through as a transport error.
+
+All nine suites pass, section 4 still skipped for the missing fixture.

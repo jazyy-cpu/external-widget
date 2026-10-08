@@ -33,17 +33,53 @@
 define('IRSTasks/views/TaskListView', [
     'JazzySole/TabulatorLoader',
     'IRSTasks/services/TaskService',
+    'IRSTasks/services/InboxTaskService',
     'IRSTasks/components/TaskToolbar',
-    'IRSTasks/views/TaskColumns'
-], function (TabulatorLoader, TaskService, TaskToolbar, columns) {
+    'IRSTasks/views/TaskColumns',
+    'IRSTasks/views/InboxColumns'
+], function (TabulatorLoader, TaskService, InboxTaskService, TaskToolbar,
+             columns, inboxColumns) {
     'use strict';
 
     var SHOW_CLOSED = 'xPrefTasksShowClosed';
+    var MODE = 'xPrefTasksMode';
     var MIN_HEIGHT = 180;      // never collapse the grid to nothing
     var BOTTOM_GAP = 8;        // breathing room under the pager
 
     /** Fields the search box may look in - must match TaskToolbar.FIELDS. */
     var SEARCH_FIELDS = ['title', 'projectName', 'assignedTo'];
+
+    /** The same, for the approvals view - must match APPROVAL_FIELDS. */
+    var INBOX_SEARCH_FIELDS = ['role', 'connectedName', 'routeName'];
+
+    /**
+     * The two views, as data rather than as branches scattered through the
+     * file. Each says where its rows come from, how to draw them, what the
+     * search box may look in, and how to sort - and nothing else differs.
+     */
+    var VIEWS = {
+        tasks: {
+            columns: columns,
+            searchFields: SEARCH_FIELDS,
+            sort: 'finish',
+            empty: 'No task in this view.',
+            failed: 'The tasks could not be loaded: ',
+            load: function (includeClosed) {
+                return TaskService.list({ includeClosed: includeClosed });
+            }
+        },
+        approvals: {
+            columns: inboxColumns,
+            searchFields: INBOX_SEARCH_FIELDS,
+            // what is overdue matters more than what was made recently
+            sort: 'dueDate',
+            empty: 'Nothing is waiting for your approval.',
+            failed: 'The approvals could not be loaded: ',
+            load: function (includeDecided) {
+                return InboxTaskService.list({ includeDecided: includeDecided });
+            }
+        }
+    };
 
     function el(tag, className, text) {
         var node = document.createElement(tag);
@@ -57,6 +93,16 @@ define('IRSTasks/views/TaskListView', [
         return node;
     }
 
+    /**
+     * Which list was showing last. Unknown values fall back to `tasks`, so a
+     * stale preference from an older build cannot leave the widget on a view
+     * that no longer exists.
+     */
+    function readMode() {
+        var saved = widget.getValue(MODE);
+        return VIEWS[saved] ? saved : 'tasks';
+    }
+
     function readShowClosed() {
         return String(widget.getValue(SHOW_CLOSED)) === 'true';
     }
@@ -65,10 +111,12 @@ define('IRSTasks/views/TaskListView', [
      * Returns null when nothing is being searched for, so the caller can clear
      * the filter instead of installing a match-everything one.
      */
-    function matcher(term, field) {
+    function matcher(term, field, allFields) {
         var needle = String(term || '').trim().toLowerCase();
         if (!needle) { return null; }
-        var keys = (!field || field === 'all') ? SEARCH_FIELDS : [field];
+        // "All fields" means the ACTIVE view's fields: an approval row has no
+        // title and no project, so searching a task's keys would match nothing
+        var keys = (!field || field === 'all') ? (allFields || SEARCH_FIELDS) : [field];
         return function (row) {
             return keys.some(function (key) {
                 return String(row[key] || '').toLowerCase().indexOf(needle) >= 0;
@@ -91,6 +139,10 @@ define('IRSTasks/views/TaskListView', [
         render: function (parent, options) {
             options = options || {};
             var includeClosed = readShowClosed();
+            // the view survives a refresh, like every other navigation state
+            // on this widget (rule R6) - a user working a queue of approvals
+            // should not be put back on the task list by a reload
+            var mode = readMode();
             var table = null;
             var built = null;             // resolves when Tabulator says tableBuilt
             var search = { term: '', field: 'all' };
@@ -104,6 +156,7 @@ define('IRSTasks/views/TaskListView', [
 
             var toolbar = TaskToolbar.render(options.toolbar || root, {
                 includeClosed: includeClosed,
+                mode: mode,
                 onRefresh: function () { load(); },
                 onToggleClosed: function (checked) {
                     includeClosed = checked;
@@ -113,6 +166,24 @@ define('IRSTasks/views/TaskListView', [
                 onSearch: function (term, field) {
                     search = { term: term, field: field };
                     applySearch();
+                },
+                /*
+                 * A view change REBUILDS the table rather than replacing its
+                 * data: the two views have different columns, and Tabulator's
+                 * `setColumns` on a live table loses the sort, the page and the
+                 * frozen-column state. Destroying is both simpler and more
+                 * honest about what is happening.
+                 */
+                onMode: function (next) {
+                    mode = next;
+                    widget.setValue(MODE, next);
+                    search = { term: '', field: 'all' };
+                    if (table) {
+                        try { table.destroy(); } catch (e) { /* already gone */ }
+                        table = null;
+                        built = null;
+                    }
+                    load();
                 }
             });
             root.appendChild(messages);
@@ -139,9 +210,12 @@ define('IRSTasks/views/TaskListView', [
                 if (ready()) { table.setHeight(availableHeight()); }
             }
 
+            /** The active view's definition - source, columns, search, sort. */
+            function view() { return VIEWS[mode]; }
+
             function applySearch() {
                 if (!ready()) { return; }
-                var fn = matcher(search.term, search.field);
+                var fn = matcher(search.term, search.field, view().searchFields);
                 if (fn) { table.setFilter(fn); } else { table.clearFilter(true); }
             }
 
@@ -151,8 +225,26 @@ define('IRSTasks/views/TaskListView', [
                 messages.appendChild(box);
             }
 
+            /**
+             * Open what the row is ABOUT.
+             *
+             * In the task view that is the row itself. In the approvals view it
+             * is the **connected custom task** - the form, its documents and
+             * its approval chain - and never the inbox task, which has nothing
+             * to show that its own row does not already say.
+             *
+             * `InboxTaskService` drops any row without a connected task, so
+             * `connectedId` is always set on a row that reaches the grid; the
+             * fallback is there because a formatter is not a contract.
+             */
             function openTask(row) {
-                if (options.onOpenTask) { options.onOpenTask(row); }
+                if (!options.onOpenTask) { return; }
+                if (mode === 'approvals') {
+                    if (!row.connectedId) { return; }
+                    options.onOpenTask({ id: row.connectedId, fromInboxTask: row.id });
+                    return;
+                }
+                options.onOpenTask(row);
             }
 
             function build(rows) {
@@ -161,7 +253,7 @@ define('IRSTasks/views/TaskListView', [
                     clear(host);
                     table = new Tabulator(host, {
                         data: rows,
-                        columns: columns(openTask),
+                        columns: view().columns(openTask),
                         // an explicit height is what pins the pager to the bottom
                         height: availableHeight(),
                         // minimum widths + fitDataFill = a horizontal scroll bar
@@ -169,8 +261,8 @@ define('IRSTasks/views/TaskListView', [
                         layout: 'fitDataFill',
                         responsiveLayout: false,
                         index: 'id',
-                        placeholder: 'No task in this view.',
-                        initialSort: [{ column: 'finish', dir: 'asc' }],
+                        placeholder: view().empty,
+                        initialSort: [{ column: view().sort, dir: 'asc' }],
                         pagination: true,
                         paginationMode: 'local',
                         paginationSize: 20,
@@ -195,10 +287,16 @@ define('IRSTasks/views/TaskListView', [
                 toolbar.setBusy(true);
                 if (!table) { clear(host).appendChild(busy); }
 
-                return TaskService.list({ includeClosed: includeClosed }).then(function (result) {
+                return view().load(includeClosed).then(function (result) {
                     if (destroyed) { return null; }
                     // how many rows the service's own filters dropped, and why
                     if (result.note) { note(result.note, 'info'); }
+                    // the count on the Approvals button is only trustworthy
+                    // when the approvals view itself just loaded; the task
+                    // view's response says nothing about how many are waiting
+                    if (mode === 'approvals') {
+                        toolbar.setCount(result.counts ? result.counts.kept : result.rows.length);
+                    }
 
                     if (table) {
                         // a reload while the first build is still running would
@@ -220,7 +318,7 @@ define('IRSTasks/views/TaskListView', [
                     if (destroyed) { return; }
                     toolbar.setBusy(false);
                     if (!ready()) { clear(host); }
-                    note('The tasks could not be loaded: ' +
+                    note(view().failed +
                          (err && err.message ? err.message : err), 'danger');
                 });
             }

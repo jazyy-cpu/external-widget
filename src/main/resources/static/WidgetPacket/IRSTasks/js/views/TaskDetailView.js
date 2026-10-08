@@ -3,7 +3,8 @@
  *
  * The page shows the form, with a **documents panel beside it** - one row per
  * field of the form spec, and the task's deliverables and attachments in a
- * sticky, collapsible panel on the right (`TaskDocumentsPanel`).
+ * sticky, collapsible panel on the right (`TaskDocumentsPanel`), and the
+ * approval chain horizontally BELOW the form (`TaskApprovalPanel`).
  *
  * The panel is the one thing on the page that is about the TASK rather than
  * the project, which is why it is beside the form instead of inside it: every
@@ -72,20 +73,22 @@
  * guidance under every value, which on a 23-row form is 23 lines telling an
  * approver about the form rather than showing them the project.
  *
- * Bootstrap's grid does the pairing; the label column, the hairlines and the
- * section rule are the only custom CSS, because Bootstrap has no component for
- * a report's attribute block - `dl`/`row` sets its own type and spacing and
- * carries no rules at all.
+ * **Bootstrap does all of it.** The pairs are `col-md-6`, the label column is a
+ * nested `row`/`col-5`, and the hairlines and section rules are `border-bottom`
+ * / `border-top` utilities. The form's own stylesheet carries exactly one rule
+ * for this layout - `table-layout: fixed`, which has no utility - after an
+ * audit against the bundled Bootstrap 5.3.8 on 2026-10-08.
  */
 define('IRSTasks/views/TaskDetailView', [
     'IRSTasks/services/TaskDetailService',
     'IRSTasks/services/ProjectContextService',
     'IRSTasks/services/ConfigService',
     'IRSTasks/views/TaskDocumentsPanel',
+    'IRSTasks/views/TaskApprovalPanel',
     'IRSTasks/config/TaskFields',
     'JazzySole/Format'
 ], function (TaskDetailService, ProjectContextService, ConfigService,
-             DocumentsPanel, Fields, Format) {
+             DocumentsPanel, ApprovalPanel, Fields, Format) {
     'use strict';
 
     var DASH = '—';
@@ -274,11 +277,14 @@ define('IRSTasks/views/TaskDetailView', [
      */
     function kv(label, value, className) {
         var col = el('div', 'col-12 col-md-6');
-        var line = el('div', 'irs-kv');
-        line.appendChild(el('div', 'irs-kv-label', label));
+        // a NESTED grid, not a flex row with a fixed label width: Bootstrap's
+        // columns already give a label column, and 5/7 of half a line scales
+        // with the widget where `flex: 0 0 11rem` did not
+        var line = el('div', 'row g-0 irs-kv border-bottom px-2 py-1');
+        line.appendChild(el('div', 'col-5 fw-semibold', label));
         var text = toText(value);
-        var cell = el('div', 'irs-kv-value' + (className ? ' ' + className : ''),
-                      text || DASH);
+        var cell = el('div', 'col-7 text-break irs-kv-value' +
+                             (className ? ' ' + className : ''), text || DASH);
         if (!text) { cell.className += ' text-secondary'; }
         line.appendChild(cell);
         col.appendChild(line);
@@ -286,12 +292,14 @@ define('IRSTasks/views/TaskDetailView', [
     }
 
     function kvGrid() {
-        return el('div', 'row g-0 irs-kv-grid');
+        return el('div', 'row g-0 irs-kv-grid border-top');
     }
 
     /** A ruled heading, as the report puts over Attributes / Approvals / Routes. */
     function sectionHead(text) {
-        return el('div', 'irs-sum-head', text);
+        return el('div',
+            'irs-sum-head border-bottom pb-1 mb-2 mt-3 fw-semibold ' +
+            'text-primary-emphasis', text);
     }
 
     /**
@@ -334,7 +342,8 @@ define('IRSTasks/views/TaskDetailView', [
 
         [['Risks', context.risks], ['Opportunities', context.opportunities]]
             .forEach(function (pair) {
-                wrap.appendChild(el('div', 'irs-sum-sub', pair[0]));
+                wrap.appendChild(el('div',
+                    'irs-sum-sub fw-semibold mt-2 mb-1 text-secondary', pair[0]));
                 if (pair[1].length) {
                     wrap.appendChild(table(columns, pair[1]));
                 } else {
@@ -513,7 +522,7 @@ define('IRSTasks/views/TaskDetailView', [
         // prose keeps its line breaks. No box around it any more: the report
         // this follows sets its text plainly, and a shaded panel per section
         // made a 16-section form read as sixteen separate cards
-        var box = el('div', 'irs-sum-text', row.value);
+        var box = el('div', 'irs-sum-text px-2', row.value);
         box.style.whiteSpace = 'pre-wrap';
         return box;
     }
@@ -738,9 +747,10 @@ define('IRSTasks/views/TaskDetailView', [
                     var right = el('div', 'col-12 col-xl-8 order-2 order-xl-1');
 
                     var side = el('div', 'col-12 col-xl-4 order-1 order-xl-2');
-                    // sticky, so it stays in view as the form scrolls past it -
-                    // inside the one scrolling region, not a second one
-                    var sticky = el('div', 'irs-docs-sticky');
+                    // Bootstrap's own `sticky-top`, so it stays in view as the
+                    // form scrolls past it - inside the one scrolling region,
+                    // not a second one
+                    var sticky = el('div', 'sticky-top');
                     sticky.appendChild(DocumentsPanel.render(task));
                     side.appendChild(sticky);
 
@@ -762,6 +772,21 @@ define('IRSTasks/views/TaskDetailView', [
                     row.appendChild(right);
                     row.appendChild(side);
                     content.appendChild(row);
+
+                    /*
+                     * The approval chain goes BELOW the whole row, full width.
+                     *
+                     * It began in the sidebar under the documents; the user
+                     * moved it (2026-10-08): *"can we have route coming
+                     * horizontally and below the form"*. A horizontal strip
+                     * wants the page's full width, and the sidebar is a quarter
+                     * of it - three boxes in `col-xl-4` would be about 70px
+                     * each. Here it gets the lot, and the chain reads as a flow
+                     * the way the platform's own route diagram does.
+                     *
+                     * It is NOT also left in the sidebar: one home for it.
+                     */
+                    content.appendChild(ApprovalPanel.render(task));
                     fit();
                 });
             }).catch(function (err) {
