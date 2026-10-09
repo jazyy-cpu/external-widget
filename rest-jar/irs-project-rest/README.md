@@ -144,7 +144,7 @@ guide); the candidate persistent input is
 
 | # | Item |
 |---|---|
-| P1 | **Deploy and call it** - the JAX-RS plumbing, `getAuthenticatedContext`, and the widget's request wrapper against a custom modeler path are only exercised there, never by the JPO |
+| ~~P1~~ | ~~**Deploy and call it**~~ - **done 2026-10-09**. Deployed and called live on TEST PROJECT with `?$include=members`; the JAX-RS registration logged `invalids=0`, the authenticated context resolved, and `?$include=member` correctly returned `400 BAD_INCLUDE`. Worklog 2026-10-09-02 |
 | P2 | `looksMissing` classifies a 404 by matching the kernel's message text. Brittle; the alternative is an extra existence round trip per call. Wrong guess = a 500 where a 404 was due, never wrong data |
 | P3 | The four risks on TEST PROJECT are all `Complete`. Whether the panel should show closed ones, or filter by state, is a UI decision not yet taken - the service returns all and lets the page decide |
 | P4 | `project.title` came back **empty** for both TEST PROJECT and Solize XYZ. `name` is populated. Confirm whether `Title` is simply unused on projects before a screen leans on it |

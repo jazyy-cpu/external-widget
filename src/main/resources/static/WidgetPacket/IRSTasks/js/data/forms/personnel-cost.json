@@ -1,0 +1,198 @@
+{
+  "_about": "What the PROJECT PERSONNEL / COST ESTIMATION task page shows. One file per form (user, 2026-10-07): change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the subtype's entry in js/config/TaskFields.js.",
+  "_generated": "Written 2026-10-09 from R&D-PRJ-02-Rev.00 page 1, with every field verified read-only in MQL on this VM the same day. Page 2 (the 12-month PROJECT PLANNING grid) is deliberately not here - it is a schedule view of the WBS, not a field set.",
+  "_source": {
+    "baseline": "read from the Project Baseline OBJECT linked to this task over IRSTaskBaseline, through our own REST service. The form carries a Rev. No., so its dates are the ones AS APPROVED, not the live schedule (user, 2026-10-09). IMPORTANT - it is the baseline OBJECT, not the copy of this task that lives inside the baseline. The two carry different dates and both are reachable: measured on B-85756263-0000116, the object spans 8 Oct (actual start) to 13 Oct (estimated finish) which is the PROJECT, while its copy of task T-85756263-0000139 spans 12-13 Oct with no actual start at all, which is that one approval task window. The form asks for the project. Confirmed by the user, 2026-10-09. Most tasks have no baseline yet and that is a normal state, not an error - the row says so.",
+    "project": "read from the PROJECT's dataelements - the eleven cost attributes and both dates live on EPMRandD and arrive in the project call the page already makes",
+    "task": "read from the TASK's own dataelements. Unlike the proposal, this form HAS one: EPMChangeOfScope, measured on EPMPROJECT_PERSONNEL_COST 2026-10-09",
+    "service": "a list, not a value - its own objects, read through a second call",
+    "none": "not a value: it lives in a relationship, in its own objects, in the WBS or in the approval route"
+  },
+  "_hidden": "A field with \"hidden\": true is not drawn at all. The three pending rows here are the ones with NO attribute anywhere on the platform (checked against the whole IRS*/EPM* attribute inventory, 2026-10-09): Software Resource, Reviewer Name and Reason for revision. They are kept in the file, with the note that says what is missing, so the gap is a recorded decision and not a silent omission. Delete the one line to bring a row back once the attribute exists.",
+  "_display": {
+    "text": "one line",
+    "longtext": "prose - the form asks for paragraphs here",
+    "days": "a man-day count - a number, with its unit in the label",
+    "money": "a rupee figure",
+    "yesno": "an ENOVIA boolean (the STRINGS TRUE/FALSE) shown as Yes / No",
+    "members": "the project's people table - a list, not a value",
+    "pending": "agreed but NOT created on the platform yet: the page says so rather than showing it as empty",
+    "elsewhere": "see the note - another object or tab owns it",
+    "approval": "an approval signature - a route task, not a field",
+    "date": "a date, printed as 8 Oct 2026",
+    "costs": "the printed Cost Estimation table - Sr. No. / Resources / Description / Estimated Price in Rs., with a Total row and the man-day rate as a footnote. Its lines live in `rows`, so adding one is a JSON edit",
+    "mandays": "the printed Estimated Man days table - one column per figure, under its own heading. Its columns live in `columns`"
+  },
+  "_calculated": "Five of the eight numbers are produced by the back end and carry DMC User Access = ReadOnly, so this widget never computes them and must never offer them for edit: TotalMandays = IRS + Outside; ManpowerCostIRS = MandaysIRS x Rate; ManpowerCostOutsideAgency = MandaysOutsideAgency x Rate; TotalEstimatedPrice = the two manpower costs + OtherCost. Verified on three live projects 2026-10-09 (ana 310000, Solize XYZ 240552, TEST PROJECT 212500) - the arithmetic is already correct server-side.",
+  "form": "R&D-PRJ-02-Rev.00",
+  "title": "PROJECT PERSONNEL / COST ESTIMATION",
+  "taskType": "EPMPROJECT_PERSONNEL_COST",
+  "fields": [
+    {
+      "ref": "Header",
+      "label": "Project Name",
+      "source": "project",
+      "field": "name",
+      "display": "text",
+      "fallbackField": "title",
+      "note": "The project's name. On R2024x a project is created with a name only, so Title stays empty - this is the field, not a fallback"
+    },
+    {
+      "ref": "Header",
+      "label": "Project No.",
+      "source": "project",
+      "field": "EPMProjectNo",
+      "display": "text",
+      "note": "System generated from a numbering scheme (R20) - the scheme is not defined yet"
+    },
+    {
+      "ref": "Header",
+      "label": "Department",
+      "source": "service",
+      "display": "department",
+      "note": "The Department linked by IRSDepartmentProject, with the Business Unit that owns it (relationship Company Department)"
+    },
+    {
+      "ref": "I",
+      "label": "Project Members",
+      "source": "service",
+      "display": "members",
+      "note": "The people on the project, over the Member relationship - all five columns now have a live source. Name and Designation come from the Person (IRSDesignation, a range of the ten IRS designations); Skill from hasBusinessSkill -> Business Skill; Drive access from the Member relationship's own IRSDriveAccess (Yes / No / Not Applicable); and Responsibility - the Project Manager / Dy. Project Manager / Member line the printed form puts someone on - from IRSProjectResponsibility, added to the Member relationship on 2026-10-09 to close the one gap that remained. The team sets Responsibility and Drive access on the platform's own Members page, where both are editable drop-downs; this form only shows them. Responsibility is a RECORD and not an access rule - the platform's own Project Owner / Project Member is the OOTB Project Access attribute, and the two must not be confused. The whole table arrives in ONE round trip from our JAR's $include=members, because the OOTB resource returns member names only"
+    },
+    {
+      "ref": "II",
+      "label": "Software Resource required",
+      "hidden": true,
+      "source": "none",
+      "display": "pending",
+      "note": "The form asks for the software, whether it was evaluated (Yes / No / NA) and a Remark. No attribute for any of the three exists anywhere on this platform - checked against the whole IRS*/EPM* inventory, 2026-10-09. EPMDataDrive is the nearest Yes/No/NA attribute and it belongs to EPMPROJECT_REVIEW, not here. Three DMC attributes are needed before this row can show anything"
+    },
+    {
+      "ref": "III",
+      "label": "Change of Scope",
+      "source": "task",
+      "field": "EPMChangeOfScope",
+      "display": "yesno",
+      "note": "The one custom attribute the task itself carries - boolean, default FALSE, and in use: TRUE on two live tasks (Solize XYZ T-85756263-0000134 and TEST PROJECT T-85756263-0000139) as at 2026-10-09"
+    },
+    {
+      "ref": "IV",
+      "label": "Reviewer Name",
+      "hidden": true,
+      "source": "none",
+      "display": "pending",
+      "note": "No attribute exists. It is NOT the same as an approver - the three signatures at the foot of this form are the approval, and the printed form asks for the reviewer separately. One DMC string attribute is needed"
+    },
+    {
+      "ref": "V",
+      "label": "Start Date",
+      "source": "baseline",
+      "field": "actualStartDate",
+      "display": "date",
+      "note": "The PROJECT's actual start, read from the Project Baseline OBJECT captured for this task (its own Task Actual Start Date). Not the baseline's copy of this task, whose Actual Start is empty - see _source.baseline. `newLine` keeps it on one line with Planned End Date: without it Change of Scope takes the left half and the end date drops to a line of its own (user, 2026-10-09).",
+      "newLine": true
+    },
+    {
+      "ref": "V",
+      "label": "Planned End Date",
+      "source": "baseline",
+      "field": "estimatedFinishDate",
+      "display": "date",
+      "note": "The PROJECT's planned end, from the same baseline OBJECT (its Task Estimated Finish Date). The baseline also carries estimatedStartDate and actualFinishDate; which of the four each row prints is decided here, not in the API, so changing it costs no redeploy."
+    },
+    {
+      "ref": "VI",
+      "label": "Estimated Man days",
+      "source": "project",
+      "display": "mandays",
+      "columns": [
+        {
+          "label": "IRS",
+          "amount": "EPMMandaysIRS"
+        },
+        {
+          "label": "Outside agency",
+          "amount": "EPMMandaysOutsideAgency"
+        },
+        {
+          "label": "Total Man days",
+          "amount": "EPMTotalMandays"
+        }
+      ],
+      "note": "The printed Estimated Man days table of R&D-PRJ-02 (user, 2026-10-09). The label is a section heading above the table, the same as Cost Estimation - the paper form draws it as a left cell spanning both rows, but beside a headed cost table that read as a different kind of thing when it is the same kind of thing (user, 2026-10-09). IRS and Outside agency are keyed on the project (DMC ReadWrite); Total Man days is calculated by the back end (ReadOnly) and is READ here, never summed. The printed form labels this block \"Ref: Project Profile\", meaning it is carried from the proposal rather than re-keyed - which is exactly what reading the project attributes does. Half days are real: project 'ana' keys 17.5."
+    },
+    {
+      "ref": "VIII",
+      "label": "Cost Estimation",
+      "source": "project",
+      "display": "costs",
+      "note": "The printed Cost Estimation table of R&D-PRJ-02, drawn as the form draws it (user, 2026-10-09). This one entry replaces the eight rows that used to list the same numbers one under another - three amounts, three descriptions, the rate and the total. Every figure is READ: the five derived ones are ReadOnly in DMC and computed server-side, and the widget never recomputes them.",
+      "rows": [
+        {
+          "no": "01",
+          "resource": "Manpower Cost (IRS)",
+          "description": "EPMManpowerCostIRSDescription",
+          "amount": "EPMManpowerCostIRS"
+        },
+        {
+          "no": "02",
+          "resource": "Manpower Cost (outside agency)",
+          "description": "EPMManpowerCostOutsideAgencyDescription",
+          "amount": "EPMManpowerCostOutsideAgency"
+        },
+        {
+          "no": "03",
+          "resource": "Other",
+          "description": "EPMOtherCostDescription",
+          "amount": "EPMOtherCost"
+        }
+      ],
+      "total": {
+        "label": "Total Estimated Price",
+        "amount": "EPMTotalEstimatedPrice"
+      },
+      "footnoteRate": "EPMManpowerRatePerManday"
+    },
+    {
+      "ref": "X",
+      "label": "Project Planning: task break-up against the months",
+      "hidden": true,
+      "source": "none",
+      "display": "elsewhere",
+      "note": "Page 2 of the printed form - a task x 12-month grid with REV / S-VAL / VER / VAL / CIN markers. It is a view of the OOTB work breakdown (Subtask, Task, Phase, Gate, Milestone) and their estimated dates, not a field set, so it needs its own component and a mapping from those five markers to task subtypes. Not built"
+    },
+    {
+      "ref": "Footer",
+      "label": "Reason for revision of this form",
+      "hidden": true,
+      "source": "none",
+      "display": "pending",
+      "note": "No attribute exists. The printed form carries a Rev. No., so this belongs with whatever freezes the figures at the gate. One DMC string attribute is needed"
+    },
+    {
+      "ref": "Footer",
+      "label": "Project Manager",
+      "hidden": true,
+      "source": "none",
+      "display": "approval",
+      "note": "An approval signature - collected by the route task when the approver acts, not typed into the form. Drawn by the approval panel below the form (WGT-09), which shows the route chain with each approver's date, comment and signature image."
+    },
+    {
+      "ref": "Footer",
+      "label": "In-Charge / HOD",
+      "hidden": true,
+      "source": "none",
+      "display": "approval",
+      "note": "An approval signature - collected by the route task when the approver acts, not typed into the form."
+    },
+    {
+      "ref": "Footer",
+      "label": "Divisional Head",
+      "hidden": true,
+      "source": "none",
+      "display": "approval",
+      "note": "An approval signature - collected by the route task when the approver acts, not typed into the form."
+    }
+  ],
+  "_layout": "Section numbers (I, III, V ...) are NOT printed on screen, on the user's instruction 2026-10-09: nine of the sixteen rows are hidden, so the visible numbers run I, III, V, VI, VIII and the gaps read as something that failed to load. `ref` stays in this file because it is how the paper form is discussed and how each row is traced back to it. Short fields pair off two to a line in the order they appear here; `newLine` on a field starts a fresh line instead of filling the one above."
+}

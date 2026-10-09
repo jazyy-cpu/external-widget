@@ -799,11 +799,16 @@ grids.forEach(grid => grid.children.forEach(col => {
   assert.ok(col.className.indexOf('col-md-6') >= 0, 'a pair is half a line wide');
 }));
 
-// the long sections get a ruled heading, carrying the form's own numeral
+// the long sections get a ruled heading - the label alone. The paper form's
+// numerals were printed here until 2026-10-09, when the user dropped them:
+// with the unbuilt sections hidden they ran I, III, V, VIII and the gaps read
+// as something that had failed to load
 const heads = findAll(page, 'irs-sum-head').map(n => n.textContent);
-assert.ok(heads.indexOf('III. Need of the Project') >= 0,
-  'a prose section is a ruled heading with its printed section number');
-assert.ok(heads.indexOf('XIII. Risks and opportunities') >= 0);
+assert.ok(heads.indexOf('Need of the Project') >= 0,
+  'a prose section is a ruled heading, with no numeral in front of it');
+assert.ok(heads.indexOf('Risks and opportunities') >= 0);
+assert.ok(!heads.some(h => /^[IVX]+\.\s/.test(h)),
+  'no heading carries a section number');
 // `Header` and `Footer` are our grouping words, not printed on the form
 assert.ok(!allText(page).match(/\bHeader\b|\bFooter\b/),
   'our own grouping words never reach the page');
@@ -1966,3 +1971,796 @@ ticketChecks.then(() => console.log('irstasks-documents: all assertions passed')
   .catch(err => { console.error(err); process.exit(1); });
 
 console.log('irstasks-department: all assertions passed');
+
+// ---- 19. the cost form: R&D-PRJ-02 and the three value formats ---------
+//
+// Every field in this section was verified read-only in MQL on 2026-10-09, so
+// the assertions below are against MEASURED values, not against the printed
+// form's wording.
+
+const costSpec = JSON.parse(fs.readFileSync(
+  path.join(base, 'js/data/forms/personnel-cost.json'), 'utf8'));
+
+// the 404 banner the page used to show: TaskFields declares this field set, and
+// until today the file it names did not exist
+assert.strictEqual(costSpec.taskType, 'EPMPROJECT_PERSONNEL_COST');
+assert.strictEqual(costSpec.form, 'R&D-PRJ-02-Rev.00');
+
+const costBy = {};
+costSpec.fields.forEach(f => { costBy[f.label] = f; });
+
+// ---- the ELEVEN cost attributes are all on the PROJECT, not on the task.
+// This is what makes the form cost no extra call: the page already reads the
+// project for the proposal form, and `$include=none` returns every EPM
+// attribute in one go
+// Eight of them live INSIDE the printed Cost Estimation table now (its
+// `rows`, `total` and `footnoteRate`) rather than as rows of their own, so
+// what matters is that each is still read SOMEWHERE - not where it sits.
+const costAttrs = new Set();
+costSpec.fields.forEach(f => {
+  if (f.field) { costAttrs.add(f.field); }
+  (f.rows || []).forEach(line => {
+    if (line.amount) { costAttrs.add(line.amount); }
+    if (line.description) { costAttrs.add(line.description); }
+  });
+  (f.columns || []).forEach(col => {
+    if (col.amount) { costAttrs.add(col.amount); }
+  });
+  if (f.total && f.total.amount) { costAttrs.add(f.total.amount); }
+  if (f.footnoteRate) { costAttrs.add(f.footnoteRate); }
+});
+['EPMMandaysIRS', 'EPMMandaysOutsideAgency', 'EPMTotalMandays',
+ 'EPMManpowerRatePerManday', 'EPMManpowerCostIRS', 'EPMManpowerCostOutsideAgency',
+ 'EPMOtherCost', 'EPMTotalEstimatedPrice', 'EPMManpowerCostIRSDescription',
+ 'EPMManpowerCostOutsideAgencyDescription', 'EPMOtherCostDescription']
+  .forEach(a => assert.ok(costAttrs.has(a), a + ' is still read by the form'));
+
+// ---- the printed Cost Estimation table (user, 2026-10-09).
+// It replaced eight rows that listed the same numbers one under another -
+// same data, but nothing like the form being signed.
+const costTable = costSpec.fields.filter(f => f.display === 'costs')[0];
+assert.ok(costTable, 'the form has a Cost Estimation table');
+assert.deepStrictEqual(costTable.rows.map(r => r.no), ['01', '02', '03']);
+assert.deepStrictEqual(costTable.rows.map(r => r.resource),
+  ['Manpower Cost (IRS)', 'Manpower Cost (outside agency)', 'Other'],
+  'the resource names are the printed form\'s, verbatim');
+assert.strictEqual(costTable.total.label, 'Total Estimated Price');
+assert.strictEqual(costTable.total.amount, 'EPMTotalEstimatedPrice');
+// the rate is READ from the project, never written into the label: it is
+// stamped per project, so an older project must keep printing its own rate
+assert.strictEqual(costTable.footnoteRate, 'EPMManpowerRatePerManday');
+const costTableViewSrc = fs.readFileSync(
+  path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
+const costsBody = costTableViewSrc.match(/function costsBlock[\s\S]*?\n    \}/)[0];
+assert.ok(!/15000|15,000/.test(costsBody),
+  'the rate is not hard-coded in the renderer');
+// and the renderer names no attribute: which one each line reads is JSON
+assert.ok(!/EPM[A-Za-z]+/.test(costsBody),
+  'costsBlock knows the SHAPE of the table, not which attributes fill it');
+// nothing is recomputed - the five derived figures are ReadOnly in DMC and
+// computed server-side; a second implementation here is how the screen and
+// the database start disagreeing
+assert.ok(!/attributes\[[^\]]+\]\s*[*+]/.test(costsBody),
+  'no arithmetic on the attributes: the back end owns every derived figure');
+
+
+// ---- the printed Estimated Man days table (user, 2026-10-09) ------------
+//
+// It replaced three rows listing the same figures one under another. The
+// label is a section HEADING above the table, like Cost Estimation's
+// (user, 2026-10-09) - it was first drawn as a left cell spanning both rows,
+// the way the paper form draws it, but beside a headed cost table that read
+// as a different kind of thing when it is the same kind of thing.
+const mandays = costSpec.fields.filter(f => f.display === 'mandays')[0];
+assert.ok(mandays, 'the form has an Estimated Man days table');
+assert.strictEqual(mandays.label, 'Estimated Man days');
+assert.ok(!('noHeading' in mandays),
+  'the heading is drawn by main, so the table no longer suppresses it');
+assert.deepStrictEqual(mandays.columns.map(c => c.label),
+  ['IRS', 'Outside agency', 'Total Man days'],
+  'the column names are the printed form\'s, verbatim');
+assert.deepStrictEqual(mandays.columns.map(c => c.amount),
+  ['EPMMandaysIRS', 'EPMMandaysOutsideAgency', 'EPMTotalMandays']);
+
+// every block gets its heading, man days included
+assert.ok(/body\.appendChild\(sectionHead\(labelOf\(row\)\)\);/
+  .test(costTableViewSrc), 'a block section is drawn under its heading');
+assert.ok(!/noHeading/.test(costTableViewSrc),
+  'the noHeading escape hatch is gone with its one user');
+
+// the renderer knows the SHAPE, not which attributes fill it - same rule as
+// the cost table, so a fourth column stays a JSON edit
+const mandaysBody = costTableViewSrc.match(
+  /function mandaysBlock[\s\S]*?\n    \}/)[0];
+assert.ok(!/EPM[A-Za-z]+/.test(mandaysBody),
+  'mandaysBlock names no attribute');
+// Total Man days is ReadOnly in DMC and computed server-side - never summed
+assert.ok(!/attributes\[[^\]]+\]\s*[*+]/.test(mandaysBody),
+  'no arithmetic: the back end owns the total');
+// no label cell any more - the heading above the table carries the label,
+// and printing it in both places would say it twice
+assert.ok(!/rowSpan/.test(mandaysBody),
+  'no spanning label cell: the heading carries the label');
+assert.ok(!/row\.label/.test(mandaysBody),
+  'mandaysBlock draws columns only; main draws the label');
+// half days are real on this data (ana keys 17.5), so it formats, never rounds
+assert.ok(/VALUE_FORMAT\.days/.test(mandaysBody),
+  'figures go through the days format, which keeps a half day');
+
+
+// ---- the two layout rules the user set on 2026-10-09 -------------------
+//
+// 1. No section numbers on screen. Nine of the sixteen rows are hidden, so
+//    the visible numbers ran I, III, V, VI, VIII and the gaps read as
+//    something that failed to load. `ref` stays in the JSON - it is how the
+//    paper form is discussed - so the test is that the VIEW does not print it.
+const labelOfBody = costTableViewSrc.match(
+  /function labelOf\(row\) \{[\s\S]*?\n    \}/)[0];
+assert.ok(!/ref/.test(labelOfBody),
+  'the heading is the label alone - no roman numeral in front of it');
+assert.ok(costSpec.fields.every(f => f.ref),
+  'every field still records which numbered section of the form it came from');
+
+// 2. Start Date and Planned End Date share one line. They are a pair and read
+//    as one fact; before this, Change of Scope took the left half of their
+//    line and pushed Planned End Date down on its own.
+const startDate = costSpec.fields.filter(f => f.label === 'Start Date')[0];
+const endDate = costSpec.fields.filter(f => f.label === 'Planned End Date')[0];
+assert.strictEqual(startDate.newLine, true, 'Start Date starts a fresh line');
+assert.ok(!endDate.newLine, 'so Planned End Date lands beside it, not below');
+assert.strictEqual(
+  costSpec.fields.indexOf(endDate), costSpec.fields.indexOf(startDate) + 1,
+  'and nothing comes between them');
+assert.ok(/if \(row\.newLine && grid\) \{/.test(costTableViewSrc),
+  'the view honours newLine by breaking the run of pairs');
+// a fresh grid directly under another would otherwise draw a second rule on
+// top of the line above, which already has its own bottom rule
+assert.ok(/function kvGrid\(continuing\)/.test(costTableViewSrc),
+  'the continuing grid skips its top rule, so the dates get no double line');
+
+// ---- the ONE attribute the task carries itself.
+// The proposal form has none, so this is the first form to read `source: task`
+// at all - and it is in use, TRUE on two live tasks
+assert.strictEqual(costBy['Change of Scope'].source, 'task');
+assert.strictEqual(costBy['Change of Scope'].field, 'EPMChangeOfScope');
+assert.strictEqual(costBy['Change of Scope'].display, 'yesno',
+  'EPMChangeOfScope is a BOOLEAN - ENOVIA returns the string "TRUE"');
+
+// ---- nothing in the client may recompute what the back end owns.
+// Five numbers carry DMC `User Access = ReadOnly`; a second implementation of
+// the arithmetic here is how the screen and the database start disagreeing
+const costViewSrc = fs.readFileSync(
+  path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
+// CODE only. A comment may name an attribute to explain why the back end owns
+// it, which is exactly what mandaysBlock's header does - banning that would
+// push the reasoning out of the file that needs it.
+const costViewCode = costViewSrc
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\/\/[^\n]*/g, '');
+assert.ok(!/EPMMandaysIRS|EPMTotalMandays|EPMTotalEstimatedPrice/.test(costViewCode),
+  'the view never READS a cost attribute by name - the JSON is the only place');
+assert.ok(/ReadOnly/.test(costSpec._calculated),
+  'the spec records WHICH numbers the back end owns');
+
+// ---- the rows with no source anywhere on the platform are hidden, not faked.
+// Checked against the whole IRS*/EPM* attribute inventory on 2026-10-09
+['Software Resource required', 'Reviewer Name',
+ 'Reason for revision of this form'].forEach(label => {
+  assert.strictEqual(costBy[label].hidden, true, label + ' has no attribute yet');
+  assert.strictEqual(costBy[label].display, 'pending');
+  assert.ok(costBy[label].note.length > 20,
+    label + ' says what is missing, so the gap is a decision not an omission');
+});
+
+// page 2 is a schedule view of the WBS, not a field set
+assert.strictEqual(costBy['Project Planning: task break-up against the months'].display,
+  'elsewhere');
+
+// the three signatures come from the route (WGT-09), exactly as on the proposal
+assert.strictEqual(
+  costSpec.fields.filter(f => f.display === 'approval').length, 3);
+
+// ---- the people table is a SERVICE section, and it must not borrow another
+// section's renderer. `members` used to fall through to risksBlock, which drew
+// the WRONG table under the right heading - worse than an empty section,
+// because it looks like data
+// the heading is just "Project Members" (user, 2026-10-09) - it still carries
+// ref "I", so the page prints "I. Project Members" like every other section
+assert.strictEqual(costBy['Project Members'].display, 'members');
+assert.strictEqual(costBy['Project Members'].ref, 'I');
+assert.ok(/row\.display === 'risks'/.test(costViewSrc),
+  'risksBlock is reached by its OWN display type, not as the fallback');
+assert.ok(/members/.test(costViewSrc.match(/var BLOCKS = \[[^\]]*\]/)[0]),
+  'the people table is full width, not a key-value pair');
+
+// ---- the three value formats.
+// A DMC `real` arrives as `150000.0` and a boolean as the STRING `"TRUE"`;
+// printing either raw on a form a customer signs reads as a defect
+const fmtBody = costViewSrc.match(/var VALUE_FORMAT = \{[\s\S]*?\n    \};/)[0];
+const toTextLocal = v => (v === null || v === undefined) ? '' : String(v).trim();
+const VALUE_FORMAT = (function () {
+  const toText = toTextLocal;
+  return eval('(function(){' + fmtBody + ' return VALUE_FORMAT;})()');
+}());
+
+// the INDIAN grouping - 2,40,552 and not 240,552. These are the live totals
+// measured on the three projects that carry values
+assert.strictEqual(VALUE_FORMAT.money('240552.0'), 'Rs. 2,40,552', 'Solize XYZ');
+assert.strictEqual(VALUE_FORMAT.money('310000.0'), 'Rs. 3,10,000', 'ana');
+assert.strictEqual(VALUE_FORMAT.money('212500.0'), 'Rs. 2,12,500', 'TEST PROJECT');
+assert.strictEqual(VALUE_FORMAT.money('15000.0'), 'Rs. 15,000', 'the rate');
+assert.strictEqual(VALUE_FORMAT.money('552.0'), 'Rs. 552', 'under a thousand: no comma');
+assert.strictEqual(VALUE_FORMAT.money('0.0'), 'Rs. 0', 'zero is a figure, not blank');
+assert.strictEqual(VALUE_FORMAT.money(''), '', 'but an absent value stays absent');
+assert.strictEqual(VALUE_FORMAT.money('not a number'), 'not a number',
+  'a value we cannot parse is shown as it came, never as NaN');
+
+// half man-days are real on this data (`ana` keys 17.5), so days must not round
+assert.strictEqual(VALUE_FORMAT.days('16.0'), '16', 'a whole count loses the .0');
+assert.strictEqual(VALUE_FORMAT.days('17.5'), '17.5', 'a half day is kept');
+assert.strictEqual(VALUE_FORMAT.days('3.5'), '3.5');
+assert.strictEqual(VALUE_FORMAT.days('0.0'), '0');
+assert.strictEqual(VALUE_FORMAT.days(''), '');
+
+// ENOVIA booleans are the STRINGS "TRUE"/"FALSE" - the same trap as modifyAccess
+assert.strictEqual(VALUE_FORMAT.yesno('TRUE'), 'Yes');
+assert.strictEqual(VALUE_FORMAT.yesno('FALSE'), 'No');
+assert.strictEqual(VALUE_FORMAT.yesno('true'), 'Yes', 'case does not matter');
+assert.strictEqual(VALUE_FORMAT.yesno(''), '', 'unset is not "No"');
+
+console.log('irstasks-cost-form: all assertions passed');
+
+// ---- 22. every AMD module is actually loaded by the page ----------------
+//
+// THE BUG. `BaselineService.js` was written, required by TaskDetailView, and
+// never given a <script> tag in IRSTasks.html. This loader has no module
+// resolution: a `define` that was never evaluated simply is not there, so the
+// page asked the dashboard proxy for the module id as a path and got
+//
+//     GET .../WidgetPacket/IRSTasks/services/BaselineService.js  404
+//
+// Note the missing `js/` segment - that is the signature of this fault, and it
+// is why the 404 looks like a deployment problem rather than a missing tag.
+//
+// Cheap to assert, and it applies to every module added from here on.
+const widgetHtml = fs.readFileSync(path.join(base, 'IRSTasks.html'), 'utf8');
+const tagged = (widgetHtml.match(/src="(js\/[^"]+\.js)"/g) || [])
+  .map(m => m.replace(/src="|"/g, ''));
+
+function walkJs(dir, prefix) {
+  let out = [];
+  fs.readdirSync(path.join(base, dir), { withFileTypes: true }).forEach(e => {
+    const rel = dir + '/' + e.name;
+    if (e.isDirectory()) { out = out.concat(walkJs(rel, prefix)); }
+    else if (e.name.endsWith('.js')) { out.push(rel); }
+  });
+  return out;
+}
+const onDisk = walkJs('js').sort();
+
+onDisk.forEach(file => assert.ok(tagged.indexOf(file) >= 0,
+  file + ' has no <script> tag in IRSTasks.html - it will 404 at runtime'));
+tagged.forEach(file => assert.ok(onDisk.indexOf(file) >= 0,
+  'IRSTasks.html loads ' + file + ', which does not exist'));
+
+// LOAD ORDER matters too: there is no dependency resolution, so a module must
+// be tagged before anything that defines against it
+function at(file) { return tagged.indexOf(file); }
+[['js/utils/Log.js', 'js/services/BaselineService.js'],
+ ['js/services/BaselineService.js', 'js/views/TaskDetailView.js'],
+ ['js/services/ProjectContextService.js', 'js/views/TaskDetailView.js'],
+ ['js/views/TaskDetailView.js', 'js/App.js']].forEach(([first, second]) => {
+  assert.ok(at(first) >= 0 && at(second) >= 0 && at(first) < at(second),
+    first + ' must load before ' + second);
+});
+
+console.log('irstasks-modules: all ' + onDisk.length + ' modules are loaded, in order');
+
+
+// ---- 20. the people table, and the attribute built to complete it ------
+//
+// The R&D-PRJ-02 member block wanted five columns. Four already had a source;
+// Responsibility (Project Manager / Dy. Project Manager / Member) had none, so
+// IRSProjectResponsibility was added to the OOTB `Member` relationship on
+// 2026-10-09. Everything below is asserted against values measured live on
+// Solize XYZ the same day.
+
+const MemberRequest = {
+  _calls: [],
+  _body: {},
+  get: function (p, opts) {
+    MemberRequest._calls.push({ path: p, opts: opts });
+    return MemberRequest._body instanceof Error
+      ? Promise.reject(MemberRequest._body)
+      : Promise.resolve(MemberRequest._body);
+  }
+};
+const MemberContext = load(path.join(base, 'js/services/ProjectContextService.js'),
+  [MemberRequest, Log]);
+
+// ---- the form asks for the section, so the service must request it.
+// A form that shows no people must NOT pay for the round trip
+const costSpecForMembers = JSON.parse(fs.readFileSync(
+  path.join(base, 'js/data/forms/personnel-cost.json'), 'utf8'));
+const costSections = MemberContext.sectionsFor(costSpecForMembers);
+assert.ok(costSections.indexOf('members') >= 0,
+  'the cost form asks for $include=members');
+
+const proposalSpec = JSON.parse(fs.readFileSync(
+  path.join(base, 'js/data/forms/project-proposal.json'), 'utf8'));
+assert.strictEqual(MemberContext.sectionsFor(proposalSpec).indexOf('members'), -1,
+  'the proposal form shows no people and must not ask for them');
+
+// ---- the live payload, as the JAR answers it.
+// admin_platform is the owner; only PlmUser1 has a skill; PLMUser_1 has a
+// designation but no skill - the sparse case a flat MQL dump cannot express
+MemberRequest._body = {
+  project: { name: 'Solize XYZ' },
+  included: ['members'],
+  members: [
+    { id: 'M1', physicalId: 'P-admin', name: 'admin_platform', type: 'Person',
+      isPerson: 'true', fullName: 'Sharad S Dhavalikar',
+      designation: 'Sr. Principal Surveyor',
+      skills: ['Computational Fluid Dynamics', 'Fluid Structure Interaction'],
+      access: 'Project Owner', responsibility: 'Project Manager', driveAccess: 'No' },
+    { id: 'M2', physicalId: 'P-u1', name: 'PlmUser1', type: 'Person',
+      isPerson: 'true', fullName: 'Dr. Asokendu Samanta',
+      designation: 'Chief Surveyor & Sr. Vice President',
+      skills: [],
+      access: 'Project Member', responsibility: 'Member', driveAccess: 'No' },
+    { id: 'M3', physicalId: 'P-u2', name: 'PlmUser2', type: 'Person',
+      isPerson: 'true', fullName: 'Sachin S Awasare',
+      designation: 'Sr. Surveyor',
+      // the fourth title CONTAINS a comma - this is four skills, not five
+      skills: ['Computational Fluid Dynamics', 'Seakeeping Analysis',
+               'Fluid Structure Interaction',
+               'Environment, Energy Efficiency and New Type of Fuel'],
+      access: 'Project Member', responsibility: 'Deputy Project Manager',
+      driveAccess: 'Yes' },
+    { id: 'M4', physicalId: 'P-u4', name: 'PLMUser_1', type: 'Person',
+      isPerson: 'true', fullName: 'PLM User 1',
+      designation: 'Surveyor 1', skills: [],
+      access: 'Project Member', responsibility: '', driveAccess: 'Yes' },
+    // Member accepts an Organization on its `to` side, so this is real
+    { id: 'M5', physicalId: 'O-1', name: 'IRCLASS', type: 'Company',
+      isPerson: 'false', fullName: '', designation: '', skills: [],
+      access: 'Project Member', responsibility: '', driveAccess: '' }
+  ],
+  memberError: '',
+  counts: { members: '5' }
+};
+
+const memberChecks = MemberContext.get('PRJ1', ['members']).then(ctx => {
+  assert.strictEqual(MemberRequest._calls[0].opts.params['$include'], 'members');
+  assert.strictEqual(ctx.members.length, 5, 'the organization is kept, not dropped');
+
+  // ---- ORDER is the printed form's: PM, then Dy PM, then the members.
+  // The form stacks three blocks; the widget draws one table, so the order has
+  // to carry what the three headings carried on paper
+  assert.deepStrictEqual(ctx.members.map(m => m.responsibility),
+    ['Project Manager', 'Deputy Project Manager', 'Member', '', ''],
+    'ordered by responsibility, unknown values last');
+
+  // an unrecognised value must still APPEAR - dropping a member is the one
+  // outcome worse than showing them in the wrong place
+  assert.ok(ctx.members.some(m => m.login === 'PLMUser_1'),
+    'a member with no responsibility value is still listed');
+
+  // ---- Responsibility is a RECORD, not the platform's access rule
+  const pm = ctx.members[0];
+  assert.strictEqual(pm.responsibility, 'Project Manager');
+  assert.strictEqual(pm.access, 'Project Owner');
+  assert.notStrictEqual(pm.responsibility, pm.access,
+    'the IRS record and the platform access are separate fields');
+
+  // ---- the person detail that forced this section to exist.
+  // These live on the PERSON, not on the Member connection, which is why the
+  // OOTB `$include=members` (names only) was not enough
+  assert.strictEqual(pm.name, 'Sharad S Dhavalikar', 'First + Last Name');
+  assert.strictEqual(pm.designation, 'Sr. Principal Surveyor');
+
+  // looked up by login, NOT by index: the list has been reordered by
+  // responsibility, so an index here asserts against the sort and not the data
+  const by = {};
+  ctx.members.forEach(m => { by[m.login] = m; });
+
+  // THE BUG THIS REPLACES. The reader first read skills from the OOTB
+  // `hasBusinessSkill` link, which on this platform holds one seeded test
+  // object. The real IRS skills come from IRSPersonDepartmentDomain, a REL2REL,
+  // and the two disagree completely - PlmUser1 was the ONLY person with a
+  // hasBusinessSkill link and has NO IRS skill at all, so the widget showed a
+  // skill for exactly the person who has none and nothing for the two who do.
+  assert.deepStrictEqual(by.PlmUser1.skills, [],
+    'PlmUser1 has no IRS skill - he only had the stray hasBusinessSkill link');
+  assert.deepStrictEqual(by.admin_platform.skills,
+    ['Computational Fluid Dynamics', 'Fluid Structure Interaction']);
+  assert.strictEqual(by.PlmUser2.skills.length, 4,
+    'four skills - the fourth title merely contains a comma');
+  assert.ok(by.PlmUser2.skills.indexOf(
+    'Environment, Energy Efficiency and New Type of Fuel') >= 0,
+    'a comma inside a title must not split it into two skills');
+
+  // ENOVIA booleans are the STRINGS "TRUE"/"FALSE"
+  assert.strictEqual(pm.isPerson, true);
+  assert.strictEqual(by.IRCLASS.isPerson, false, 'the Company is not a person');
+
+  // an organization has no First/Last Name, so it falls back to its own name
+  // rather than rendering a blank cell
+  assert.strictEqual(by.IRCLASS.name, 'IRCLASS');
+
+  // the two members with no responsibility value sort after the three known
+  // ones, and between themselves by name - IRCLASS before PLM User 1
+  assert.deepStrictEqual(ctx.members.map(m => m.login),
+    ['admin_platform', 'PlmUser2', 'PlmUser1', 'IRCLASS', 'PLMUser_1']);
+}).then(() => {
+  // a section that failed server-side must SAY so, not look like an empty team
+  MemberRequest._calls.length = 0;
+  MemberRequest._body = { project: {}, members: [], memberError: 'no such relationship' };
+  return MemberContext.get('PRJ1', ['members']);
+}).then(ctx => {
+  assert.strictEqual(ctx.memberError, 'no such relationship');
+  assert.deepStrictEqual(ctx.members, []);
+}).then(() => {
+  // a response from an older JAR carries no members key at all
+  MemberRequest._body = { project: {}, risks: [] };
+  return MemberContext.get('PRJ1', ['members']);
+}).then(ctx => {
+  assert.deepStrictEqual(ctx.members, [], 'an older JAR does not break the page');
+  assert.strictEqual(ctx.memberError, '');
+});
+
+// ---- the renderer
+const memberViewSrc = fs.readFileSync(
+  path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
+assert.ok(/function membersBlock/.test(memberViewSrc));
+// it must be reached by its OWN display type. Before this existed, `members`
+// fell through to risksBlock and drew the WRONG table under the right heading
+assert.ok(/row\.display === 'members'.*membersBlock/.test(memberViewSrc),
+  'membersBlock is wired to display: members');
+// an Organization member has neither designation nor skill, so the people
+// table filters to persons
+assert.ok(/member\.isPerson/.test(memberViewSrc),
+  'the people table shows people');
+// the five column headings the printed form uses
+['Name', 'Responsibility', 'Designation', 'Skill as per records', 'Drive access']
+  .forEach(label => assert.ok(
+    memberViewSrc.indexOf("label: '" + label + "'") > 0,
+    'the table has a ' + label + ' column'));
+// editing happens on the platform's Members page, not here - this block is a
+// view, and must not grow a control that writes
+const blockBody = memberViewSrc.match(/function membersBlock[\s\S]*?\n    \}/)[0];
+assert.ok(!/addEventListener|<select|button/i.test(blockBody),
+  'the people block is read-only; both values are edited on the platform page');
+
+// ---- the platform side: the attribute, the relationship, the table column.
+// A missing piece here fails at RUNTIME as an empty or uneditable cell with no
+// error anywhere, so the four files are asserted to agree
+// base is .../external-widget/src/main/resources/static/WidgetPacket/IRSTasks,
+// so the repo root is SEVEN levels up
+const repoRoot = path.resolve(base, '..', '..', '..', '..', '..', '..', '..');
+const mx = path.join(repoRoot, 'mxupdate', 'custom');
+const attrCi = fs.readFileSync(
+  path.join(mx, 'datamodel/attribute/ATTRIBUTE_IRSProjectResponsibility.mxu'), 'utf8');
+const relCi = fs.readFileSync(
+  path.join(mx, 'datamodel/relationship/RELATIONSHIP_Member.mxu'), 'utf8');
+const tableCi = fs.readFileSync(
+  path.join(mx, 'userinterface/table/TABLE_PMCProjectPeople.mxu'), 'utf8');
+const jpo = fs.readFileSync(
+  path.join(mx, 'program/jpo/IRSProjectMemberUI_mxJPO.java'), 'utf8');
+
+// the three values the user asked for, in the form's order, defaulting to Member
+assert.deepStrictEqual(
+  (attrCi.match(/range = "([^"]*)"/g) || []).map(r => r.replace(/range = "|"/g, '')),
+  ['Project Manager', 'Deputy Project Manager', 'Member']);
+assert.ok(/default "Member"/.test(attrCi), 'an untouched member reads as Member');
+// workspace rule: every new admin object gets its symbolic name AT creation
+assert.ok(/symbolicname "attribute_IRSProjectResponsibility"/.test(attrCi));
+// the value is a record. Nothing may start reading it as an access rule
+assert.ok(/grants nothing/.test(attrCi), 'the CI records that it grants nothing');
+
+assert.ok(/attribute "IRSProjectResponsibility"/.test(relCi),
+  'declared on the Member relationship');
+assert.ok(/attribute "IRSDriveAccess"/.test(relCi),
+  'and IRSDriveAccess is still there');
+
+// the column is an editable drop-down, as the user asked
+const col = tableCi.match(/column \{[^}]*IRSProjectResponsibility[\s\S]*?\n    \}/)[0];
+assert.ok(/setting "Editable" "true"/.test(col));
+assert.ok(/setting "Input Type" "combobox"/.test(col), 'a drop-down, not free text');
+// every program the column names must exist in the JPO, or the cell silently
+// fails at runtime
+['getResponsibilityColumn', 'getResponsibilityRange', 'updateResponsibility',
+ 'getResponsibilityEditable'].forEach(fn => {
+  assert.ok(col.indexOf('"' + fn + '"') > 0, 'the column names ' + fn);
+  assert.ok(new RegExp('@com\\.matrixone\\.apps\\.framework\\.ui\\.ProgramCallable\\s*\\n\\s*'
+    + 'public \\S+ ' + fn + '\\(').test(jpo),
+    fn + ' exists in the JPO and is @ProgramCallable');
+});
+
+// ---- ONE query per page for BOTH editable columns.
+// The page runs parallelLoading with scrollPageSize=50 and a column program is
+// handed every row at once, so a per-row read here is invisible in testing and
+// crippling on a real team
+const linksBody = jpo.match(/private Map readMemberLinks[\s\S]*?\n    \}/)[0];
+assert.strictEqual((linksBody.match(/mqlCommand/g) || []).length, 1,
+  'readMemberLinks makes exactly one query');
+assert.ok(/ATTR_DRIVE_ACCESS/.test(linksBody) && /ATTR_RESPONSIBILITY/.test(linksBody),
+  'and it reads BOTH attributes, so the second column is free');
+
+// the JAR's section, for the same reason on the widget side
+const readerSrc = fs.readFileSync(path.join(repoRoot, 'external-widget',
+  'rest-jar/irs-project-rest/src/main/java/com/irclass/platform/rest/project/ProjectContextReader.java'),
+  'utf8');
+assert.ok(/S_MEMBERS = "members"/.test(readerSrc));
+const readMembersBody = readerSrc.match(/private static List<Map<String, Object>> readMembers[\s\S]*?\n    \}/)[0];
+assert.strictEqual((readMembersBody.match(/getRelatedObjects/g) || []).length, 1,
+  'the JAR reads every member in ONE round trip - the N+1 the rules forbid');
+assert.ok(/SEL_IS_PERSON/.test(readMembersBody),
+  'a member may be an Organization, so that is asked and not assumed');
+
+
+// ---- the whole-call failure fallback must name EVERY section ------------
+//
+// When the context call itself is refused, TaskDetailView substitutes an empty
+// context carrying the reason, so the other rows still render. A section left
+// out of that object renders as "there are none" instead of as a failure - and
+// an empty list and a failed read mean entirely different things to whoever
+// reads the screen. This was missed when the members section was added.
+const fallback = memberViewSrc.match(
+  /return \{\s*\n\s*risks: \[\][\s\S]*?\n\s*\};/)[0];
+['risks', 'opportunities', 'learnings', 'learningsHere', 'learningsElsewhere',
+ 'members'].forEach(key => assert.ok(
+  new RegExp('\\b' + key + ':').test(fallback),
+  'the failure fallback carries ' + key));
+['riskError', 'learningError', 'memberError'].forEach(key => assert.ok(
+  new RegExp('\\b' + key + ': reason').test(fallback),
+  'the failure fallback sets ' + key + ' to the reason'));
+
+// and every `display` the service can request must have an error field, so a
+// future section cannot repeat the omission
+const serviceDisplays = (fs.readFileSync(
+  path.join(base, 'js/services/ProjectContextService.js'), 'utf8')
+  .match(/field\.display === '(\w+)'/g) || [])
+  .map(m => m.replace(/field\.display === '|'/g, ''));
+assert.ok(serviceDisplays.indexOf('members') >= 0,
+  'members is one of the requestable sections');
+
+
+// ---- the skill source must match the platform's own Members page ---------
+//
+// The widget and table PMCProjectPeople show the same people side by side, so
+// they cannot disagree about what those people can do. Both must read
+// IRSPersonDepartmentDomain with the REL2REL `.torel.to` hop - NOT the OOTB
+// `hasBusinessSkill`, which this reader used at first and which gave a
+// near-empty, and differently wrong, answer.
+const memberUiJpo = fs.readFileSync(
+  path.join(mx, 'program/jpo/IRSProjectMemberUI_mxJPO.java'), 'utf8');
+const twinJpo = fs.readFileSync(
+  path.join(mx, 'program/jpo/IRSProjectContext_mxJPO.java'), 'utf8');
+
+[['IRSProjectMemberUI (the platform table)', memberUiJpo],
+ ['IRSProjectContext (the twin)', twinJpo],
+ ['the JAR reader', readerSrc]].forEach(([what, src]) => {
+  assert.ok(/relationship_IRSPersonDepartmentDomain/.test(src),
+    what + ' resolves IRSPersonDepartmentDomain by symbolic name');
+  assert.ok(/\.torel\.to/.test(src),
+    what + ' uses the REL2REL `.torel.to` hop');
+});
+
+// the two readers must not have kept the old link as a live select
+[['the JAR reader', readerSrc], ['the twin', twinJpo]].forEach(([what, src]) => {
+  assert.ok(!/SYM_REL_HAS_SKILL|REL_HAS_SKILL_FALLBACK/.test(src),
+    what + ' has no hasBusinessSkill constant left');
+  // it may still be NAMED in the comment that explains why it is wrong
+  const code = src.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/hasBusinessSkill/.test(code),
+    what + ' mentions hasBusinessSkill only in a comment, never in code');
+});
+
+// ONE SKILL PER LINE (user, 2026-10-09). No separator CHARACTER can do this:
+// "Environment, Energy Efficiency and New Type of Fuel" is a single skill, so
+// any punctuation that reads as a separator already occurs inside a title -
+// which is why the platform's own page shows PlmUser2's four skills as five.
+assert.ok(/skills\.join\('\\n'\)/.test(memberViewSrc),
+  'skills are joined with a newline, one per line');
+assert.ok(!/skills\.join\(', '\)|skills\.join\('  \u00b7  '\)/.test(memberViewSrc),
+  'and not with any separator character a title could contain');
+// a newline only renders as a line break if the cell says so, and `table()`
+// coerces every value to text - so the column carries the class
+assert.ok(/key: 'skills', className: 'irs-lines'/.test(memberViewSrc),
+  'the skills column is marked .irs-lines');
+const memberCss = fs.readFileSync(path.join(base, 'css/IRSTasks.css'), 'utf8');
+assert.ok(/\.irs-tasks \.irs-lines\s*\{[^}]*white-space:\s*pre-line/.test(memberCss),
+  '.irs-lines renders the newlines, and is scoped under the one root class');
+
+
+// ---- 21. the task's Project Baseline, and where the form's dates come from
+//
+// The form's Start Date and Planned End Date used to point at the PROJECT and
+// rendered "not returned". They now come from the Project Baseline captured for
+// the task over IRSTaskBaseline, because R&D-PRJ-02 carries a Rev. No. and its
+// dates are the ones AS APPROVED, not the live schedule (user, 2026-10-09).
+// Values below were measured on T-85756263-0000139 -> B-85756263-0000116.
+
+const BaselineRequest = {
+  _calls: [],
+  _body: {},
+  get: function (p, opts) {
+    BaselineRequest._calls.push({ path: p, opts: opts });
+    return BaselineRequest._body instanceof Error
+      ? Promise.reject(BaselineRequest._body)
+      : Promise.resolve(BaselineRequest._body);
+  }
+};
+const Baseline = load(path.join(base, 'js/services/BaselineService.js'),
+  [BaselineRequest, Log]);
+
+BaselineRequest._body = {
+  taskId: '299036CE0000C6D46AC7888900000580',
+  baseline: {
+    linked: 'true',
+    id: '39261.35329.11988.11022',
+    physicalId: '299036CE0000C6D46AC788A5000005A6',
+    name: 'B-85756263-0000116',
+    type: 'Project Baseline',
+    state: 'Active',
+    actualStartDate: '10/8/2026 8:00:00 AM',
+    actualFinishDate: '',
+    estimatedStartDate: '10/7/2026 8:00:00 AM',
+    estimatedFinishDate: '10/13/2026 5:00:00 PM'
+  }
+};
+
+const baselineChecks = Baseline.get('TASK1').then(b => {
+  // task-scoped, NOT project-scoped: the IRSTaskBaseline link starts at the
+  // task, so a project with four such tasks has four different baselines
+  assert.strictEqual(BaselineRequest._calls[0].path,
+    'resources/v1/irsproject/tasks/TASK1/baseline');
+  assert.strictEqual(b.linked, true, 'ENOVIA sends the STRING "true"');
+  assert.strictEqual(b.name, 'B-85756263-0000116');
+  // the prefered id is the physical one, as everywhere else in this widget
+  assert.strictEqual(b.id, '299036CE0000C6D46AC788A5000005A6');
+
+  // `attributes` deliberately has the same shape the task and project carry,
+  // so a `source: "baseline"` row resolves through the SAME code path
+  assert.strictEqual(b.attributes.actualStartDate, '10/8/2026 8:00:00 AM');
+  assert.strictEqual(b.attributes.estimatedFinishDate, '10/13/2026 5:00:00 PM');
+  // all four are carried, so which one the form prints stays a form decision
+  assert.deepStrictEqual(Object.keys(b.attributes).sort(),
+    ['actualFinishDate', 'actualStartDate', 'estimatedFinishDate',
+     'estimatedStartDate']);
+}).then(() => {
+  // NOT CAPTURED is the common case - 6 of the live tasks had a baseline on
+  // 2026-10-09 and the rest did not. It is a normal state, not a failure
+  BaselineRequest._body = {
+    taskId: 'T2',
+    baseline: { linked: 'false', id: '', physicalId: '', name: '', type: '',
+                state: '', actualStartDate: '', actualFinishDate: '',
+                estimatedStartDate: '', estimatedFinishDate: '' }
+  };
+  return Baseline.get('T2');
+}).then(b => {
+  assert.strictEqual(b.linked, false);
+  assert.strictEqual(b.attributes.actualStartDate, '');
+}).then(() => {
+  return Baseline.get('').then(
+    () => { throw new Error('no id must be refused'); },
+    err => { assert.ok(/No task id/.test(err.message), err.message); });
+});
+
+// ---- the form points both dates at the baseline
+assert.strictEqual(costBy['Start Date'].source, 'baseline');
+assert.strictEqual(costBy['Start Date'].field, 'actualStartDate');
+assert.strictEqual(costBy['Planned End Date'].source, 'baseline');
+assert.strictEqual(costBy['Planned End Date'].field, 'estimatedFinishDate');
+// they were `project` + taskEstimatedStartDate, which rendered "not returned"
+assert.ok(!/taskEstimatedStartDate|taskEstimatedFinishDate/.test(
+  JSON.stringify(costSpec)), 'the project date fields are gone');
+['Start Date', 'Planned End Date'].forEach(label =>
+  assert.strictEqual(costBy[label].display, 'date',
+    label + ' is formatted as a date, not printed as a US timestamp'));
+
+// ---- the view
+const baseViewSrc = fs.readFileSync(
+  path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
+
+// a third value-bearing holder, resolved by the same function
+assert.ok(/function resolve\(spec, task, project, baseline\)/.test(baseViewSrc));
+assert.ok(/out\.source === 'baseline'.*\n?.*holder = baseline/.test(baseViewSrc) ||
+          /holder = baseline/.test(baseViewSrc),
+  'a `baseline` source reads from the baseline holder');
+
+// "not captured yet" must NOT read as "the platform did not return it"
+assert.ok(/notCaptured/.test(baseViewSrc), 'the unlinked case is its own state');
+assert.ok(/no baseline captured yet/.test(baseViewSrc));
+const missingIdx = baseViewSrc.indexOf("value: 'not returned'");
+const notCapturedIdx = baseViewSrc.indexOf('no baseline captured yet');
+assert.ok(missingIdx > 0 && notCapturedIdx > 0 && missingIdx !== notCapturedIdx,
+  'the two states render differently - one is an error, the other is a fact');
+
+// the second call is made ONLY by a form that asks for it
+assert.ok(/field\.source === 'baseline' && !field\.hidden/.test(baseViewSrc),
+  'a form with no baseline row makes no baseline call');
+// and it runs alongside the project context, not after it
+assert.ok(/Promise\.all\(\[\s*\n?\s*loadContext\(spec\),\s*\n?\s*loadBaseline\(spec\)/
+  .test(baseViewSrc), 'the two independent calls go together');
+
+// ---- the date format: the kernel's US spelling, not ISO
+const baseFmtBody = baseViewSrc.match(/var VALUE_FORMAT = \{[\s\S]*?\n    \};/)[0];
+const toTextB = v => (v === null || v === undefined) ? '' : String(v).trim();
+const BASE_FORMAT = (function () {
+  const toText = toTextB;
+  return eval('(function(){' + baseFmtBody + ' return VALUE_FORMAT;})()');
+}());
+assert.strictEqual(BASE_FORMAT.date('10/8/2026 8:00:00 AM'), '8 Oct 2026');
+assert.strictEqual(BASE_FORMAT.date('10/13/2026 5:00:00 PM'), '13 Oct 2026');
+assert.strictEqual(BASE_FORMAT.date(''), '', 'an unset date stays blank');
+assert.strictEqual(BASE_FORMAT.date('not a date'), 'not a date',
+  'never the words "Invalid Date" on a form a customer signs');
+
+// ---- the platform side: the relationship this all hangs on
+const relBaseline = fs.readFileSync(
+  path.join(mx, 'datamodel/relationship/RELATIONSHIP_IRSTaskBaseline.mxu'), 'utf8');
+assert.ok(/EPMPROJECT_PERSONNEL_COST/.test(relBaseline),
+  'the link starts at the personnel/cost task');
+assert.ok(/Project Baseline/.test(relBaseline));
+// one-to-one: the reader never has to choose between several baselines
+assert.ok(/preventduplicates/.test(relBaseline));
+
+// ---- the JAR and the twin must agree, as always
+const twinBaseline = fs.readFileSync(
+  path.join(mx, 'program/jpo/IRSProjectContext_mxJPO.java'), 'utf8');
+[['the JAR reader', readerSrc], ['the twin', twinBaseline]].forEach(([what, src]) => {
+  assert.ok(/relationship_IRSTaskBaseline/.test(src),
+    what + ' resolves IRSTaskBaseline by symbolic name');
+  assert.ok(/readTaskBaselineContext/.test(src), what + ' exposes the reader');
+  // ONE round trip from the task
+  const body = src.match(/private static Map<String, Object> readTaskBaseline\(/) ?
+    src.slice(src.search(/private static Map<String, Object> readTaskBaseline\(/)) : '';
+  const upto = body.slice(0, body.indexOf('\n    }'));
+  assert.strictEqual((upto.match(/getInfo\(/g) || []).length, 1,
+    what + ' reads the baseline in exactly one round trip');
+});
+
+// a bad task id must PROPAGATE so the service can answer 404 - it must not be
+// swallowed into a 200 with an error string, which is what it did at first
+assert.ok(!/baselineError/.test(readerSrc),
+  'no per-section error field: one call means no partial result to describe');
+
+
+// ---- the dates are the baseline OBJECT's, NOT its copy of the task -------
+//
+// A Project Baseline CONTAINS a copy of every task, the personnel/cost task
+// among them. Both are reachable, both carry the same four `Task *`
+// attributes, and they hold DIFFERENT values. Measured on B-85756263-0000116:
+//
+//   the baseline OBJECT     actual start 8 Oct, estimated finish 13 Oct
+//                           -> the PROJECT's span            <-- what we read
+//   its copy of T-...0139   actual start EMPTY, 12 - 13 Oct
+//                           -> that one approval task's window
+//
+// The form asks for the project, so it is the object. Confirmed by the user on
+// 2026-10-09 after this was built, which is why it is pinned here rather than
+// left to a comment.
+[['the JAR reader', readerSrc], ['the twin', twinBaseline]].forEach(([what, src]) => {
+  const body = src.slice(src.search(/private static Map<String, Object> readTaskBaseline\(/));
+  const upto = body.slice(0, body.indexOf('\n    }'));
+  // the traversal stops at the far end of the link - one hop, no task list
+  assert.ok(/from\[" \+ rel \+ "\]\.to\./.test(upto),
+    what + ' reads the far end of IRSTaskBaseline');
+  assert.ok(!/\.to\.from\[|Subtask|\.to\.to\[/.test(upto),
+    what + ' does NOT walk on into the baseline\'s own task list');
+});
+
+// and the form says which it is, for whoever reads it next
+assert.ok(/baseline OBJECT/.test(costSpec._source.baseline),
+  'the form records that it is the object, not the task copy');
+assert.ok(/12-13 Oct|12 - 13 Oct/.test(costSpec._source.baseline),
+  'with the measured difference, so the distinction is checkable');
+
+baselineChecks.then(() => console.log('irstasks-baseline: all assertions passed'))
+  .catch(err => { console.error(err); process.exit(1); });
+
+memberChecks.then(() => console.log('irstasks-members: all assertions passed'))
+  .catch(err => { console.error(err); process.exit(1); });
+

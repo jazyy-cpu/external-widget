@@ -392,3 +392,21 @@
 .irs-tasks .irs-decide .form-control {
     font-size: 15px;
 }
+
+/*
+ * One IRS skill per line, in the R&D-PRJ-02 member table (user, 2026-10-09).
+ *
+ * The cell joins the skills with a newline and this lets the newline render.
+ * A separator CHARACTER cannot do the job: one real skill is titled
+ * "Environment, Energy Efficiency and New Type of Fuel", so any punctuation
+ * that reads as a list separator is already inside a title, and the platform's
+ * own Members page shows that ambiguity. A line break cannot occur in a title.
+ *
+ * `pre-line` rather than `pre-wrap`: it honours the newlines we put in and
+ * still collapses incidental runs of spaces, and a long single title keeps
+ * wrapping normally inside its own line. Bootstrap has no utility for it -
+ * `text-wrap` sets `text-wrap`, not `white-space`.
+ */
+.irs-tasks .irs-lines {
+    white-space: pre-line;
+}

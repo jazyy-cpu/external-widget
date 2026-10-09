@@ -207,7 +207,57 @@ define('IRSTasks/services/ProjectContextService', [
     }
 
     /**
-     * The payload, flattened to what the two form sections need.
+     * One project member, as the R&D-PRJ-02 people table needs them.
+     *
+     * `responsibility` is the IRS value on the `Member` connection - Project
+     * Manager / Deputy Project Manager / Member. It is a RECORD, not an access
+     * rule: `access` is the platform's own Project Owner / Project Member, and
+     * the two must not be confused. An untouched member reads as `Member`,
+     * because that is the attribute's default.
+     *
+     * ENOVIA sends booleans as the STRINGS "TRUE"/"FALSE"; the JAR already
+     * lowercases `isPerson`, so this compares against the string either way.
+     */
+    function toMember(raw) {
+        raw = raw || {};
+        return {
+            id: text(raw.physicalId) || text(raw.id),
+            login: text(raw.name),
+            name: meaningful(raw.fullName) || text(raw.name),
+            type: text(raw.type),
+            isPerson: text(raw.isPerson).toLowerCase() === 'true',
+            designation: text(raw.designation),
+            skills: list(raw.skills).map(text).filter(Boolean),
+            access: text(raw.access),
+            responsibility: text(raw.responsibility),
+            driveAccess: text(raw.driveAccess)
+        };
+    }
+
+    /**
+     * The order the printed form puts the people in: the Project Manager line,
+     * then the Dy. Project Manager line, then the Project Members table. Any
+     * value we do not know about sorts after the three, rather than being
+     * dropped - a member with an unrecognised responsibility must still appear.
+     */
+    var RESPONSIBILITY_ORDER = ['Project Manager', 'Deputy Project Manager', 'Member'];
+
+    function responsibilityRank(value) {
+        var at = RESPONSIBILITY_ORDER.indexOf(value);
+        return at < 0 ? RESPONSIBILITY_ORDER.length : at;
+    }
+
+    function sortMembers(members) {
+        return members.slice().sort(function (a, b) {
+            var byRole = responsibilityRank(a.responsibility) -
+                         responsibilityRank(b.responsibility);
+            if (byRole !== 0) { return byRole; }
+            return a.name.localeCompare(b.name);
+        });
+    }
+
+    /**
+     * The payload, flattened to what the form sections need.
      *
      * Pure, so it can be tested against the captured response without a
      * platform - which is how the shapes that broke the POC get caught.
@@ -230,8 +280,10 @@ define('IRSTasks/services/ProjectContextService', [
             learningsElsewhere: elsewhere,
             customer: toCustomer(body.customer),
             department: toDepartment(body.department),
+            members: sortMembers(list(body.members).map(toMember)),
             riskError: text(body.riskError),
             learningError: text(learnings.error),
+            memberError: text(body.memberError),
             counts: body.counts || {}
         };
     }
@@ -260,6 +312,8 @@ define('IRSTasks/services/ProjectContextService', [
                 add('customer');
             } else if (field.display === 'department') {
                 add('department');
+            } else if (field.display === 'members') {
+                add('members');
             } else if (field.display === 'learnings') {
                 var scope = field.learningScope || 'all';
                 if (scope === 'created') { add('learnings.created'); }
@@ -304,6 +358,7 @@ define('IRSTasks/services/ProjectContextService', [
                          out.learningsElsewhere.length + ' reused.');
                 if (out.riskError) { Log.warn('risk section failed: ' + out.riskError); }
                 if (out.learningError) { Log.warn('learning section failed: ' + out.learningError); }
+                if (out.memberError) { Log.warn('member section failed: ' + out.memberError); }
                 return out;
             });
         },

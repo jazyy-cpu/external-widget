@@ -111,6 +111,59 @@ public final class ProjectContextReader {
     /** TRUE on a Company, FALSE on a Business Unit or a Department. */
     private static final String SEL_IS_COMPANY = "type.kindof[Company]";
 
+    // --- the project's people (R&D-PRJ-02 member block, added 2026-10-09) ---
+    //
+    // Member is OOTB and so are Project Access, First/Last Name - they have no
+    // symbolic name of ours to resolve, so they are named directly. The three
+    // IRS ones go through the registry like every other custom name, because a
+    // bogus relationship inside from[...] fails SILENTLY (empty result, no
+    // error) while a bogus attribute raises #1500063.
+    private static final String SYM_REL_MEMBER = "relationship_Member";
+    private static final String REL_MEMBER_FALLBACK = "Member";
+    // The IRS skill link is a REL2REL: Person --(IRSPersonDepartmentDomain)-->
+    // the IRSDepartmentDomain CONNECTION, so the traversal needs `.torel.to`
+    // and the skill's name is that connection's far end's Title.
+    //
+    // NOT `hasBusinessSkill`. That is the OOTB Person -> Business Skill link,
+    // and this reader used it at first - wrongly. The two disagree completely
+    // on live data, measured 2026-10-09:
+    //
+    //   hasBusinessSkill          PlmUser1 -> "Computer Programming"  (one
+    //                             seeded object, a leftover test link)
+    //   IRSPersonDepartmentDomain PlmUser2 -> Computational Fluid Dynamics,
+    //                             Seakeeping Analysis, Fluid Structure
+    //                             Interaction, "Environment, Energy Efficiency
+    //                             and New Type of Fuel"
+    //
+    // The second is what the platform's own Members page shows, because
+    // `IRSProjectMemberUI:getSkillColumn` reads exactly this select. The two
+    // screens have to agree, so this is the one to use.
+    private static final String SYM_REL_PERSON_DOMAIN =
+            "relationship_IRSPersonDepartmentDomain";
+    private static final String REL_PERSON_DOMAIN_FALLBACK = "IRSPersonDepartmentDomain";
+    private static final String SYM_ATTR_RESPONSIBILITY = "attribute_IRSProjectResponsibility";
+    private static final String ATTR_RESPONSIBILITY_FALLBACK = "IRSProjectResponsibility";
+    private static final String SYM_ATTR_DRIVE_ACCESS = "attribute_IRSDriveAccess";
+    private static final String ATTR_DRIVE_ACCESS_FALLBACK = "IRSDriveAccess";
+    private static final String ATTR_DESIGNATION = "IRSDesignation";
+    private static final String ATTR_PROJECT_ACCESS = "Project Access";
+    private static final String ATTR_FIRST_NAME = "First Name";
+    private static final String ATTR_LAST_NAME = "Last Name";
+
+    /** A member may be an Organization, not only a Person - so this is asked, not assumed. */
+    private static final String SEL_IS_PERSON = "type.kindof[Person]";
+
+    // --- the task's Project Baseline (R&D-PRJ-02 dates, added 2026-10-09) ---
+    //
+    // IRSTaskBaseline is ours; the four date attributes are OOTB and shared by
+    // every Task-derived type, Project Baseline among them.
+    private static final String SYM_REL_TASK_BASELINE = "relationship_IRSTaskBaseline";
+    private static final String REL_TASK_BASELINE_FALLBACK = "IRSTaskBaseline";
+    private static final String ATTR_ACTUAL_START = "Task Actual Start Date";
+    private static final String ATTR_ACTUAL_FINISH = "Task Actual Finish Date";
+    private static final String ATTR_ESTIMATED_START = "Task Estimated Start Date";
+    private static final String ATTR_ESTIMATED_FINISH = "Task Estimated Finish Date";
+
     /**
      * Customer attributes that live on type **Organization**, so Company,
      * Business Unit and Department all carry them - an internal customer
@@ -362,7 +415,290 @@ public final class ProjectContextReader {
             out.put("department", department);
         }
 
+        // --- the project's people, for the R&D-PRJ-02 member block ---------
+        if (wants(include, S_MEMBERS)) {
+            List<Map<String, Object>> members = new ArrayList<Map<String, Object>>();
+            String memberError = "";
+            try {
+                members = readMembers(context, id);
+            } catch (Exception e) {
+                memberError = message(e);
+            }
+            out.put("members", members);
+            out.put("memberError", memberError);
+            counts.put("members", String.valueOf(members.size()));
+        }
+
         out.put("counts", counts);
+        return out;
+    }
+
+    /**
+     * Everyone on the project, with the four columns form R&D-PRJ-02 prints,
+     * in ONE round trip.
+     *
+     * ## Why this section exists at all
+     *
+     * The OOTB task resource answers {@code $include=members} already, but only
+     * with each member's name and id. Designation and Skill live on the PERSON
+     * and the two IRS values live on the {@code Member} CONNECTION, so the
+     * widget would have had to read every member separately - the N+1 that the
+     * workspace rule forbids, and that looks fine on a four-person test project
+     * and costs forty calls on a real one.
+     *
+     * {@code getRelatedObjects} takes both a business-object select list and a
+     * RELATIONSHIP select list and returns one Map per member, so all of it
+     * arrives together and correctly aligned. That alignment is the reason this
+     * is not a flat MQL dump: measured 2026-10-09 on Solize XYZ, a
+     * {@code print ... dump |} of the same selects returns
+     * {@code ...|Computer Programming|Excellent|Project Owner|...} with nothing
+     * to say WHICH of the four members holds the skill, because only one of
+     * them has one. A positional format cannot express a sparse nested select.
+     *
+     * ## What each field comes from, all verified in MQL 2026-10-09
+     *
+     * <pre>
+     *   name            the Person's login            to.name
+     *   fullName        First Name + Last Name        to.attribute[...]
+     *   designation     Person.IRSDesignation         10-value IRS range
+     *   skills          IRSPersonDepartmentDomain, a REL2REL - `.torel.to`
+     *   access          Member.Project Access         Project Owner / Member
+     *   responsibility  Member.IRSProjectResponsibility   PM / Dy PM / Member
+     *   driveAccess     Member.IRSDriveAccess         Yes / No / Not Applicable
+     * </pre>
+     *
+     * A member may be an ORGANIZATION rather than a Person - {@code Member}
+     * accepts both on its {@code to} side - so {@code isPerson} is reported
+     * rather than assumed, and an organization simply has no designation or
+     * skill. The form's people table wants the persons; the caller filters.
+     *
+     * {@code responsibility} is RECORD ONLY. It is the line the printed form
+     * puts someone on, and it is NOT the project's owner: that is
+     * {@code access}. Nothing may read it as an access or routing decision.
+     */
+    @SuppressWarnings("rawtypes")
+    private static List<Map<String, Object>> readMembers(Context context, String projectId)
+            throws Exception {
+        String relMember = nameOf(context, SYM_REL_MEMBER, REL_MEMBER_FALLBACK);
+
+        // the PERSON's own values, including the nested skill traversal
+        String selDesignation = "attribute[" + ATTR_DESIGNATION + "]";
+        String selFirst = "attribute[" + ATTR_FIRST_NAME + "]";
+        String selLast = "attribute[" + ATTR_LAST_NAME + "]";
+        // the REL2REL traversal - `.torel.to` reaches the IRSDepartmentDomain
+        // connection's far end. Identical to IRSProjectMemberUI:getSkillColumn,
+        // deliberately, so the widget and the platform's Members page cannot
+        // disagree about what someone's skills are
+        String selSkill = "from["
+                + nameOf(context, SYM_REL_PERSON_DOMAIN, REL_PERSON_DOMAIN_FALLBACK)
+                + "].torel.to.attribute[" + nameOf(context, SYM_ATTR_TITLE, "Title") + "]";
+
+        // the CONNECTION's own values - the two IRS ones and the OOTB access
+        String selAccess = "attribute[" + ATTR_PROJECT_ACCESS + "]";
+        String selResponsibility = "attribute["
+                + nameOf(context, SYM_ATTR_RESPONSIBILITY, ATTR_RESPONSIBILITY_FALLBACK) + "]";
+        String selDriveAccess = "attribute["
+                + nameOf(context, SYM_ATTR_DRIVE_ACCESS, ATTR_DRIVE_ACCESS_FALLBACK) + "]";
+
+        MapList rows = new DomainObject(projectId).getRelatedObjects(context,
+                relMember,
+                DomainConstants.QUERY_WILDCARD,
+                selects(DomainConstants.SELECT_ID, SEL_PHYSICAL_ID,
+                        DomainConstants.SELECT_NAME, SEL_TYPE, SEL_IS_PERSON,
+                        selFirst, selLast, selDesignation, selSkill),
+                selects(selAccess, selResponsibility, selDriveAccess),
+                false,              // getTo   - do not walk towards the project
+                true,               // getFrom - the project is the FROM end
+                (short) 1,
+                null, null, 0);
+        if (rows == null) {
+            return new ArrayList<Map<String, Object>>();
+        }
+
+        List<Map<String, Object>> out = new ArrayList<Map<String, Object>>();
+        for (int i = 0; i < rows.size(); i++) {
+            Map row = (Map) rows.get(i);
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("id", str(row, DomainConstants.SELECT_ID));
+            item.put("physicalId", str(row, SEL_PHYSICAL_ID));
+            item.put("name", str(row, DomainConstants.SELECT_NAME));
+            item.put("type", str(row, SEL_TYPE));
+            item.put("isPerson", isTrue(row, SEL_IS_PERSON) ? "true" : "false");
+
+            String first = str(row, selFirst);
+            String last = str(row, selLast);
+            String full = (first + " " + last).trim();
+            // an organization member, and a person whose names are unset, fall
+            // back to the login rather than to an empty cell
+            item.put("fullName", full.isEmpty() ? str(row, DomainConstants.SELECT_NAME) : full);
+
+            item.put("designation", str(row, selDesignation));
+            item.put("skills", multi(row, selSkill));
+            item.put("access", str(row, selAccess));
+            item.put("responsibility", str(row, selResponsibility));
+            item.put("driveAccess", str(row, selDriveAccess));
+            out.add(item);
+        }
+        return out;
+    }
+
+    /**
+     * The Project Baseline captured for one Personnel / Cost Estimation task,
+     * in ONE round trip from the task.
+     *
+     * <h2>Why the dates come from here and not from the project</h2>
+     *
+     * Form R&amp;D-PRJ-02 carries a {@code Rev. No.}, so its Start Date and
+     * Planned End Date are the dates <b>as approved</b>, not whatever the live
+     * project schedule says today. The baseline is exactly that: the frozen
+     * snapshot of the project taken when the task was raised. The user's call,
+     * 2026-10-09 - <i>"we will take actuly the base line date as in this form
+     * we are tasking about the project"</i>.
+     *
+     * <h2>The link</h2>
+     *
+     * {@code IRSTaskBaseline}, ours, built 2026-10-05:
+     * {@code EPMPROJECT_PERSONNEL_COST --> Project Baseline}, cardinality
+     * <b>one on both ends</b> and {@code preventduplicates}, so a task has at
+     * most one baseline and this never has to choose between several. It
+     * carries no attributes of its own.
+     *
+     * <h2>The dates are the baseline OBJECT's, not its copy of the task</h2>
+     *
+     * This is the trap in this reader, and it is invisible unless you look:
+     * <b>a Project Baseline CONTAINS a copy of every task</b>, including the
+     * personnel/cost task this link starts from. Both are reachable, both
+     * carry the same four {@code Task *} attributes, and they hold
+     * <b>different values</b>. Measured on {@code B-85756263-0000116}:
+     *
+     * <pre>
+     *   the baseline OBJECT        actual start 8 Oct, estimated finish 13 Oct
+     *                              -> the PROJECT's span          (what we read)
+     *   its copy of T-...0139      actual start EMPTY, 12 - 13 Oct
+     *                              -> that one approval task's window
+     * </pre>
+     *
+     * The form asks for the project's Start Date and Planned End Date, so it is
+     * the object. Confirmed explicitly by the user, 2026-10-09. The select
+     * below stops at {@code .to.} for exactly this reason - do not extend it
+     * into the baseline's task list.
+     *
+     * <h2>Most tasks have none, and that is not an error</h2>
+     *
+     * Measured 2026-10-09: 6 of the live personnel/cost tasks carry a baseline
+     * and the rest do not. So {@code linked} is reported explicitly and an
+     * absent baseline returns a populated {@code linked: "false"} rather than
+     * an empty object or a 404 - the caller has to be able to say "not captured
+     * yet" rather than drawing blank dates, which read as missing data.
+     *
+     * <h2>Field naming</h2>
+     *
+     * The platform's own names are kept ({@code actualStartDate},
+     * {@code estimatedFinishDate}, ...) rather than the form's labels. Which
+     * one the form prints as "Start Date" is a form decision and belongs in
+     * {@code personnel-cost.json}, where changing it costs no code. Naming
+     * these {@code startDate} / {@code plannedEndDate} here would bake one
+     * form's wording into the API and make the next form's choice a redeploy.
+     *
+     * @param taskId physical or legacy id of the personnel/cost task
+     */
+    @SuppressWarnings("rawtypes")
+    private static Map<String, Object> readTaskBaseline(Context context, String taskId)
+            throws Exception {
+        Map<String, Object> out = new LinkedHashMap<String, Object>();
+
+        String rel = nameOf(context, SYM_REL_TASK_BASELINE, REL_TASK_BASELINE_FALLBACK);
+        String from = "from[" + rel + "].to.";
+
+        String selActualStart = from + "attribute[" + ATTR_ACTUAL_START + "]";
+        String selActualFinish = from + "attribute[" + ATTR_ACTUAL_FINISH + "]";
+        String selEstimatedStart = from + "attribute[" + ATTR_ESTIMATED_START + "]";
+        String selEstimatedFinish = from + "attribute[" + ATTR_ESTIMATED_FINISH + "]";
+
+        StringList wanted = selects(
+                from + DomainConstants.SELECT_ID, from + SEL_PHYSICAL_ID,
+                from + DomainConstants.SELECT_NAME, from + SEL_TYPE, from + SEL_CURRENT,
+                selActualStart, selActualFinish, selEstimatedStart, selEstimatedFinish);
+
+        Map info = DomainObject.newInstance(context, taskId).getInfo(context, wanted);
+
+        String name = str(info, from + DomainConstants.SELECT_NAME);
+        boolean linked = !name.isEmpty();
+        out.put("linked", linked ? "true" : "false");
+        out.put("id", str(info, from + DomainConstants.SELECT_ID));
+        out.put("physicalId", str(info, from + SEL_PHYSICAL_ID));
+        out.put("name", name);
+        out.put("type", str(info, from + SEL_TYPE));
+        out.put("state", str(info, from + SEL_CURRENT));
+        out.put("actualStartDate", str(info, selActualStart));
+        out.put("actualFinishDate", str(info, selActualFinish));
+        out.put("estimatedStartDate", str(info, selEstimatedStart));
+        out.put("estimatedFinishDate", str(info, selEstimatedFinish));
+        return out;
+    }
+
+    /**
+     * The task's baseline, wrapped for the endpoint.
+     *
+     * Public because the JPO twin calls it directly for the self-test, and the
+     * REST service calls it for the endpoint - the same body either way, which
+     * is the whole point of the twin.
+     *
+     * <h2>Why this has NO per-section error field</h2>
+     *
+     * {@link #readProjectContext} gives every section its own {@code *Error}
+     * string, because it makes several independent calls and one failing
+     * section must not blank the others. This makes exactly <b>one</b> call, so
+     * there is no partial result to describe: either the task read, or nothing
+     * did. Swallowing that failure into an error string would hand the service
+     * a 200 for an id that is not a task, when the caller needs the 404 - so it
+     * is allowed to propagate and {@code TaskBaselineService} classifies it,
+     * exactly as the project endpoint does.
+     *
+     * An unlinked task is NOT a failure and never throws: it returns
+     * {@code linked: "false"} with empty fields.
+     */
+    public static Map<String, Object> readTaskBaselineContext(Context context, String taskId)
+            throws Exception {
+        if (taskId == null || taskId.trim().isEmpty()) {
+            throw new IllegalArgumentException("A task id is required.");
+        }
+        String id = taskId.trim();
+
+        Map<String, Object> out = new LinkedHashMap<String, Object>();
+        out.put("taskId", id);
+        out.put("baseline", readTaskBaseline(context, id));
+        return out;
+    }
+
+    /**
+     * A select that can return several values, as a List.
+     *
+     * A multi-valued select arrives as one String joined by BEL (\u0007), or as
+     * a List when the kernel decides to give one - both shapes are real, so both
+     * are handled. The same separator is read by
+     * {@code IRSProjectMemberUI_mxJPO}, which is where the spelling was first
+     * measured.
+     */
+    @SuppressWarnings("rawtypes")
+    private static List<String> multi(Map row, String select) {
+        List<String> out = new ArrayList<String>();
+        Object raw = (row == null) ? null : row.get(select);
+        if (raw == null) {
+            return out;
+        }
+        if (raw instanceof List) {
+            for (Object o : (List) raw) {
+                String v = (o == null) ? "" : o.toString().trim();
+                if (!v.isEmpty()) { out.add(v); }
+            }
+            return out;
+        }
+        String[] parts = raw.toString().split("\u0007");
+        for (String part : parts) {
+            String v = part.trim();
+            if (!v.isEmpty()) { out.add(v); }
+        }
         return out;
     }
 
@@ -382,10 +718,12 @@ public final class ProjectContextReader {
     public static final String S_LEARNINGS_REUSED = "learnings.reused";
     public static final String S_CUSTOMER = "customer";
     public static final String S_DEPARTMENT = "department";
+    /** The project's people, with designation, skill, responsibility and drive access. */
+    public static final String S_MEMBERS = "members";
 
     private static final String[] KNOWN = {
         S_RISKS, S_OPPORTUNITIES, S_LEARNINGS, S_LEARNINGS_CREATED,
-        S_LEARNINGS_REUSED, S_CUSTOMER, S_DEPARTMENT
+        S_LEARNINGS_REUSED, S_CUSTOMER, S_DEPARTMENT, S_MEMBERS
     };
 
     /** Every section name, for an error message that tells the caller what IS valid. */
@@ -443,6 +781,7 @@ public final class ProjectContextReader {
         }
         if (wants(include, S_CUSTOMER)) { out.add(S_CUSTOMER); }
         if (wants(include, S_DEPARTMENT)) { out.add(S_DEPARTMENT); }
+        if (wants(include, S_MEMBERS)) { out.add(S_MEMBERS); }
         return out;
     }
 

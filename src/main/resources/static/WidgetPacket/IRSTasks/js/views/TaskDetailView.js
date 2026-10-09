@@ -82,13 +82,15 @@
 define('IRSTasks/views/TaskDetailView', [
     'IRSTasks/services/TaskDetailService',
     'IRSTasks/services/ProjectContextService',
+    'IRSTasks/services/BaselineService',
     'IRSTasks/services/ConfigService',
     'IRSTasks/views/TaskDocumentsPanel',
     'IRSTasks/views/TaskApprovalPanel',
     'IRSTasks/config/TaskFields',
+    'IRSTasks/Log',
     'JazzySole/Format'
-], function (TaskDetailService, ProjectContextService, ConfigService,
-             DocumentsPanel, ApprovalPanel, Fields, Format) {
+], function (TaskDetailService, ProjectContextService, BaselineService, ConfigService,
+             DocumentsPanel, ApprovalPanel, Fields, Log, Format) {
     'use strict';
 
     var DASH = '—';
@@ -116,6 +118,82 @@ define('IRSTasks/views/TaskDetailView', [
     }
 
     /**
+     * The three value formats the cost form needs that the proposal did not.
+     *
+     * All three exist because the platform's own spelling is not the form's.
+     * A DMC `real` arrives as `150000.0` and a man-day count as `16.0`, and an
+     * ENOVIA boolean arrives as the STRING `"TRUE"` - printing any of those raw
+     * on a form that a customer signs reads as a defect, so the formatting is
+     * the point of the display type rather than decoration.
+     *
+     * They format only. Nothing here computes: the five derived numbers on this
+     * form are produced by the back end and carry DMC `User Access = ReadOnly`,
+     * and a second implementation of the arithmetic in the client is exactly how
+     * the screen and the database start disagreeing.
+     */
+    var VALUE_FORMAT = {
+        /** `150000.0` -> `Rs. 1,50,000` - the Indian grouping, which is what the form prints. */
+        money: function (value) {
+            var text = toText(value);
+            if (!text) { return ''; }
+            var number = Number(text);
+            if (!isFinite(number)) { return text; }
+            var negative = number < 0;
+            var whole = String(Math.round(Math.abs(number)));
+            // last three digits, then pairs - 24,05,520 and not 2,405,520
+            var tail = whole.slice(-3);
+            var head = whole.slice(0, -3);
+            if (head) {
+                tail = head.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + tail;
+            }
+            return (negative ? '- ' : '') + 'Rs. ' + tail;
+        },
+
+        /** `16.0` -> `16`; `17.5` stays `17.5`, because half days are real here. */
+        days: function (value) {
+            var text = toText(value);
+            if (!text) { return ''; }
+            var number = Number(text);
+            if (!isFinite(number)) { return text; }
+            return String(number);
+        },
+
+        /**
+         * `10/8/2026 8:00:00 AM` -> `8 Oct 2026`.
+         *
+         * The baseline's dates come back in the kernel's own US spelling, not
+         * ISO, so `maybeDate` passes them through untouched - and a form that a
+         * customer signs should not print a 12-hour clock for a date nobody
+         * recorded a time for. Anything unparseable is shown as it came rather
+         * than as "Invalid Date".
+         */
+        date: function (value) {
+            var text = toText(value);
+            if (!text) { return ''; }
+            var parsed = new Date(text);
+            if (isNaN(parsed.getTime())) { return text; }
+            return parsed.getDate() + ' ' +
+                   ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][parsed.getMonth()] +
+                   ' ' + parsed.getFullYear();
+        },
+
+        /** ENOVIA booleans are the STRINGS "TRUE"/"FALSE". */
+        yesno: function (value) {
+            var text = toText(value).toUpperCase();
+            if (text === 'TRUE') { return 'Yes'; }
+            if (text === 'FALSE') { return 'No'; }
+            return toText(value);
+        }
+    };
+
+    /** The value as the form should print it, by display type. */
+    function formatValue(row) {
+        var format = VALUE_FORMAT[row.display];
+        return format ? format(row.value) : maybeDate(row.value);
+    }
+
+    /**
      * One form field, resolved against the two objects. Pure - the whole of
      * what the page decides per row, and therefore the part worth testing.
      *
@@ -125,7 +203,7 @@ define('IRSTasks/views/TaskDetailView', [
      *            return it. Worth saying out loud.
      *   empty    the attribute exists and nobody has filled it in. Normal.
      */
-    function resolve(spec, task, project) {
+    function resolve(spec, task, project, baseline) {
         var out = {
             ref: spec.ref || '',
             label: spec.label || spec.field || '',
@@ -135,6 +213,17 @@ define('IRSTasks/views/TaskDetailView', [
             field: spec.field || '',
             // which group of learnings this section wants - see learningsBlock
             learningScope: spec.learningScope || '',
+            // the printed Cost Estimation table: its lines, its total row and
+            // which attribute carries the man-day rate. Data, so that adding a
+            // row stays a JSON edit - see costsBlock
+            rows: spec.rows || null,
+            total: spec.total || null,
+            footnoteRate: spec.footnoteRate || '',
+            // the Estimated Man days table: one column per figure
+            columns: spec.columns || null,
+            // start a fresh line of pairs rather than filling the one above
+            newLine: spec.newLine === true,
+            showNote: spec.showNote === true,
             value: '',
             missing: false,
             empty: true,
@@ -163,7 +252,23 @@ define('IRSTasks/views/TaskDetailView', [
             return out;
         }
 
-        var holder = out.source === 'project' ? project : task;
+        // three value-bearing holders, all carrying an `attributes` map, so a
+        // row resolves the same way whichever object owns it
+        var holder;
+        if (out.source === 'project') { holder = project; }
+        else if (out.source === 'baseline') { holder = baseline; }
+        else { holder = task; }
+
+        // A baseline that was never captured is NOT missing data: the form's
+        // dates simply do not exist yet, and saying "not returned" there would
+        // blame the platform for something nobody has done. The row carries the
+        // spec's note instead, via `empty`
+        if (out.source === 'baseline' && holder && !holder.linked) {
+            out.empty = true;
+            out.notCaptured = true;
+            return out;
+        }
+
         if (!holder) {
             out.missing = true;
             return out;
@@ -253,17 +358,17 @@ define('IRSTasks/views/TaskDetailView', [
     }
 
     /**
-     * The section's printed number, where it has one.
+     * The section's heading - its label, with no number in front of it.
      *
-     * The paper form numbers its sections I to XVI and an approver reads by
-     * those numbers, so they stay - but as part of the heading rather than as a
-     * badge beside it. `Header` and `Footer` are our own grouping words, not
-     * anything printed on the form, so they are not shown at all.
+     * The paper form numbers its sections I to XVI and we printed those
+     * numbers at first. On screen they read as noise: nine of the sixteen are
+     * hidden, so the visible ones run I, III, V, VI, VIII and the gaps look
+     * like something failed to load. Dropped on the user's instruction,
+     * 2026-10-09. `ref` stays in the JSON, because it is how the paper form is
+     * discussed and how each row is traced back to it.
      */
     function labelOf(row) {
-        var ref = row.ref;
-        if (!ref || ref === 'Header' || ref === 'Footer') { return row.label; }
-        return ref + '. ' + row.label;
+        return row.label;
     }
 
     /**
@@ -291,8 +396,13 @@ define('IRSTasks/views/TaskDetailView', [
         return col;
     }
 
-    function kvGrid() {
-        return el('div', 'row g-0 irs-kv-grid border-top');
+    /**
+     * @param {boolean} [continuing] true when this grid carries straight on
+     *        from one above it. Each line already draws its own bottom rule,
+     *        so a top rule here too would double it.
+     */
+    function kvGrid(continuing) {
+        return el('div', 'row g-0 irs-kv-grid' + (continuing ? '' : ' border-top'));
     }
 
     /** A ruled heading, as the report puts over Attributes / Approvals / Routes. */
@@ -308,7 +418,7 @@ define('IRSTasks/views/TaskDetailView', [
      * Prose, tables and the customer's own block of pairs cannot share a line
      * with anything; every other field is a short value and pairs off.
      */
-    var BLOCKS = ['longtext', 'learnings', 'risks', 'customer'];
+    var BLOCKS = ['longtext', 'learnings', 'risks', 'customer', 'members', 'costs', 'mandays'];
 
     function isBlock(row) {
         return BLOCKS.indexOf(row.display) >= 0;
@@ -411,6 +521,93 @@ define('IRSTasks/views/TaskDetailView', [
     }
 
     /**
+     * The R&D-PRJ-02 member block: who is on the project and in what capacity.
+     *
+     * The printed form has three stacked lines - Project Manager, Dy. Project
+     * Manager, then a Project Members table - and five columns. This draws them
+     * as ONE table ordered by responsibility, because they are the same five
+     * columns three times over on paper and splitting them into three tables
+     * would repeat the header twice for no gain. The service does the ordering.
+     *
+     * Every column has a live source as of 2026-10-09:
+     *
+     *     Name            the Person
+     *     Responsibility  Member.IRSProjectResponsibility  (built 2026-10-09)
+     *     Designation     Person.IRSDesignation
+     *     Skill           IRSPersonDepartmentDomain (a REL2REL - see below)
+     *     Drive access    Member.IRSDriveAccess
+     *
+     * The skill source is the same select the platform's own Members page uses
+     * (`IRSProjectMemberUI:getSkillColumn`), on purpose: the two screens show
+     * the same people and must not disagree about what they can do. This block
+     * first used the OOTB `hasBusinessSkill` link instead, which produced a
+     * completely different and near-empty answer - see the JAR reader for the
+     * measured comparison.
+     *
+     * All five arrive in ONE round trip from our own JAR's `$include=members`.
+     * The OOTB resource returns names only, which is why that section exists.
+     *
+     * Responsibility and Drive access are **edited on the platform's own
+     * Members page**, not here: both are editable combobox columns on table
+     * PMCProjectPeople. This widget shows what the team recorded there, so there
+     * is deliberately no edit control on this block.
+     */
+    function membersBlock(context) {
+        var wrap = el('div');
+        if (!context) {
+            wrap.appendChild(el('div', 'text-danger',
+                'The project members could not be read.'));
+            return wrap;
+        }
+        if (context.memberError) {
+            wrap.appendChild(el('div', 'text-danger',
+                'The project members could not be read: ' + context.memberError));
+            return wrap;
+        }
+
+        // an Organization can be a member too - the form's table is about
+        // people, and an organization has neither designation nor skill
+        var rows = (context.members || []).filter(function (member) {
+            return member.isPerson;
+        });
+        if (!rows.length) {
+            wrap.appendChild(emptyNote('No person is a member of this project yet.'));
+            return wrap;
+        }
+
+        var view = rows.map(function (member) {
+            return {
+                name: member.name,
+                // the attribute's default is Member, but a link made before the
+                // attribute existed has no value at all - and an empty cell
+                // under Responsibility reads as a missing answer
+                responsibility: member.responsibility || 'Member',
+                designation: member.designation || DASH,
+                // ONE SKILL PER LINE (user, 2026-10-09). No separator
+                // CHARACTER can do this job: one real skill is titled
+                // "Environment, Energy Efficiency and New Type of Fuel", so
+                // any punctuation that reads as a list separator already
+                // occurs inside a title - which is why the platform's own
+                // Members page shows four of PlmUser2's skills as five. A line
+                // break cannot occur in a title. `.irs-lines` renders it
+                skills: member.skills.length ? member.skills.join('\n') : DASH,
+                driveAccess: member.driveAccess || DASH
+            };
+        });
+
+        wrap.appendChild(table([
+            { label: 'Name', key: 'name', width: '24%' },
+            { label: 'Responsibility', key: 'responsibility',
+              className: 'text-nowrap', width: '16rem' },
+            { label: 'Designation', key: 'designation', width: '22%' },
+            { label: 'Skill as per records', key: 'skills', className: 'irs-lines' },
+            { label: 'Drive access', key: 'driveAccess',
+              className: 'text-nowrap', width: '11rem' }
+        ], view));
+        return wrap;
+    }
+
+    /**
      * Section II. The customer, with the fields its KIND actually has.
      *
      * An external customer is a Company and carries an e-mail address; an
@@ -493,6 +690,13 @@ define('IRSTasks/views/TaskDetailView', [
         if (row.missing) {
             return [{ label: label, value: 'not returned', className: 'text-danger' }];
         }
+        // the baseline has not been captured yet - a normal state of a live
+        // task, and NOT the platform failing to return something. It reads as
+        // a fact about the project, in grey, not as an error in red
+        if (row.notCaptured) {
+            return [{ label: label, value: 'no baseline captured yet',
+                      className: 'text-secondary fst-italic' }];
+        }
         // `none`, `pending`, `elsewhere` and `approval` all mean "no value is
         // kept here", and on this form that is an empty cell - which is exactly
         // what the printed form has at those lines, waiting for a signature or
@@ -500,18 +704,212 @@ define('IRSTasks/views/TaskDetailView', [
         if (row.source === 'none' || row.display === 'pending') {
             return [{ label: label, value: '' }];
         }
-        return [{ label: label, value: maybeDate(row.value) }];
+        return [{ label: label, value: formatValue(row) }];
     }
 
     /** The content of a full-width section, under its heading. */
-    function blockBody(row, context) {
+    /**
+     * The Estimated Man days block (user, 2026-10-09):
+     *
+     *     Estimated Man days
+     *     +------+----------------+----------------+
+     *     | IRS  | Outside agency | Total Man days |
+     *     +------+----------------+----------------+
+     *     | 10   | 6              | 16             |
+     *     +------+----------------+----------------+
+     *
+     * The label is a section heading above the table, the same as Cost
+     * Estimation, on the user's instruction. It was first drawn the way the
+     * paper form draws it - as a left cell spanning both rows - but beside a
+     * headed Cost Estimation table it read as a different kind of thing when
+     * it is the same kind of thing. The heading is drawn by `main`, so the
+     * table itself is now just its columns.
+     *
+     * Same two rules as `costsBlock`, for the same reasons: the columns are
+     * data (`columns` in the JSON), so a fourth one is a JSON edit; and the
+     * Total is READ, never summed here, because `EPMTotalMandays` is
+     * `ReadOnly` in DMC and computed server-side.
+     *
+     * Half days are real on this data - `ana` keys 17.5 - so `days` formats
+     * rather than rounds.
+     */
+    function mandaysBlock(row, project) {
+        var attributes = (project && project.attributes) || {};
+        var columns = row.columns || [];
+
+        var table = el('table',
+            'table table-sm table-bordered align-middle mb-1 irs-sum-table irs-mandays');
+
+        var head = el('tr');
+        columns.forEach(function (column) {
+            var cell = el('th', '', column.label || '');
+            cell.scope = 'col';
+            head.appendChild(cell);
+        });
+
+        var values = el('tr');
+        columns.forEach(function (column) {
+            var has = Object.prototype.hasOwnProperty.call(attributes, column.amount);
+            // the platform not returning the attribute is a different problem
+            // from nobody having keyed a figure, and the form says which
+            var shown = has ? VALUE_FORMAT.days(attributes[column.amount]) : null;
+            var cell = el('td', 'text-nowrap',
+                shown === null ? 'not returned' : (shown || DASH));
+            if (shown === null) { cell.className += ' text-danger'; }
+            else if (!shown) { cell.className += ' text-secondary'; }
+            values.appendChild(cell);
+        });
+
+        var body = el('tbody');
+        body.appendChild(head);
+        body.appendChild(values);
+        table.appendChild(body);
+
+        var wrap = el('div');
+        var responsive = el('div', 'table-responsive');
+        responsive.appendChild(table);
+        wrap.appendChild(responsive);
+        if (row.note && row.showNote) {
+            wrap.appendChild(el('div', 'text-secondary small px-1', row.note));
+        }
+        return wrap;
+    }
+
+    /**
+     * The Cost Estimation block, as R&D-PRJ-02 prints it (user, 2026-10-09):
+     * a four-column table with a Total row and the rate as a footnote.
+     *
+     *     Sr. No. | Resources                      | Description | Estimated Price in Rs.
+     *     01      | Manpower Cost (IRS)            | ...         | Rs. 1,50,000
+     *     02      | Manpower Cost (outside agency) | ...         | Rs. 90,000
+     *     03      | Other                          | ...         | Rs. 552
+     *                              Total Estimated Price         | Rs. 2,40,552
+     *     * Man power cost = Rs. 15,000/- per man day.
+     *
+     * ## The rows are DATA, not code
+     *
+     * Which attribute each line reads is in `personnel-cost.json`, exactly as
+     * every other row of this form is - so adding row 04, or pointing 03 at a
+     * different attribute, stays a JSON edit. This function knows the SHAPE of
+     * the printed table and nothing about which attributes fill it.
+     *
+     * This replaces seven separate rows (three amounts, three descriptions and
+     * a total) that the page used to list one under another, which carried the
+     * same numbers but looked nothing like the form being signed.
+     *
+     * ## The rate is read, not written into the label
+     *
+     * The footnote's Rs. 15,000 comes from the project's own
+     * `EPMManpowerRatePerManday`. It is stamped per project at approval time,
+     * so a project approved at 15,000 must keep printing 15,000 after the
+     * corporate rate changes - a constant in this file would quietly lie on
+     * every older project the day the rate moves.
+     *
+     * ## Nothing here adds up
+     *
+     * Every figure including the Total is read. The five derived values are
+     * `ReadOnly` in DMC and computed server-side; a second implementation of
+     * the arithmetic in the client is how the screen and the database start
+     * disagreeing, and on a form a customer signs that is the worst outcome
+     * available.
+     */
+    function costsBlock(row, project) {
+        var wrap = el('div');
+        var attributes = (project && project.attributes) || {};
+
+        function amount(field) {
+            if (!field) { return ''; }
+            if (!Object.prototype.hasOwnProperty.call(attributes, field)) { return null; }
+            return VALUE_FORMAT.money(attributes[field]);
+        }
+
+        var table = el('table', 'table table-sm align-middle mb-1 irs-sum-table irs-costs');
+        var head = el('thead');
+        var headRow = el('tr');
+        [['Sr. No.', '5rem'], ['Resources', '32%'], ['Description', ''],
+         ['Estimated Price in Rs.', '14rem']].forEach(function (pair) {
+            var cell = el('th', '', pair[0]);
+            cell.scope = 'col';
+            if (pair[1]) { cell.style.width = pair[1]; }
+            if (pair[0] === 'Estimated Price in Rs.') { cell.className = 'text-end'; }
+            headRow.appendChild(cell);
+        });
+        head.appendChild(headRow);
+        table.appendChild(head);
+
+        var body = el('tbody');
+        (row.rows || []).forEach(function (line) {
+            var tr = el('tr');
+            tr.appendChild(el('td', 'text-nowrap', line.no || ''));
+            tr.appendChild(el('td', '', line.resource || ''));
+
+            var description = toText(attributes[line.description]);
+            var descriptionCell = el('td', description ? '' : 'text-secondary',
+                description || DASH);
+            tr.appendChild(descriptionCell);
+
+            var money = amount(line.amount);
+            // `null` means the platform did not return the attribute at all,
+            // which is worth saying; an empty string means it returned nothing
+            var moneyCell = el('td', 'text-end text-nowrap',
+                money === null ? 'not returned' : (money || DASH));
+            if (money === null) { moneyCell.className += ' text-danger'; }
+            else if (!money) { moneyCell.className += ' text-secondary'; }
+            tr.appendChild(moneyCell);
+            body.appendChild(tr);
+        });
+
+        if (row.total) {
+            var totalRow = el('tr', 'fw-semibold');
+            // the printed form runs the label across the first three columns
+            // and right-aligns it against the figure
+            var label = el('td', 'text-end', row.total.label || 'Total Estimated Price');
+            label.colSpan = 3;
+            totalRow.appendChild(label);
+            var totalMoney = amount(row.total.amount);
+            var totalCell = el('td', 'text-end text-nowrap',
+                totalMoney === null ? 'not returned' : (totalMoney || DASH));
+            if (totalMoney === null) { totalCell.className += ' text-danger'; }
+            totalRow.appendChild(totalCell);
+            body.appendChild(totalRow);
+        }
+
+        table.appendChild(body);
+        var responsive = el('div', 'table-responsive');
+        responsive.appendChild(table);
+        wrap.appendChild(responsive);
+
+        if (row.footnoteRate) {
+            var rate = toText(attributes[row.footnoteRate]);
+            if (rate) {
+                wrap.appendChild(el('div', 'text-secondary small px-1',
+                    '* Man power cost = ' + VALUE_FORMAT.money(rate) +
+                    '/- per man day.'));
+            }
+        }
+        return wrap;
+    }
+
+    function blockBody(row, context, project) {
         if (row.source === 'service') {
             if (row.display === 'learnings') {
                 return learningsBlock(context, row.learningScope);
             }
             if (row.display === 'customer') { return customerBlock(context); }
-            return risksBlock(context);
+            if (row.display === 'members') { return membersBlock(context); }
+            if (row.display === 'risks') { return risksBlock(context); }
+            // a service section whose table is not built yet shows what it is
+            // waiting for. This used to fall through to risksBlock, which drew
+            // the WRONG table under the right heading - the one failure mode
+            // worse than an empty section, because it looks like data
+            return el('div', 'text-secondary small px-2',
+                row.note || 'This section is not available yet.');
         }
+
+        // a whole printed table, not a value: it reads several attributes of
+        // the project at once, so it never went through resolve()
+        if (row.display === 'costs') { return costsBlock(row, project); }
+        if (row.display === 'mandays') { return mandaysBlock(row, project); }
 
         if (row.missing) {
             return el('div', 'text-danger',
@@ -546,16 +944,26 @@ define('IRSTasks/views/TaskDetailView', [
 
         var body = el('div', 'card-body py-3');
         var grid = null;
+        var continuing = false;
 
         rows.forEach(function (row) {
             if (isBlock(row)) {
                 grid = null;                       // the run of short fields ends
+                continuing = false;
                 body.appendChild(sectionHead(labelOf(row)));
-                body.appendChild(blockBody(row, context));
+                body.appendChild(blockBody(row, context, project));
                 return;
             }
+            // `newLine` breaks the run, so the pair that follows starts a line
+            // of its own: Start Date and Planned End Date belong together on
+            // one line, and without this Change of Scope takes the left half
+            // and pushes Planned End Date down alone (user, 2026-10-09)
+            if (row.newLine && grid) {
+                grid = null;
+                continuing = true;                 // same block of pairs, so no new rule
+            }
             if (!grid) {
-                grid = kvGrid();
+                grid = kvGrid(continuing);
                 body.appendChild(grid);
             }
             compactPairs(row, context).forEach(function (pair) {
@@ -705,24 +1113,67 @@ define('IRSTasks/views/TaskDetailView', [
                     return ProjectContextService.get(project.id, sections)
                         .catch(function (err) {
                             var reason = (err && err.message) ? err.message : String(err);
+                            // EVERY section's error field has to carry the
+                            // reason. A section left out here renders as
+                            // "there are none", and an empty list and a failed
+                            // read mean entirely different things to whoever
+                            // reads the screen
                             return {
                                 risks: [], opportunities: [], learnings: [],
                                 learningsHere: [], learningsElsewhere: [],
-                                riskError: reason, learningError: reason, counts: {}
+                                members: [],
+                                riskError: reason, learningError: reason,
+                                memberError: reason, counts: {}
                             };
                         });
                 }
 
+                /**
+                 * The task's Project Baseline, when the form asks for one.
+                 *
+                 * A SECOND call, and only for a form that has a
+                 * `source: "baseline"` row - no other subtype does today. It
+                 * cannot ride along with the project context: the
+                 * `IRSTaskBaseline` link starts at the TASK, so a project with
+                 * four personnel/cost tasks has four different baselines.
+                 *
+                 * A failure resolves to an UNLINKED baseline rather than
+                 * rejecting, for the same reason the context loader does: the
+                 * other rows of the form are worth showing even when this one
+                 * call is refused.
+                 */
+                function loadBaseline(spec) {
+                    var wanted = spec && Array.isArray(spec.fields) &&
+                        spec.fields.some(function (field) {
+                            return field.source === 'baseline' && !field.hidden;
+                        });
+                    if (!wanted || !task.id) { return Promise.resolve(null); }
+
+                    return BaselineService.get(task.id).catch(function (err) {
+                        Log.warn('baseline could not be read: ' +
+                                 ((err && err.message) || err));
+                        return { linked: false, id: '', name: '', state: '',
+                                 attributes: {} };
+                    });
+                }
+
                 return loadSpec(task).then(function (spec) {
                     if (destroyed) { return; }
-                    return loadContext(spec).then(function (context) {
+                    // the two calls are independent, so they go together -
+                    // this form would otherwise wait for one before starting
+                    // the other for no reason
+                    return Promise.all([
+                        loadContext(spec),
+                        loadBaseline(spec)
+                    ]).then(function (both) {
                         if (destroyed) { return; }
-                        return { spec: spec, context: context };
+                        return { spec: spec, context: both[0], baseline: both[1] };
                     });
                 }).then(function (loaded) {
                     if (destroyed || !loaded) { return; }
                     var spec = loaded.spec;
                     var context = loaded.context;
+                    var baseline = loaded.baseline;
                     clear(content);
 
                     if (result.note) { banner(messages, result.note, 'warning'); }
@@ -756,7 +1207,7 @@ define('IRSTasks/views/TaskDetailView', [
 
                     if (spec && Array.isArray(spec.fields)) {
                         var rows = spec.fields.map(function (f) {
-                            return resolve(f, task, project);
+                            return resolve(f, task, project, baseline);
                         });
                         // no "N fields were not returned" banner any more: each
                         // such field now says so in its own cell, and the form

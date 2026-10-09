@@ -34,6 +34,11 @@ public final class IrsProjectModeler extends ModelerBase {
 
     @Override
     public Class<?>[] getServices() {
-        return new Class<?>[] { ProjectContextService.class };
+        return new Class<?>[] {
+            ProjectContextService.class,
+            // the task's Project Baseline - a sibling path because the
+            // IRSTaskBaseline link starts at the TASK, not the project
+            TaskBaselineService.class
+        };
     }
 }

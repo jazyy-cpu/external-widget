@@ -4,8 +4,6 @@ import java.util.Map;
 
 import com.dassault_systemes.platform.restServices.RestService;
 
-import jakarta.json.Json;
-import jakarta.json.JsonObject;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -56,11 +54,6 @@ import jakarta.ws.rs.core.Response;
 @Path("/projects")
 public final class ProjectContextService extends RestService {
 
-    /** Signatures of a bad id, as the kernel words them. */
-    private static final String[] NOT_FOUND = {
-        "does not exist", "not a valid", "invalid object", "no such object"
-    };
-
     /**
      * @param include optional {@code $include} - a comma-separated list of
      *        sections. Omitted means all of them, so a caller written before
@@ -70,7 +63,16 @@ public final class ProjectContextService extends RestService {
      *        ?$include=risks
      *        ?$include=risks,opportunities
      *        ?$include=learnings.reused
+     *        ?$include=members
      *        </pre>
+     *
+     *        {@code members} (added 2026-10-09) answers the R&amp;D-PRJ-02
+     *        member block in one round trip: each person's designation and
+     *        skills, which live on the Person, together with the responsibility
+     *        and drive-access values, which live on the {@code Member}
+     *        connection. The OOTB task resource's own {@code $include=members}
+     *        returns names only, so without this section the caller would have
+     *        to read every member separately.
      *
      *        A section that is not asked for is <b>absent</b> from the
      *        response rather than present and empty, so the caller can tell
@@ -84,7 +86,7 @@ public final class ProjectContextService extends RestService {
                             @PathParam("projectId") String projectId,
                             @QueryParam("$include") String include) {
         if (projectId == null || projectId.trim().isEmpty()) {
-            return error(Response.Status.BAD_REQUEST, "MISSING_PROJECT_ID",
+            return Responses.error(Response.Status.BAD_REQUEST, "MISSING_PROJECT_ID",
                     "A project id is required.");
         }
 
@@ -94,83 +96,40 @@ public final class ProjectContextService extends RestService {
         } catch (IllegalArgumentException e) {
             // a typo is rejected rather than ignored: silently dropping an
             // unknown section would look exactly like a project with no risks
-            return error(Response.Status.BAD_REQUEST, "BAD_INCLUDE", e.getMessage());
+            return Responses.error(Response.Status.BAD_REQUEST, "BAD_INCLUDE", e.getMessage());
         }
 
         matrix.db.Context platform;
         try {
             platform = getAuthenticatedContext(request, false);
         } catch (Exception e) {
-            return error(Response.Status.UNAUTHORIZED, "NOT_AUTHENTICATED",
+            return Responses.error(Response.Status.UNAUTHORIZED, "NOT_AUTHENTICATED",
                     "No valid platform session.");
         }
         if (platform == null) {
-            return error(Response.Status.UNAUTHORIZED, "NOT_AUTHENTICATED",
+            return Responses.error(Response.Status.UNAUTHORIZED, "NOT_AUTHENTICATED",
                     "No valid platform session.");
         }
 
         try {
             Map<String, Object> payload =
                     ProjectContextReader.readProjectContext(platform, projectId, sections);
-            // no-store: risks, opportunities and learnings change while a
-            // project runs, and a cached panel showing a closed risk as open is
-            // worse than a second call
-            return Response.ok(JsonValues.of(payload).toString(),
-                            MediaType.APPLICATION_JSON_TYPE)
-                    .header("Cache-Control", "private, no-store")
-                    .header("X-Content-Type-Options", "nosniff")
-                    .build();
+            // Responses.ok sends no-store: risks, opportunities and
+            // learnings change while a project runs, and a cached panel
+            // showing a closed risk as open is worse than a second call
+            return Responses.ok(JsonValues.of(payload).toString());
         } catch (IllegalArgumentException e) {
-            return error(Response.Status.BAD_REQUEST, "BAD_PROJECT_ID", e.getMessage());
+            return Responses.error(Response.Status.BAD_REQUEST, "BAD_PROJECT_ID", e.getMessage());
         } catch (Exception e) {
-            if (looksMissing(e)) {
-                return error(Response.Status.NOT_FOUND, "PROJECT_NOT_FOUND",
+            if (Responses.looksMissing(e)) {
+                return Responses.error(Response.Status.NOT_FOUND, "PROJECT_NOT_FOUND",
                         "No project could be read for that id.");
             }
             // the kernel's own wording is kept: it names the select or the
             // relationship that failed, which is what makes a 500 actionable.
             // No stack trace goes to the client.
-            return error(Response.Status.INTERNAL_SERVER_ERROR, "READ_FAILED", text(e));
+            return Responses.error(Response.Status.INTERNAL_SERVER_ERROR, "READ_FAILED", Responses.text(e));
         }
     }
 
-    /**
-     * Whether a failure means "that id is not an object" rather than "the read
-     * broke".
-     *
-     * String matching on a kernel message is admittedly brittle - it is how the
-     * kernel reports it, and the alternative is an extra existence round trip on
-     * every call. The consequence of getting it wrong is a 500 where a 404 was
-     * due, never wrong data. Listed as an open item.
-     */
-    private static boolean looksMissing(Exception e) {
-        String message = text(e).toLowerCase();
-        for (String probe : NOT_FOUND) {
-            if (message.contains(probe)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static String text(Exception e) {
-        String message = e.getMessage();
-        return (message == null || message.trim().isEmpty())
-                ? e.getClass().getName() : message.trim();
-    }
-
-    /** One error shape for every failure, so the widget needs one branch. */
-    private static Response error(Response.Status status, String code, String message) {
-        JsonObject body = Json.createObjectBuilder()
-                .add("error", Json.createObjectBuilder()
-                        .add("status", status.getStatusCode())
-                        .add("code", code)
-                        .add("message", message == null ? "" : message))
-                .build();
-        return Response.status(status)
-                .entity(body.toString())
-                .type(MediaType.APPLICATION_JSON_TYPE)
-                .header("Cache-Control", "private, no-store")
-                .build();
-    }
 }
