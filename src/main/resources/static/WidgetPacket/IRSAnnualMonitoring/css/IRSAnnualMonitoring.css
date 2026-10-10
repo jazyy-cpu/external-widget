@@ -1,0 +1,56 @@
+/*
+ * The widget's ONLY custom CSS (rule R1), every rule under .irs-annual.
+ *
+ * Everything that Bootstrap or Tabulator can do is left to them. What is here
+ * is what neither offers:
+ *
+ *   .irs-toolbar      the visible top band, copied from IRSProjects / IRSTasks
+ *                     so all three widgets have the same head
+ *   .irs-annual-note  the points-and-grade Note block printed under the rating
+ *                     table. The customer asked for the rule text to appear on
+ *                     the form itself, so it is content, not chrome
+ *   grade badges      four fixed meanings (A / B / C / Not Assessed) that must
+ *                     not drift between the grid, the matrix and the print view
+ */
+
+.irs-annual .irs-toolbar {
+    background: #f5f6f7;
+    border: 1px solid #dee2e6;
+    border-radius: .25rem;
+    padding: .35rem .5rem;
+}
+
+.irs-annual .irs-annual-note {
+    background: #fbfbfc;
+    border: 1px solid #dee2e6;
+    border-radius: .25rem;
+    padding: .5rem .75rem;
+    font-size: .78rem;
+    line-height: 1.45;
+    color: #495057;
+}
+
+.irs-annual .irs-annual-note ol {
+    margin: .25rem 0 0 1.1rem;
+    padding: 0;
+}
+
+/* Grade meanings are fixed by the AM forms - A Reviewer, B Independent,
+   C Under Supervision. Kept here so one change moves every view. */
+.irs-annual .irs-grade-A           { background-color: #198754; }
+.irs-annual .irs-grade-B           { background-color: #0d6efd; }
+.irs-annual .irs-grade-C           { background-color: #fd7e14; }
+.irs-annual .irs-grade-none        { background-color: #adb5bd; }
+
+/* The create panel is an inline card, deliberately NOT a Bootstrap modal:
+   Bootstrap's JavaScript is not loaded in a UWA widget (rule C3), so a modal
+   would never open. */
+.irs-annual .irs-create-panel {
+    border: 1px solid #dee2e6;
+    border-radius: .25rem;
+    background: #fff;
+}
+
+.irs-annual .irs-degraded {
+    font-size: .78rem;
+}

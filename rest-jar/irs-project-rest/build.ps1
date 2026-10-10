@@ -41,6 +41,10 @@ $references = @(
     # not needed by the hello service, but this one calls the framework:
     # DomainObject, DomainConstants, MapList, PropertyUtil
     'C:\DassaultSystemes\R2024x\3DSpace\distrib_CAS\3dspace\WEB-INF\lib\xerinfra.jar'
+    # program.jar and common.jar were here for ProjectBaseline.getSubtasks,
+    # the monthly plan's first implementation. The plan now comes from the
+    # OOTB project resource, the reader no longer touches ProgramCentral, and
+    # the two references went with it (2026-10-10).
 )
 
 foreach ($reference in $references) {

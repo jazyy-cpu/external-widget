@@ -410,3 +410,94 @@
 .irs-tasks .irs-lines {
     white-space: pre-line;
 }
+
+/*
+ * The monthly plan of page 2 (user, 2026-10-10).
+ *
+ * Three rules, because Bootstrap has no "shaded cell in a schedule": a month
+ * column narrow enough that a year of them fits, and a band that fills the
+ * months a task spans. The band is Bootstrap's own `--bs-primary-bg-subtle`,
+ * which the framework redefines for dark mode, so the band follows the theme;
+ * the literal is only the fallback for a page that loads without Bootstrap.
+ */
+.irs-tasks .irs-plan-month {
+    min-width: 4.5rem;
+    font-weight: 500;
+}
+
+.irs-tasks .irs-plan-cell {
+    min-width: 4.5rem;
+    padding: 0.35rem 0.25rem;
+}
+
+/*
+ * A long plan must SCROLL, not squeeze (user, 2026-10-10: a 14-month plan
+ * broke the task names to one character a line and overlapped the dates).
+ *
+ * The cause was Bootstrap's `.table { width: 100% }`: the table shrank every
+ * column to fit the pane, so it never overflowed and `.table-responsive` had
+ * nothing to scroll. `width: auto` lets it take its natural width, `nowrap`
+ * stops a cell solving the overflow by wrapping, and the wrapper then
+ * scrolls. `max-content` keeps that natural width even inside a flex column.
+ */
+.irs-tasks .irs-plan {
+    width: auto;
+    min-width: max-content;
+}
+
+.irs-tasks .irs-plan th,
+.irs-tasks .irs-plan td {
+    white-space: nowrap;
+}
+
+/*
+ * The task name stays put while the months scroll past it - a band in the
+ * thirtieth column means nothing once the name has gone. It needs its own
+ * background, because a sticky cell is transparent and the bands would
+ * otherwise slide underneath it.
+ */
+.irs-tasks .irs-plan-name {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--bs-body-bg, #fff);
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.irs-tasks .irs-plan-scroll {
+    overflow-x: auto;
+}
+
+/*
+ * The full-width view. Our own overlay, not a Bootstrap modal: this page
+ * loads Bootstrap's CSS but not its JavaScript, and the bundle costs more
+ * than these rules. It attaches to <body> because the form sits in a short
+ * scrolling pane that would otherwise clip it - and it therefore carries the
+ * `irs-tasks` root class itself, which is why these two selectors are not
+ * prefixed with it: the overlay IS the root of its own subtree.
+ */
+.irs-plan-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1080;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.irs-plan-panel {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.irs-tasks .irs-plan-band {
+    background-color: var(--bs-primary-bg-subtle, rgba(13, 110, 253, 0.35));
+}

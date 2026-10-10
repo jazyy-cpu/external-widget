@@ -1,0 +1,167 @@
+/**
+ * The landing page: assessment rounds for the chosen department.
+ *
+ * Same shape as IRSProjects' and IRSTasks' list views, so all three widgets
+ * behave alike: the page's own controls go into the shared top band through
+ * `options.toolbar`, and the grid fills what is left.
+ *
+ * The view owns the create panel as well, because creating a round is an action
+ * ON this list and the result belongs in this grid.
+ */
+define('IRSAnnualMonitoring/views/AssessmentListView', [
+    'JazzySole/TabulatorLoader',
+    'JazzySole/Notify',
+    'IRSAnnualMonitoring/services/AssessmentService',
+    'IRSAnnualMonitoring/views/AssessmentColumns',
+    'IRSAnnualMonitoring/components/NewAssessmentPanel'
+], function (TabulatorLoader, Notify, AssessmentService, AssessmentColumns, NewAssessmentPanel) {
+    'use strict';
+
+    /** Leave room for the top band; the grid takes the rest of the widget. */
+    function availableHeight() {
+        var height = (widget.body && widget.body.clientHeight) || 420;
+        var usable = height - 96;
+        return (usable < 220 ? 220 : usable) + 'px';
+    }
+
+    return {
+        /**
+         * @param {Element} target
+         * @param {Object} options {department, toolbar, canCreate, onOpen}
+         * @returns {{redraw: Function, reload: Function, destroy: Function}}
+         */
+        render: function (target, options) {
+            var opts = options || {};
+            var department = opts.department || null;
+            var destroyed = false;
+            var table = null;
+            var panel = null;
+
+            var messages = document.createElement('div');
+            target.appendChild(messages);
+
+            var panelHost = document.createElement('div');
+            target.appendChild(panelHost);
+
+            var host = document.createElement('div');
+            target.appendChild(host);
+
+            function ready() { return table && !destroyed; }
+
+            function note(text, level) {
+                var box = document.createElement('div');
+                box.className = 'alert alert-' + (level || 'secondary') + ' small py-2';
+                box.setAttribute('role', 'status');
+                box.textContent = text;
+                messages.appendChild(box);
+            }
+
+            function clearMessages() {
+                while (messages.firstChild) { messages.removeChild(messages.firstChild); }
+            }
+
+            function closePanel() {
+                if (panel) { panel.destroy(); panel = null; }
+            }
+
+            function load() {
+                if (destroyed || !department) { return Promise.resolve(); }
+                clearMessages();
+                return AssessmentService.list({
+                    departmentCode: department.code,
+                    departmentId: department.id
+                }).then(function (result) {
+                    if (destroyed) { return; }
+                    if (table) { table.setData(result.rows); }
+                    if (!result.indexed) {
+                        // Be explicit. An empty grid otherwise reads as "this
+                        // department has no rounds", which is a different and
+                        // much more reassuring statement than the truth.
+                        note('No rounds could be read yet. The Annual Monitoring REST service ' +
+                             'is not built, so nothing can be listed. (' + (result.reason || '') + ')',
+                             'warning');
+                    } else if (!result.rows.length) {
+                        note('This department has no assessment rounds yet.', 'secondary');
+                    }
+                });
+            }
+
+            function startCreate() {
+                if (panel || !department) { return; }
+                closePanel();
+                panel = NewAssessmentPanel.render(panelHost, {
+                    department: department,
+                    onCancel: closePanel,
+                    onSubmit: function (data) {
+                        panel.busy(true);
+                        AssessmentService.create(data).then(function () {
+                            closePanel();
+                            Notify.success('Assessment round created.');
+                            return load();
+                        }).catch(function (err) {
+                            panel.busy(false);
+                            // The expected failure today: the endpoint does not
+                            // exist. Say which half failed, so a real error
+                            // later is not mistaken for this one.
+                            panel.error('The round could not be created. The Annual Monitoring ' +
+                                'REST service is not built yet, so there is nothing to post to. ' +
+                                'Underlying error: ' + (err && err.message ? err.message : err));
+                        });
+                    }
+                });
+            }
+
+            // the page's own controls, in the shared band
+            if (opts.toolbar) {
+                var createBtn = document.createElement('button');
+                createBtn.type = 'button';
+                createBtn.className = 'btn btn-primary btn-sm';
+                createBtn.textContent = 'New assessment';
+                createBtn.disabled = !opts.canCreate || !department;
+                if (!opts.canCreate) {
+                    createBtn.title = 'Only a Head of Department or In-Charge may create a round.';
+                }
+                createBtn.addEventListener('click', startCreate);
+                opts.toolbar.appendChild(createBtn);
+
+                var refreshBtn = document.createElement('button');
+                refreshBtn.type = 'button';
+                refreshBtn.className = 'btn btn-outline-secondary btn-sm';
+                refreshBtn.textContent = 'Refresh';
+                refreshBtn.addEventListener('click', function () { load(); });
+                opts.toolbar.appendChild(refreshBtn);
+            }
+
+            var loading = TabulatorLoader.load().then(function (Tabulator) {
+                if (destroyed) { return; }
+                table = new Tabulator(host, {
+                    height: availableHeight(),
+                    layout: 'fitColumns',
+                    placeholder: 'No assessment rounds',
+                    columns: AssessmentColumns.build({ onOpen: opts.onOpen }),
+                    data: []
+                });
+                return load();
+            }).catch(function (err) {
+                if (destroyed) { return; }
+                note('The grid could not be built: ' + (err && err.message ? err.message : err), 'danger');
+            });
+
+            return {
+                redraw: function () {
+                    if (!ready()) { return; }
+                    table.setHeight(availableHeight());
+                    table.redraw(true);
+                },
+                reload: load,
+                destroy: function () {
+                    destroyed = true;
+                    closePanel();
+                    if (table) { try { table.destroy(); } catch (e) { /* already gone */ } }
+                    table = null;
+                },
+                _loading: loading
+            };
+        }
+    };
+});

@@ -1,0 +1,29 @@
+{
+  "_comment": [
+    "Seed list of departments, captured from the live VM on 2026-10-10 by a",
+    "federated search for flattenedtaxonomies:\"types/Department\".",
+    "",
+    "WHY A JSON FILE AND NOT A CALL. Two reasons, both temporary:",
+    "  1. the widget needs a department before it can show anything, and the",
+    "     real question - WHICH departments is the signed-in person HOD or",
+    "     In-Charge of - is a relationship traversal that OOTB REST cannot do",
+    "     (WGT-10 api.md section 3.2). That answer comes from our REST service.",
+    "  2. IRSTasks already uses js/data/departments.json for the same kind of",
+    "     lookup, so this is the established pattern here, not a new one.",
+    "",
+    "This file is a SKELETON PLACEHOLDER. DepartmentService.mine() is written",
+    "so that replacing it with the real endpoint is one function, and the",
+    "widget shows a visible banner while the role filter is not applied.",
+    "id = physicalId, code = the organization name, label = its Title."
+  ],
+  "departments": [
+    { "id": "299036CE000033A46AB12391000000AC", "code": "0000000001", "label": "Hydrodynamics and Multiphysics", "division": "Research and Development" },
+    { "id": "299036CE000033A46AB123FA000000CE", "code": "0000000002", "label": "Marine and Offshore Structures", "division": "Research and Development" },
+    { "id": "299036CE000033A46AB1292A000000F0", "code": "0000000003", "label": "Risk and System Reliability Assessment", "division": "Research and Development" },
+    { "id": "299036CE000033A46AB1293500000106", "code": "0000000004", "label": "Long Term Strength Assessment", "division": "Research and Development" },
+    { "id": "299036CE000033A46AB1297400000134", "code": "0000000005", "label": "Rule Development", "division": "RDAREA" },
+    { "id": "299036CE000033A46AB1297F0000014A", "code": "0000000006", "label": "Strategic Research", "division": "RDAREA" },
+    { "id": "299036CE000033A46AB1298A00000160", "code": "0000000007", "label": "Formal Safety Assessment", "division": "RDAREA" },
+    { "id": "299036CE000033A46AB1299600000176", "code": "0000000008", "label": "External Affairs Function", "division": "RDAREA" }
+  ]
+}

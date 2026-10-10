@@ -107,6 +107,20 @@ define('IRSTasks/services/TaskDetailService', [
             title: de.title || '',
             revision: de.revision || '',
             type: de.typeNLS || (entry && entry.type) || '',
+            /**
+             * The platform's own type NAME, beside the display name above.
+             *
+             * `type` prefers `typeNLS` because it is what a reader should see
+             * ("PROJECT REVIEW"), and that makes it useless for deciding WHICH
+             * document a form row means. The raw name is the only thing that
+             * tells OUR generated form document from a signed scan the user
+             * attached: both hang on the same `Task Deliverable` relationship,
+             * but ours is `DMPPROJECT_REVIEW` / `DMPPERSONNEL_COST` and an
+             * upload is a plain `Document`. Measured on T-85756263-0000155,
+             * 2026-10-10: one deliverable, `type: "DMPPROJECT_REVIEW"`,
+             * `typeNLS: "PROJECT REVIEW"`, revision `01`.
+             */
+            typeName: (entry && entry.type) || '',
             state: de.stateNLS || '',
             // the platform spells these booleans as the STRINGS "TRUE"/"FALSE"
             hasFiles: String(de.hasfiles || '').toUpperCase() === 'TRUE',
@@ -216,7 +230,21 @@ define('IRSTasks/services/TaskDetailService', [
             attachments: related(item, 'references').map(function (entry) {
                 return toDocument(entry, 'attachment');
             }),
-            // the FIRST deliverable, kept for the fields the page already reads
+            /**
+             * The FIRST deliverable, flattened.
+             *
+             * **No form reads these any more.** They were how the Rev. No. was
+             * read until 2026-10-10, when it turned out that a task carries
+             * the signed upload and the generated form document on the same
+             * relationship, so "the first one" is not reliably ours. A row
+             * that wants a document now names its TYPE and the view picks it
+             * out of `deliverables` above - see `pickDocument` in
+             * TaskDetailView.
+             *
+             * Kept because the shape is asserted by the test suite and because
+             * "the task's first document" is a question something may ask
+             * again. Anything printed on a form should go through the type.
+             */
             documentId: (document && document.id) || '',
             documentName: documentData.name || '',
             documentRevision: documentData.revision || '',

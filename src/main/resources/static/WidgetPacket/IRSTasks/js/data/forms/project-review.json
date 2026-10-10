@@ -1,0 +1,156 @@
+{
+  "_about": "What the PROJECT REVIEW task page shows. One file per form (user, 2026-10-07): change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the subtype's entry in js/config/TaskFields.js. The LAST of the four gateway forms.",
+  "_generated": "Written 2026-10-10 from R&D-REV-Rev.02 and RDAREA-REV-Rev.00, with every field verified on this VM the same day: the type's attribute list and each attribute's data type and range in MQL, and all seven values in the live task response for T-85756263-0000155 (299036CE0000A4346AC9CFF1000000EA).",
+  "_twoFormsOneSubtype": "THE TWO AREAS GENUINELY DIFFER HERE - unlike Stage Validation, where the two printed forms were identical. R&D-REV-Rev.02 carries two numbered items that RDAREA-REV-Rev.00 does not: 'Validation: Stage/Final/Not Required/Not Applicable' and 'Data related to relevant task copied in the project common drive: Yes/No/NA'. They are additive, so AR is simply an older revision of the same form, and ONE subtype carries both attributes (route config, 2026-10-07). The user chose 2026-10-10 to DRAW BOTH ROWS ON BOTH AREAS, labelled '(R&D form only)' in the label itself, rather than hiding them on an Analysis project: the project subtype would have answered the area for free (EPMAnalysisProject = AR), but a visible labelled row tells the reader what the difference IS, where a hidden row tells them nothing. This is the R06 note in the to-be document, and this form is where it was true.",
+  "_source": {
+    "project": "read from the PROJECT's dataelements - arrives in the project call the page already makes. Note that only TYPE attributes arrive there: `IRSProjectReviewDocumentId` is an INTERFACE attribute and is absent from the response, measured 2026-10-10 - see the Review No. row",
+    "task": "read from the TASK's own dataelements. This form has SEVEN, the most of any subtype, and all seven arrived populated on the live task measured 2026-10-10",
+    "derived": "computed from what the page already holds, with no further call: the Review No. off the task's own review document, and Reviewer(s) off the task's assignee list",
+    "none": "not a value: it lives in the approval route, or the platform has no source for it yet"
+  },
+  "_hidden": "A field with \"hidden\": true is not drawn at all. Four rows here: the printed form's Review Date, which the platform has no field for; the two signatory lines, which are approvals and are drawn by the WGT-09 panel below the form; and the report number. NEXT REVIEW DATE WAS THE FIFTH until 2026-10-10 and is now drawn - see its note.",
+  "_theTwoDates": "The printed form carries two dates and they are NOT the same question, which is why they ended up in different places. 'Next Review Date' has an attribute on the subtype and real data in it, so it is DRAWN (user, 2026-10-10). The top 'Review Date' has no attribute anywhere - the same gap as the Date on the stage validation form - so it stays hidden with its four candidate sources named, and on this form the reviewer's approval date is the strongest of them, because the printed page says '(To be filled by Reviewer only)'.",
+  "_display": {
+    "text": "one line",
+    "longtext": "prose - the form asks for paragraphs here, and the line breaks are real",
+    "yesno": "an ENOVIA boolean, which arrives as the STRING \"TRUE\"/\"FALSE\" and prints as Yes/No",
+    "choice": "a range value, which is one token on the platform (`NotRequired`) and spaced words on the printed form (`Not Required`)",
+    "date": "a timestamp printed as `21 Oct 2026` - no clock, because nobody recorded a time",
+    "pending": "agreed but not resolved yet: the page says so rather than showing it as empty",
+    "approval": "an approval signature - a route task, not a field",
+    "observations": "the printed form's boxed, numbered list of review observations - several attributes of the task under ONE heading, each with its own format"
+  },
+  "form": "R&D-REV-Rev.02",
+  "title": "PROJECT REVIEW",
+  "taskType": "EPMPROJECT_REVIEW",
+  "fields": [
+    {
+      "ref": "Header",
+      "label": "Review Date",
+      "hidden": true,
+      "source": "none",
+      "display": "pending",
+      "note": "The printed form asks for a Review Date and the platform has no attribute for it - the same gap as the Date on the stage validation form, and parked with it by the user on 2026-10-10. Four candidates, none needing a new call, all four present in the live task response measured that day: `actualFinishDate` (when the review was actually done - empty until the task completes), `dueDate` (the planned date, always populated), `originated` (when the review task was raised), and the approval date, which the WGT-09 panel already shows per approver. Note that the REVIEWER'S approval date is the strongest candidate on this form in particular, because the printed page says '(To be filled by Reviewer only)'."
+    },
+    {
+      "ref": "Header",
+      "label": "Project Name",
+      "source": "project",
+      "field": "name",
+      "display": "text",
+      "fallbackField": "title",
+      "note": "NOT on the printed form, added at the user's request 2026-10-10 - the same row the other three forms carry, so a reader of one page need not decode a project number. On R2024x a project is created with a name only, so Title stays empty: this is the field, not a fallback."
+    },
+    {
+      "ref": "Header",
+      "label": "Project No.",
+      "source": "project",
+      "field": "EPMProjectNo",
+      "display": "text",
+      "note": "System generated from a numbering scheme (R20) - the scheme is not defined yet. Measured live: R&D-26013-HY on 'Copy of TEMPLATE TEST'."
+    },
+    {
+      "ref": "Header",
+      "label": "Review No.",
+      "source": "derived",
+      "from": "task",
+      "documentType": "DMPPROJECT_REVIEW",
+      "field": "revision",
+      "display": "text",
+      "note": "THE REVISION OF THE REVIEW DOCUMENT IS THE REVIEW NO. (user, 2026-10-07: 'we need to revise the document each time ... as later from this we will get the review no'). Project Review revises one document family per project, where stage validation creates a new document per task, so the revision chain IS the review sequence and no separate counter is needed. `documentType` is what makes the row trustworthy: the reviewer also attaches the signed form and the reviewed reports, all on the same `Task Deliverable` relationship, so the FIRST deliverable is not reliably ours - the type is. Measured live 2026-10-10: PRV-0000004, revision `01`, type DMPPROJECT_REVIEW. New document families start at revision 01 (firstRevision in the route config), so revision 01 is Review No. 1 and the row prints the revision as it is. Families created before 2026-10-07 start at 0 and read one low - an open item, not arithmetic the page can verify."
+    },
+    {
+      "ref": "Header",
+      "label": "Reviewer(s)",
+      "source": "derived",
+      "from": "task",
+      "field": "assignees",
+      "display": "text",
+      "note": "No attribute holds the reviewer name, and none is needed: the approval route's Project Reviewer level is chosen from THE TASK'S ASSIGNEES (user, 2026-10-07: 'for project reviewer we will show the list of assignee only'), so the assignee list IS the reviewer pool the printed form asks for - and the form writes 'Reviewer(s)' in the plural, which this matches. It arrives free in the call the page already makes: measured 2026-10-10, four assignees on the live review task. The person who finally signed is the approval panel's answer, not this row's."
+    },
+    {
+      "ref": "1-4",
+      "label": "Review Observations",
+      "source": "task",
+      "display": "observations",
+      "note": "THE PRINTED FORM DRAWS THESE FOUR AS ONE BOX under one heading, numbered 1) to 4), and the page now does the same (user, 2026-10-10). As four separate rows they paired off two to a line with whatever preceded them, which is exactly what the box on the paper exists to prevent: they are one thought - the reviewer's observations - and not four unrelated fields. The items are DATA in `rows` below, so a fifth observation is a JSON edit, and each says its own `format` because the four are four different shapes.",
+      "_numbering": "The numbers ARE printed here, unlike the section numbers everywhere else on these forms, because inside this box they are the content: a reviewer reads item 3 off R&D-REV-Rev.02 - which the page header names - and looks for item 3 on screen. RDAREA-REV-Rev.00 numbers the same items differently, having no Validation row, and the label on that row carries (R&D form only), which is what tells an AR reader why their paper stops at 3.",
+      "rows": [
+        {
+          "label": "Adhesion to the Schedule",
+          "field": "EPMAdhesionToSchedule",
+          "format": "yesno",
+          "note": "The printed form's item 1, a yes / no. The only BOOLEAN attribute on this subtype - ENOVIA answers the string \"TRUE\", which prints as Yes. Measured live: TRUE."
+        },
+        {
+          "label": "Status of completion to the relevant task",
+          "field": "EPMStatusOfCompletion",
+          "note": "Item 2. A single-line `string` on the platform (multiline FALSE), so it is drawn as one line rather than as prose - the attribute's own shape, not a guess. Measured live: 'status is ok for the completed task'."
+        },
+        {
+          "label": "Validation (R&D form only)",
+          "field": "EPMValidation",
+          "format": "choice",
+          "note": "Item 3 of R&D-REV-Rev.02, and NOT on RDAREA-REV-Rev.00 - which is why the label says so (user, 2026-10-10). A range of four: Stage, Final, NotRequired, NotApplicable, printed with the spaces the paper form uses. Measured live: Final. This row and the common-drive row below are the whole difference between the two areas' forms."
+        },
+        {
+          "label": "Technical finding / Observations",
+          "field": "EPMTechnicalFindingObservations",
+          "format": "longtext",
+          "note": "Item 4 on the R&D form, item 3 on the AR one - the numbering shifts because AR has no Validation row, which is why the section numbers are not printed on screen. A `string` with `multiline TRUE`, so prose with its line breaks kept. The printed form adds '(reviewed reports/documents are to be attached)': those attachments are the task's own documents and the documents panel below the form lists them, so the instruction needs no row of its own."
+        }
+      ]
+    },
+    {
+      "ref": "5",
+      "label": "Follow-up Action Recommended",
+      "source": "task",
+      "field": "EPMFollow_upActionRecommended",
+      "display": "longtext",
+      "note": "'Follow-up Action Recommended (relevant to completed task)' - prose, multiline TRUE. Note the underscore in the attribute name, which is the platform's spelling and not a typo here. The printed form's note beneath it, 'Refer to the planning document for carrying out the review', is an instruction to the reviewer rather than a value, so it is not a row."
+    },
+    {
+      "ref": "6",
+      "label": "Data copied to the project common drive (R&D form only)",
+      "source": "task",
+      "field": "EPMDataDrive",
+      "display": "choice",
+      "newLine": true,
+      "note": "'Data related to relevant task copied in the project common drive: Yes/No/NA' - the second of the two rows that exist on R&D-REV-Rev.02 and not on RDAREA-REV-Rev.00, labelled as such for the same reason. A range of three, Yes / No / NA, not a boolean, because NA is a real answer here. Measured live: No. The label is shortened from the printed sentence so it fits a label column; the full wording is in this note."
+    },
+    {
+      "ref": "Footer",
+      "label": "Next Review Date",
+      "source": "task",
+      "field": "EPMNextReviewDate",
+      "display": "date",
+      "note": "DRAWN SINCE 2026-10-10 (user: it is an attribute on the task, so add it). It was parked for half a day with the Review Date at the top of the paper, and the two were never the same question: this one has EPMNextReviewDate, a `timestamp` on the subtype, and the live task carried 2026-10-21T06:30:00.000Z - it was the only parked row on any of the four forms whose attribute existed AND held data. The Review Date above stays parked because the platform has no field for it at all. Printed as `21 Oct 2026`: no clock, because nobody recorded a time. The reviewer sets it when approving, and the route's level-2 instruction already tells them to."
+    },
+    {
+      "ref": "Footer",
+      "label": "Project Member",
+      "hidden": true,
+      "source": "none",
+      "display": "approval",
+      "note": "The first of the two signature lines on both areas' forms - an approval collected by the route task when the approver acts, not typed into the form, and drawn by the approval panel below (WGT-09). Candidates are the project's OWN members, unfiltered (user, 2026-10-07), which is the first unfiltered use of that source kind: the proposal and cost routes narrow it to the Project Owner."
+    },
+    {
+      "ref": "Footer",
+      "label": "Project Reviewer",
+      "hidden": true,
+      "source": "none",
+      "display": "approval",
+      "note": "The second signatory, and the person the RSD says fills and approves this form - the printed page says '(To be filled by Reviewer only)'. Candidates are the TASK'S ASSIGNEES, the same list the Reviewer(s) row above prints, so the reviewer must be assigned to the review task BEFORE the route is created. Also drawn by the WGT-09 panel. Grade A / the skill-based reviewer lookup is deliberately NOT implemented (user, 2026-10-07: 'forget about grade'); see the route config."
+    },
+    {
+      "ref": "Footer",
+      "label": "Report Number",
+      "hidden": true,
+      "source": "none",
+      "display": "pending",
+      "note": "The document's NAME - PRV-0000004 on the live data - as distinct from its revision, which the Review No. row above prints. Not on the printed form and not drawn: the form identifies a review by Project No. plus Review No., which the page already shows, and a second identifier beside them would invite the question of which one to quote. Kept as a row because the same question is open on stage validation (O-P15), where there IS no revision and the document name is the only identifier - the two should be decided together."
+    }
+  ],
+  "_layout": "Section numbers are NOT printed on screen, with ONE exception: the four numbered items inside the Review Observations box, where the number is part of what the box says - see its `_numbering`. On this form that is not only consistency: the two areas number the same items differently, because AR has no Validation row, so a printed number would be wrong for one of the two readers. `ref` stays in this file because it is how the paper form is discussed. Short fields pair off two to a line in the order they appear here - Project Name with Project No., then Review No. with Reviewer(s) - and `newLine` starts a fresh line, which is why the three one-line observation rows each begin one rather than pairing with whatever precedes them. The two prose blocks take the full width by themselves.",
+  "_rowCount": "8 visible rows of 12, one of which is the Review Observations box carrying four more. The largest of the four forms by attributes read - seven, all on the task, and since 2026-10-10 all seven are on screen."
+}

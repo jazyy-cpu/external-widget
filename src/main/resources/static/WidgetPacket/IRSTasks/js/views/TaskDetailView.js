@@ -33,8 +33,12 @@
  *              form is almost entirely project data
  *   task       the task's own `dataelements`
  *   derived    computed from what we already hold, with no further call.
- *              Section I *Project Category* is the only one: the project's own
- *              subtype answers it, under the platform's own display name
+ *              Section I *Project Category* - the project's own subtype answers
+ *              it, under the platform's own display name; the Rev. No. and the
+ *              Review No., which are the revision of the form document this
+ *              flow generates, named by `documentType` so a signed upload on
+ *              the same relationship cannot answer instead; and *Reviewer(s)*,
+ *              which is the task's assignee list
  *   service    our REST JAR, `ProjectContextService`. Sections XII and XIII -
  *              key learnings, and risks and opportunities. These are OBJECTS,
  *              not attributes, so they render as tables rather than as a value
@@ -184,8 +188,91 @@ define('IRSTasks/views/TaskDetailView', [
             if (text === 'TRUE') { return 'Yes'; }
             if (text === 'FALSE') { return 'No'; }
             return toText(value);
+        },
+
+        /**
+         * `NotApplicable` -> `Not Applicable`.
+         *
+         * An attribute RANGE is one token per choice, because a range value is
+         * an identifier - `EPMValidation` declares Stage, Final, NotRequired,
+         * NotApplicable. The printed form writes them with spaces ("Stage /
+         * Final / Not Required / Not Applicable"), so this is the same kind of
+         * formatting as `yesno`: the platform's spelling is not the form's.
+         *
+         * Only a word boundary inside the token is touched. A value that was
+         * already written with spaces, or one that is a single word, comes back
+         * unchanged, so a range edited on the platform later cannot break it.
+         */
+        choice: function (value) {
+            var text = toText(value);
+            if (!text || text.indexOf(' ') >= 0) { return text; }
+            return text.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
         }
     };
+
+
+    var MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    /**
+     * A kernel date string to a Date, or null.
+     *
+     * The platform answers in its own US spelling (`10/7/2026 8:00:00 AM`),
+     * which `new Date` parses. Null rather than an Invalid Date, so a task with
+     * no dates is one `if` and never silently lands in 1970.
+     */
+    function parseDate(value) {
+        var text = toText(value);
+        if (!text) { return null; }
+        var parsed = new Date(text);
+        return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    /** Months counted from year 0, so two dates compare and subtract. */
+    function monthIndex(date) {
+        return date.getFullYear() * 12 + date.getMonth();
+    }
+
+    function monthLabel(index) {
+        return MONTH_NAMES[index % 12] + ' ' + Math.floor(index / 12);
+    }
+
+    /**
+     * The task's own form document, chosen by its TYPE name.
+     *
+     * The Rev. No. and the Review No. are both the revision of the document
+     * this flow generates for the task - but a task carries more than one
+     * document on the same `Task Deliverable` relationship: the reviewer also
+     * attaches the signed scan and the reviewed reports. Taking the FIRST
+     * deliverable therefore prints whichever document happened to be connected
+     * first, which is a wrong number shown with no sign that it is wrong.
+     * Asking for the type is free - it is already in the response - and a
+     * generated document is `DMPPROJECT_REVIEW` or `DMPPERSONNEL_COST` where an
+     * upload is a plain `Document`.
+     *
+     * **Why not the id the platform already stores.** The project keeps the
+     * document's id in the interface attribute `IRSProjectReviewDocumentId`,
+     * which is what the approval JPO uses to find the family to revise, and
+     * that is the natural answer. It does not reach the client, measured twice
+     * on 2026-10-10:
+     *
+     *   1. the project response carries TYPE attributes only - every `EPM*`
+     *      attribute is in `dataelements` and `IRSProjectReviewDocumentId`,
+     *      being an INTERFACE attribute, is not there at all;
+     *   2. the stored value is the MQL object id (`39261.35329.24628.655`)
+     *      while REST answers in physical ids (`299036CE0000A434...`), so even
+     *      if it arrived it could not be matched against this payload without
+     *      a conversion call.
+     *
+     * The type is the same decision made with what the page already holds.
+     */
+    function pickDocument(documents, typeName) {
+        var list = documents || [];
+        for (var i = 0; i < list.length; i += 1) {
+            if (list[i] && list[i].typeName === typeName) { return list[i]; }
+        }
+        return null;
+    }
 
     /** The value as the form should print it, by display type. */
     function formatValue(row) {
@@ -239,15 +326,49 @@ define('IRSTasks/views/TaskDetailView', [
             return out;
         }
 
-        // derived: computed from the project object itself, not from its
-        // attributes. Section I is the whole of this case - the subtype answers
-        // "Research or Analysis", and we already hold its display name
+        // a BLOCK that reads its own data is not a value row either: the cost
+        // and man-day tables, the monthly plan and the review observations all
+        // name an object (`source`) and then read SEVERAL attributes off it in
+        // their own renderer, so they carry no `field`. Without this they fall
+        // through to the no-such-attribute branch below and come back
+        // `missing`, which is a lie about a section that draws perfectly -
+        // harmless where it is read, and not harmless to anything that counts
+        // missing rows
+        if (!spec.field && isBlock(out)) {
+            out.empty = true;
+            return out;
+        }
+
+        // derived: a property the SERVICE computed, not an attribute of the
+        // object. Two cases now, so the spec says which object with `from`:
+        //   project (the default) - section I, where the subtype answers
+        //     "Research or Analysis" and we already hold its display name;
+        //   task - the Rev. No., which TaskDetailService reads off the task's
+        //     deliverable and which exists on no object as an attribute.
         if (out.source === 'derived') {
-            if (!project) {
+            var owner = (spec.from === 'task') ? task : project;
+            if (!owner) {
                 out.missing = true;
                 return out;
             }
-            out.value = toText(project[spec.field]);
+            // `documentType` says the value lives on one of the task's
+            // DOCUMENTS rather than on the task - see pickDocument. Without it
+            // the row reads a property of the task itself, as Project Category
+            // does
+            var holder = owner;
+            if (spec.documentType) {
+                holder = pickDocument(owner.deliverables, spec.documentType);
+                // no such document yet is the NORMAL state of a task that has
+                // not been sent for approval - the form document is created
+                // when the task leaves In Work. So an empty cell, not an error
+                if (!holder) { return out; }
+            }
+            var value = holder[spec.field];
+            // a list field prints as a list: `assignees` is the Reviewer(s)
+            // row, and String([a, b]) would run the names together on a comma
+            out.value = Array.isArray(value)
+                ? value.filter(Boolean).join(', ')
+                : toText(value);
             out.empty = out.value.length === 0;
             return out;
         }
@@ -352,6 +473,71 @@ define('IRSTasks/views/TaskDetailView', [
         return wrap;
     }
 
+    /**
+     * *Review Observations* - the boxed, numbered list on R&D-REV-Rev.02.
+     *
+     *     Review Observations
+     *     +----------------------------------------+-------------------------+
+     *     | 1) Adhesion to the Schedule            | Yes                     |
+     *     | 2) Status of completion to the task    | status is ok ...        |
+     *     | 3) Validation (R&D form only)          | Final                   |
+     *     | 4) Technical finding / Observations    | (prose, line breaks kept)|
+     *     +----------------------------------------+-------------------------+
+     *
+     * The printed form draws these four as ONE box under one heading, and they
+     * read as one thought - the reviewer's observations - rather than as four
+     * unrelated fields (user, 2026-10-10). As four separate rows they paired
+     * off two to a line with whatever happened to precede them, which is what
+     * the box exists to prevent.
+     *
+     * The items are DATA, in the spec's `rows`, so a fifth observation is a
+     * JSON edit - the same rule as the cost and man-day tables. Each item says
+     * its own `format`, because the four are four different shapes: a boolean,
+     * a one-line string, a range value and prose.
+     *
+     * The NUMBERS are printed here, unlike the section numbers everywhere else
+     * on these forms. They are the numbers on `R&D-REV-Rev.02`, which the page
+     * header names, and the box is useless without them - a reviewer reads
+     * item 3 off the paper and looks for item 3 here. The AR form numbers the
+     * same items differently, because it has no Validation row; that row
+     * carries *(R&D form only)* in its label, which is what tells an AR reader
+     * why their paper stops at 3.
+     */
+    function observationsBlock(row, task) {
+        var attributes = (task && task.attributes) || {};
+        var items = row.rows || [];
+
+        var node = el('table',
+            'table table-sm table-bordered align-middle mb-0 irs-sum-table');
+        var body = el('tbody');
+
+        items.forEach(function (item, index) {
+            var tr = el('tr');
+            var label = (index + 1) + ') ' + (item.label || item.field || '');
+            var head = el('th', 'fw-normal w-50', label);
+            head.scope = 'row';
+            tr.appendChild(head);
+
+            var has = Object.prototype.hasOwnProperty.call(attributes, item.field);
+            var text = has
+                ? formatValue({ display: item.format, value: attributes[item.field] })
+                : null;
+            var cell = el('td', '', text === null ? 'not returned' : (text || DASH));
+            if (text === null) { cell.className += ' text-danger'; }
+            else if (!text) { cell.className += ' text-secondary'; }
+            // an observation may be a paragraph: the two multiline attributes
+            // keep their line breaks here exactly as they do in a prose row
+            else if (item.format === 'longtext') { cell.style.whiteSpace = 'pre-wrap'; }
+            tr.appendChild(cell);
+            body.appendChild(tr);
+        });
+
+        node.appendChild(body);
+        var wrap = el('div', 'table-responsive');
+        wrap.appendChild(node);
+        return wrap;
+    }
+
     /** "Nothing is linked" - said in words, never as an empty table. */
     function emptyNote(text) {
         return el('div', 'text-secondary fst-italic', text);
@@ -386,7 +572,13 @@ define('IRSTasks/views/TaskDetailView', [
         // columns already give a label column, and 5/7 of half a line scales
         // with the widget where `flex: 0 0 11rem` did not
         var line = el('div', 'row g-0 irs-kv border-bottom px-2 py-1');
-        line.appendChild(el('div', 'col-5 fw-semibold', label));
+        // the same blue as a section heading (user, 2026-10-10): a field
+        // label and a section label are the same kind of thing to a
+        // reader, and the form read as two typefaces before this.
+        // `text-primary-emphasis` is Bootstrap's own token, so it keeps
+        // its contrast in dark mode - a hard-coded blue would not
+        line.appendChild(
+            el('div', 'col-5 fw-semibold text-primary-emphasis', label));
         var text = toText(value);
         var cell = el('div', 'col-7 text-break irs-kv-value' +
                              (className ? ' ' + className : ''), text || DASH);
@@ -418,7 +610,8 @@ define('IRSTasks/views/TaskDetailView', [
      * Prose, tables and the customer's own block of pairs cannot share a line
      * with anything; every other field is a short value and pairs off.
      */
-    var BLOCKS = ['longtext', 'learnings', 'risks', 'customer', 'members', 'costs', 'mandays'];
+    var BLOCKS = ['longtext', 'learnings', 'risks', 'customer', 'members',
+                  'costs', 'mandays', 'schedule', 'observations'];
 
     function isBlock(row) {
         return BLOCKS.indexOf(row.display) >= 0;
@@ -775,6 +968,293 @@ define('IRSTasks/views/TaskDetailView', [
         return wrap;
     }
 
+
+    /**
+     * The monthly plan - page 2 of R&D-PRJ-02, drawn from the baseline's own
+     * copy of every task (user, 2026-10-10):
+     *
+     *     Task                        Start    Finish   | Oct 26 | Nov 26 |
+     *     T-...-0000137 Proposal      7 Oct    8 Oct    |  ====  |        |
+     *     T-...-0000139 Personnel     12 Oct   13 Oct   |  ====  |        |
+     *
+     * ## Why the baseline and not the live WBS
+     *
+     * The same reason the dates above it come from the baseline: the form
+     * carries a Rev. No., so the plan it prints is the plan AS APPROVED. The
+     * live project schedule moves afterwards and this page must not move with
+     * it. A baseline contains a full copy of every task, which is exactly the
+     * frozen plan - see `BaselineService`.
+     *
+     * ## The columns are the months the plan actually spans
+     *
+     * The paper form prints a fixed twelve. Twelve fixed months on screen
+     * would be eleven empty columns for the plan measured on 2026-10-10, which
+     * reads as missing data rather than as a short project. So the span is
+     * computed from the tasks themselves and the table grows with it; the
+     * wrapper scrolls sideways when a plan is long. A task whose dates the
+     * platform has not returned still gets its row, and says so, rather than
+     * being dropped out of the plan it belongs to.
+     *
+     * ## The row for THIS task
+     *
+     * Each copy carries `Source ID`, the live task it was taken from, so the
+     * one row that is this form's own task is marked. Without it an approver
+     * reads four similar task numbers and has to work out which page they are
+     * signing.
+     *
+     * Three functions below: `planGuard` (what to show when there is no plan),
+     * `planTable` (the table, built once and used by both views) and
+     * `scheduleBlock` (the table with its footer, inside the form).
+     */
+
+    /**
+     * What to show INSTEAD of a plan, or null when there is one to draw.
+     *
+     * Four different states, and they must not collapse into one empty table:
+     * a failed call is not "no baseline", and a baseline with no tasks is not
+     * a baseline whose tasks have no dates.
+     */
+    function planGuard(baseline) {
+        if (!baseline) {
+            return el('div', 'text-danger', 'The baseline could not be read.');
+        }
+        if (!baseline.linked) {
+            return emptyNote('No baseline has been captured for this task yet, ' +
+                             'so there is no approved plan to draw.');
+        }
+        // the baseline read and the plan read are two calls, so one can fail
+        // without the other: the dates above the plan are already on screen
+        if (baseline.planError) {
+            return el('div', 'text-danger',
+                'The baseline is linked, but its task list could not be read: ' +
+                baseline.planError);
+        }
+        if (!(baseline.tasks || []).length) {
+            return emptyNote('The baseline holds no tasks.');
+        }
+        var dated = (baseline.tasks || []).some(function (item) {
+            return parseDate(item.estimatedStartDate);
+        });
+        if (!dated) {
+            return emptyNote('The baseline holds tasks, but none of them has a date.');
+        }
+        return null;
+    }
+
+    /** The table itself, built once and used by both views. */
+    function planTable(baseline, task) {
+        var tasks = baseline.tasks || [];
+
+        // one pass: the span of the whole plan, and each row's own span
+        var spans = tasks.map(function (item) {
+            var start = parseDate(item.estimatedStartDate);
+            var finish = parseDate(item.estimatedFinishDate);
+            return {
+                task: item,
+                start: start,
+                // a task with a start and no finish still has to sort, and it
+                // is a one-day task as far as this grid is concerned
+                finish: finish || start,
+                from: start ? monthIndex(start) : null,
+                to: finish ? monthIndex(finish) : (start ? monthIndex(start) : null)
+            };
+        });
+
+        // THE PLATFORM'S OWN ORDER - no sorting here (user, 2026-10-10).
+        //
+        // The rows arrive in `sequenceOrder`, the WBS order the platform's own
+        // pages list them in, because the plan now comes from the OOTB project
+        // resource rather than from our reader - see `BaselineService`. This
+        // view sorted by date for one afternoon, when I believed no sequence
+        // was stored; it is stored, and matching the platform beats inventing
+        // an order of our own, however reasonable.
+        var first = null;
+        var last = null;
+        spans.forEach(function (span) {
+            if (span.from === null) { return; }
+            if (first === null || span.from < first) { first = span.from; }
+            if (last === null || span.to > last) { last = span.to; }
+        });
+        var months = [];
+        for (var m = first; m <= last; m++) { months.push(m); }
+
+        var table = el('table',
+            'table table-sm table-bordered align-middle mb-1 irs-sum-table irs-plan');
+
+        var head = el('tr');
+        ['Task', 'Start', 'Finish'].forEach(function (label, i) {
+            // the first column stays put while the months scroll past it -
+            // a band in column 30 means nothing if the task name has gone
+            var cell = el('th', i === 0 ? 'irs-plan-name' : 'text-nowrap', label);
+            cell.scope = 'col';
+            head.appendChild(cell);
+        });
+        months.forEach(function (index) {
+            var cell = el('th', 'text-center text-nowrap irs-plan-month',
+                          monthLabel(index));
+            cell.scope = 'col';
+            head.appendChild(cell);
+        });
+
+        var body = el('tbody');
+        body.appendChild(head);
+
+        var ownId = toText(task && task.id);
+        spans.forEach(function (span) {
+            var item = span.task;
+            var mine = ownId && toText(item.sourceId) === ownId;
+            var line = el('tr', mine ? 'table-active' : '');
+
+            // a summary task is the parent of the ones under it, which the
+            // OOTB answer flags rather than giving a depth - so it is shown
+            // in bold rather than by indenting its children
+            var name = el('td', 'irs-plan-name' +
+                          ((mine || item.summary) ? ' fw-semibold' : ''),
+                          (item.milestone ? '\u25c6 ' : '') + toText(item.name));
+            if (mine) {
+                name.appendChild(el('span', 'badge text-bg-secondary ms-2', 'this task'));
+            }
+            line.appendChild(name);
+            line.appendChild(el('td', 'text-nowrap',
+                                span.start ? VALUE_FORMAT.date(item.estimatedStartDate) : DASH));
+            line.appendChild(el('td', 'text-nowrap',
+                                parseDate(item.estimatedFinishDate)
+                                    ? VALUE_FORMAT.date(item.estimatedFinishDate) : DASH));
+
+            months.forEach(function (index) {
+                var within = span.from !== null &&
+                             index >= span.from && index <= span.to;
+                var cell = el('td', 'irs-plan-cell' + (within ? ' irs-plan-band' : ''));
+                if (within) {
+                    cell.setAttribute('title', toText(item.name) + ': ' +
+                        VALUE_FORMAT.date(item.estimatedStartDate) + ' - ' +
+                        VALUE_FORMAT.date(item.estimatedFinishDate));
+                }
+                line.appendChild(cell);
+            });
+
+            if (span.from === null) {
+                line.children[0].appendChild(
+                    el('span', 'text-secondary small ms-2', '(no dates in the baseline)'));
+            }
+            body.appendChild(line);
+        });
+
+        table.appendChild(body);
+        return { table: table, months: months.length };
+    }
+
+    /**
+     * The plan, with everything around it - and a way out when it is wide.
+     *
+     * A fourteen-month plan squeezed every column instead of scrolling (user,
+     * 2026-10-10): the task names broke to one character a line and the dates
+     * overlapped. Two things were wrong and both are fixed in the CSS - the
+     * table stretched to the widget instead of keeping its natural width, so
+     * nothing ever overflowed for `table-responsive` to scroll.
+     *
+     * Scrolling a year of months inside a widget pane is still cramped, so a
+     * plan wider than a few months also offers the full window. That is our
+     * own overlay and not a Bootstrap modal: only Bootstrap's CSS is loaded
+     * here, not its JavaScript, and pulling the bundle in for one panel would
+     * cost more than the handful of rules it replaces.
+     */
+    function scheduleBlock(row, baseline, task) {
+        var guard = planGuard(baseline);
+        if (guard) { return guard; }
+
+        var built = planTable(baseline, task);
+
+        var wrap = el('div');
+        var responsive = el('div', 'table-responsive irs-plan-scroll');
+        responsive.appendChild(built.table);
+        wrap.appendChild(responsive);
+
+        var foot = el('div', 'small text-secondary px-1 irs-plan-foot');
+        foot.appendChild(el('span', '',
+            'Baseline ' + toText(baseline.name) +
+            (baseline.state ? ' (' + toText(baseline.state) + ')' : '') + '. '));
+
+        // worth offering only when the table is wider than the pane; on a
+        // three-month plan it is a button that does nothing useful
+        if (built.months > WIDE_PLAN_MONTHS) {
+            var expand = el('button', 'btn btn-link btn-sm p-0 align-baseline me-3',
+                            'Open the plan full width');
+            expand.type = 'button';
+            expand.addEventListener('click', function () {
+                openPlan(baseline, task);
+            });
+            foot.appendChild(expand);
+        }
+
+        // the baseline's own page in ENOVIA Project Management - the third
+        // link tried here, and the first that both works and looks like a
+        // page rather than a bare frame; see BaselineService for the two that
+        // were measured and rejected
+        if (baseline.ganttUrl) {
+            var link = el('a', '', 'Open the baseline in ENOVIA');
+            link.href = baseline.ganttUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            foot.appendChild(link);
+        }
+        wrap.appendChild(foot);
+        return wrap;
+    }
+
+    /** More months than fit a widget pane comfortably. */
+    var WIDE_PLAN_MONTHS = 6;
+
+    /**
+     * The same plan over the whole window, scrolling sideways.
+     *
+     * Attached to `document.body`, not to the widget's own element: the form
+     * sits in a scrolling pane a few hundred pixels tall, and an overlay
+     * inside it would be clipped by the very box it exists to escape.
+     */
+    function openPlan(baseline, task) {
+        var built = planTable(baseline, task);
+
+        // `irs-tasks` as well: this hangs off <body>, outside the widget's own
+        // element, and every rule of ours is scoped under that root class -
+        // without it the table inside would lose its column widths
+        var overlay = el('div', 'irs-tasks irs-plan-overlay');
+        var panel = el('div', 'irs-plan-panel card');
+
+        var head = el('div', 'card-header d-flex justify-content-between ' +
+                             'align-items-center py-2');
+        head.appendChild(el('span', 'fw-semibold',
+            'Project Planning - baseline ' + toText(baseline.name)));
+        var close = el('button', 'btn-close');
+        close.type = 'button';
+        close.setAttribute('aria-label', 'Close');
+        head.appendChild(close);
+        panel.appendChild(head);
+
+        var body = el('div', 'card-body p-2 irs-plan-scroll');
+        body.appendChild(built.table);
+        panel.appendChild(body);
+        overlay.appendChild(panel);
+
+        function dismiss() {
+            if (overlay.parentNode) { overlay.parentNode.removeChild(overlay); }
+            document.removeEventListener('keydown', onKey);
+        }
+        function onKey(event) {
+            if (event.key === 'Escape') { dismiss(); }
+        }
+        close.addEventListener('click', dismiss);
+        // the backdrop closes it, the panel does not - clicking a task name
+        // must not dismiss the thing you are reading
+        overlay.addEventListener('click', function (event) {
+            if (event.target === overlay) { dismiss(); }
+        });
+        document.addEventListener('keydown', onKey);
+
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+
     /**
      * The Cost Estimation block, as R&D-PRJ-02 prints it (user, 2026-10-09):
      * a four-column table with a Total row and the rate as a footnote.
@@ -890,7 +1370,7 @@ define('IRSTasks/views/TaskDetailView', [
         return wrap;
     }
 
-    function blockBody(row, context, project) {
+    function blockBody(row, context, project, baseline, task) {
         if (row.source === 'service') {
             if (row.display === 'learnings') {
                 return learningsBlock(context, row.learningScope);
@@ -909,7 +1389,14 @@ define('IRSTasks/views/TaskDetailView', [
         // a whole printed table, not a value: it reads several attributes of
         // the project at once, so it never went through resolve()
         if (row.display === 'costs') { return costsBlock(row, project); }
+        // the review form's boxed, numbered list - several attributes of
+        // the TASK under one heading, so it never went through resolve()
+        if (row.display === 'observations') {
+            return observationsBlock(row, task);
+        }
         if (row.display === 'mandays') { return mandaysBlock(row, project); }
+        // the only block that reads the BASELINE: the plan as approved
+        if (row.display === 'schedule') { return scheduleBlock(row, baseline, task); }
 
         if (row.missing) {
             return el('div', 'text-danger',
@@ -933,7 +1420,7 @@ define('IRSTasks/views/TaskDetailView', [
      * and `Project No.` land on one line because they are next to each other on
      * the paper form, not because something sorted them there.
      */
-    function main(spec, task, project, rows, context) {
+    function main(spec, task, project, rows, context, baseline) {
         var card = el('div', 'card irs-form');
         var head = el('div', 'card-header py-2');
         head.appendChild(el('span', 'fw-semibold', spec.title || task.typeLabel));
@@ -951,7 +1438,7 @@ define('IRSTasks/views/TaskDetailView', [
                 grid = null;                       // the run of short fields ends
                 continuing = false;
                 body.appendChild(sectionHead(labelOf(row)));
-                body.appendChild(blockBody(row, context, project));
+                body.appendChild(blockBody(row, context, project, baseline, task));
                 return;
             }
             // `newLine` breaks the run, so the pair that follows starts a line
@@ -984,8 +1471,16 @@ define('IRSTasks/views/TaskDetailView', [
     return {
         /** for tests only */
         _resolve: resolve,
+        // the value as the form PRINTS it - the half of a row that resolve()
+        // does not decide. Worth a seam of its own because the platform's
+        // spelling is not the form's in four different ways now (money, days,
+        // yesno, choice), and each one of those is a value a customer signs
+        _format: formatValue,
         _table: table,
         _main: main,
+        // the plan is the one block with a shape worth asserting on its own:
+        // a month span computed from data, rather than a row per field
+        _blockBody: blockBody,
 
         /**
          * @param {HTMLElement} parent
@@ -1153,7 +1648,7 @@ define('IRSTasks/views/TaskDetailView', [
                         Log.warn('baseline could not be read: ' +
                                  ((err && err.message) || err));
                         return { linked: false, id: '', name: '', state: '',
-                                 attributes: {} };
+                                 attributes: {}, tasks: [], ganttUrl: '' };
                     });
                 }
 
@@ -1212,7 +1707,8 @@ define('IRSTasks/views/TaskDetailView', [
                         // no "N fields were not returned" banner any more: each
                         // such field now says so in its own cell, and the form
                         // was asked to lose every line that is not the form
-                        right.appendChild(main(spec, task, project, rows, context));
+                        right.appendChild(
+                            main(spec, task, project, rows, context, baseline));
                     } else if (spec) {
                         right.appendChild(el('div', 'alert alert-warning small',
                             'The form definition has no "fields" list.'));

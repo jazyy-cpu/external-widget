@@ -164,6 +164,7 @@ public final class ProjectContextReader {
     private static final String ATTR_ESTIMATED_START = "Task Estimated Start Date";
     private static final String ATTR_ESTIMATED_FINISH = "Task Estimated Finish Date";
 
+
     /**
      * Customer attributes that live on type **Organization**, so Company,
      * Business Unit and Department all carry them - an internal customer
@@ -634,6 +635,19 @@ public final class ProjectContextReader {
         out.put("actualFinishDate", str(info, selActualFinish));
         out.put("estimatedStartDate", str(info, selEstimatedStart));
         out.put("estimatedFinishDate", str(info, selEstimatedFinish));
+        // NO task list here. It was read with ProjectBaseline.getSubtasks
+        // until 2026-10-10, when the user pointed at the OOTB resource that
+        // already answers it:
+        //
+        //   GET /resources/v1/modeler/projects/{baselineId}?$include=tasks
+        //
+        // A Project Baseline IS a project to that service, and its answer
+        // carries `sequenceOrder` - the WBS order, which our MQL select could
+        // not find - plus the type's printed name and ISO dates. The widget
+        // calls it directly, so this endpoint keeps the one job the platform
+        // does NOT do: following IRSTaskBaseline from the task to its
+        // baseline. Re-adding a task list here would be a second source for
+        // the same rows.
         return out;
     }
 

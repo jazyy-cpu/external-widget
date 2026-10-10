@@ -1,0 +1,83 @@
+{
+  "_about": "What the STAGE-VALIDATION REPORT task page shows. One file per form (user, 2026-10-07): change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the subtype's entry in js/config/TaskFields.js.",
+  "_generated": "Written 2026-10-10 from R&D-VAL-Rev.00, with every field verified on this VM the same day - the type's attribute list in MQL, and the two values in the live OOTB task response.",
+  "_oneFormTwoAreas": "ONE SUBTYPE SERVES BOTH R&D AND AR. The two printed forms - R&D-VAL-Rev.00 and RDAREA-VAL-Rev.00 - are identical apart from the form code: same four blocks, same effective date 01.03.2021. So there is no AR variant of this file. The to-be document's R06 note that 'R&D and AR forms are different' is true for Project Review (G7), not for stage validation. Gateway G6 in the R&D RSD, G5 in the AR RSD.",
+  "_whyThisFormIsSmall": "The smallest of the four forms, and the ONLY one that needed no new DMC attribute and no new API call. The printed page asks for four things, two of them already on the task: `print type EPMPROJECT_STAGE_VALIDATION select attribute` returns EPMValidationDetails and EPMValidationRemarks and no other custom attribute, and both arrive in the task call the page already makes. Personnel/cost needed four calls; this needs the one that was already there.",
+  "_source": {
+    "project": "read from the PROJECT's dataelements - arrives in the project call the page already makes",
+    "task": "read from the TASK's own dataelements. This form has two: EPMValidationDetails and EPMValidationRemarks, both `string` with `multiline TRUE`, both measured live 2026-10-10 on T-85756263-0000152 (39261.35329.24627.55224)",
+    "none": "not a value: it lives in the approval route, or the platform has no source for it yet"
+  },
+  "_hidden": "A field with \"hidden\": true is not drawn at all. Three rows here: the printed form's Date, parked because WHICH date it means is undecided (see its note), and the two signatory lines, which are approvals and are drawn by the WGT-09 panel below the form.",
+  "_display": {
+    "text": "one line",
+    "longtext": "prose - the form asks for paragraphs here, and the line breaks are real",
+    "pending": "agreed but not resolved yet: the page says so rather than showing it as empty",
+    "approval": "an approval signature - a route task, not a field"
+  },
+  "_whyNoStageRow": "There is deliberately no field naming WHICH stage this report validates (user, 2026-10-06): the stage is the task's POSITION IN THE WBS, and an attribute would duplicate it and be free to disagree with it. The task name carries the stage - into the document title, the route name, and the page header this form is drawn under - so the stage is already on screen without a row of its own.",
+  "_whyNoRevNo": "This form carries no Rev. No., unlike the other two, because its document is never revised. Each stage validation record validates a DIFFERENT stage, so a revision would assert that it supersedes the previous stage's validation, which is false (user, 2026-10-06: \"we need to create new document each time\"). Every task gets its own SVR-nnnnnnn and they all stay current side by side. The report number is therefore the thing that identifies the record - not shown yet, see the open item in the requirement.",
+  "form": "R&D-VAL-Rev.00",
+  "title": "STAGE-VALIDATION REPORT",
+  "taskType": "EPMPROJECT_STAGE_VALIDATION",
+  "fields": [
+    {
+      "ref": "Header",
+      "label": "Project Name",
+      "source": "project",
+      "field": "name",
+      "display": "text",
+      "fallbackField": "title",
+      "note": "NOT on the printed form, added at the user's request 2026-10-10 beside the Project No. the form does ask for - a reader of one page should not have to decode a project number. On R2024x a project is created with a name only, so Title stays empty: this is the field, not a fallback."
+    },
+    {
+      "ref": "Header",
+      "label": "Project No.",
+      "source": "project",
+      "field": "EPMProjectNo",
+      "display": "text",
+      "note": "System generated from a numbering scheme (R20) - the scheme is not defined yet. Measured live: R&D-26013-HY on 'Copy of TEMPLATE TEST', R&D-26010-HY on 'Solize XYZ'."
+    },
+    {
+      "ref": "Header",
+      "label": "Date",
+      "hidden": true,
+      "source": "none",
+      "display": "pending",
+      "note": "The printed form asks for a Date and the platform has no attribute for it. WHICH date it means is undecided - parked by the user, 2026-10-10: \"date we will see later\". Four candidates, none needing a new call, all four present in the live task response measured that day: `actualFinishDate` (when the validation was actually done - empty until the task completes), `dueDate` (the planned finish, always populated), `originated` (when the task was raised), and the approval date, which the WGT-09 panel already shows per approver. Bringing the row back is deleting the `hidden` line and naming a source; it is kept here so the gap is a recorded decision and not a silent omission."
+    },
+    {
+      "ref": "I",
+      "label": "Validation Details",
+      "source": "task",
+      "field": "EPMValidationDetails",
+      "display": "longtext",
+      "note": "The body of the report - the printed form's own words: \"Provide the all technical details such as comparison with published results done at all the identified stages.\" A `string` with `multiline TRUE`, so it is drawn as prose and keeps its line breaks. The breaks SURVIVE THE API, measured from the raw payload 2026-10-10 rather than through a JSON viewer, which collapses them: the task response carries four lines for T-85756263-0000152. Details before Remarks, matching the printed form."
+    },
+    {
+      "ref": "II",
+      "label": "Remarks",
+      "source": "task",
+      "field": "EPMValidationRemarks",
+      "display": "longtext",
+      "note": "The second of the task's two custom attributes, same shape as the first - multiline string, prose, line breaks kept. Its label on the platform's own properties form is \"Remarks\", which is what the printed form calls it."
+    },
+    {
+      "ref": "Footer",
+      "label": "Checked by",
+      "hidden": true,
+      "source": "none",
+      "display": "approval",
+      "note": "An approval signature - collected by the route task when the approver acts, not typed into the form. Drawn by the approval panel below the form (WGT-09). THE FORM HAS TWO SIGNATORY LINES, not one (user, 2026-10-06): 'Checked by:' and 'In-Charge/HOD -' are separate blocks on R&D-VAL-Rev.00, and the route has a level for each. This one is unrestricted - any Active Person may check a stage validation, because no rule says who may."
+    },
+    {
+      "ref": "Footer",
+      "label": "In-Charge / HOD",
+      "hidden": true,
+      "source": "none",
+      "display": "approval",
+      "note": "The second signatory and the approval proper - the RSD's \"Single stage approval by HOD / In-charge\" describes THIS level, not the check that precedes it. Chosen by department responsibility, unlike Checked by. Also drawn by the WGT-09 panel."
+    }
+  ],
+  "_layout": "Section numbers (I, II) are NOT printed on screen, as on the other forms - three of the seven rows are hidden, so visible numbers would read with gaps in them and the gaps look like something that failed to load. `ref` stays in this file because it is how the paper form is discussed and how each row is traced back to it. Short fields pair off two to a line in the order they appear here, so Project Name and Project No. share the header line; `newLine` on a field starts a fresh line instead. The two prose blocks take the full width by themselves."
+}

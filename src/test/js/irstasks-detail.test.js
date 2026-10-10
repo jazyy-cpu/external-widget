@@ -799,6 +799,18 @@ grids.forEach(grid => grid.children.forEach(col => {
   assert.ok(col.className.indexOf('col-md-6') >= 0, 'a pair is half a line wide');
 }));
 
+// and every field label is the same blue as a section heading (user,
+// 2026-10-10) - one kind of label, one colour. Bootstrap's own token, so it
+// keeps its contrast in dark mode where a hard-coded blue would not
+grids.forEach(grid => grid.children.forEach(col => {
+  const label = col.children[0].children[0];
+  assert.ok(label.className.indexOf('text-primary-emphasis') >= 0,
+    'the label "' + label.textContent + '" is heading blue');
+}));
+assert.ok(findAll(page, 'irs-sum-head')[0].className
+  .indexOf('text-primary-emphasis') >= 0,
+  'which is the class the section headings use - the two must not drift');
+
 // the long sections get a ruled heading - the label alone. The paper form's
 // numerals were printed here until 2026-10-09, when the user dropped them:
 // with the unbuilt sections hidden they ran I, III, V, VIII and the gaps read
@@ -2143,18 +2155,120 @@ assert.ok(/ReadOnly/.test(costSpec._calculated),
   'the spec records WHICH numbers the back end owns');
 
 // ---- the rows with no source anywhere on the platform are hidden, not faked.
-// Checked against the whole IRS*/EPM* attribute inventory on 2026-10-09
-['Software Resource required', 'Reviewer Name',
- 'Reason for revision of this form'].forEach(label => {
+// Checked against the whole IRS*/EPM* attribute inventory on 2026-10-09.
+// Reason for revision was a third until 2026-10-10, when the attribute was
+// created - which is what a recorded gap is for
+['Software Resource required', 'Reviewer Name'].forEach(label => {
   assert.strictEqual(costBy[label].hidden, true, label + ' has no attribute yet');
   assert.strictEqual(costBy[label].display, 'pending');
   assert.ok(costBy[label].note.length > 20,
     label + ' says what is missing, so the gap is a decision not an omission');
 });
 
-// page 2 is a schedule view of the WBS, not a field set
-assert.strictEqual(costBy['Project Planning: task break-up against the months'].display,
-  'elsewhere');
+
+
+// ---- the form's Rev. No. (user, 2026-10-10) ---------------------------
+//
+// It is the revision of the DOCUMENT the approval route generates for this
+// task. The route creates that document on the first round and revises it on
+// each later one, connecting each revision to that round's own task - so a
+// task's document is its round's revision, which is exactly the number the
+// printed form carries beside Rev. No.
+//
+// ## Where it is read from, and why not from the attribute
+//
+// The task carries `IRSTaskDocumentId` (interface `IRSTaskDocuments`), which
+// holds that document's id. The OOTB task resource does NOT return interface
+// attributes - asked for by name and by `customAttributes`, and neither comes
+// back (measured 2026-10-10). It DOES return the deliverable itself, in the
+// call this widget already makes, and that deliverable is the same object:
+// the stamped id 39261.35329.24627.58394 and the returned
+// 299036CE0000A4346ACA1E0B0000035A are one document, PCE-0000009 rev 01,
+// confirmed in MQL. So the revision costs no call at all.
+const revision = costBy['Rev. No.'];
+assert.ok(revision, 'the form shows its revision');
+assert.strictEqual(revision.source, 'derived');
+assert.strictEqual(revision.from, 'task',
+  'derived from the TASK - the project has no such property');
+// CORRECTED 2026-10-10: the row used to read `documentRevision`, the task's
+// FIRST deliverable, so an attachment connected before the route ran would
+// have printed its revision as the form's. It now names the document TYPE,
+// which is what tells our generated document from an upload on the same
+// `Task Deliverable` relationship. Open item O-P11, closed.
+assert.strictEqual(revision.field, 'revision');
+assert.strictEqual(revision.documentType, 'DMPPERSONNEL_COST');
+
+// it resolves off the matching deliverable of the shaped task
+assert.strictEqual(
+  View._resolve(revision, {
+    deliverables: [{ typeName: 'DMPPERSONNEL_COST', revision: '01' }],
+    attributes: {}
+  }, {}).value, '01');
+// an UPLOAD must not answer it, however it is ordered: this is the whole
+// point of the correction
+const uploadFirst = View._resolve(revision, {
+  deliverables: [
+    { typeName: 'Document', revision: '07' },
+    { typeName: 'DMPPERSONNEL_COST', revision: '02' }
+  ],
+  attributes: {}
+}, {});
+assert.strictEqual(uploadFirst.value, '02',
+  'the form document answers, not whichever document was connected first');
+// and before the route has run there is no document and no revision, which
+// is empty rather than missing: nothing is broken, the form is just unraised
+const unraised = View._resolve(revision, { deliverables: [], attributes: {} }, {});
+assert.strictEqual(unraised.empty, true);
+assert.strictEqual(unraised.missing, false,
+  'no document yet is not a platform failure');
+
+// `from` must not leak into the other derived rows, which read the PROJECT
+costSpec.fields.filter(f => f.source === 'derived' && f.from !== 'task')
+  .forEach(f => assert.ok(!f.from, f.label + ' still derives from the project'));
+assert.ok(/spec\.from === 'task'/.test(costTableViewSrc),
+  'the view picks the object by `from`, so the JSON decides, not the code');
+
+// ---- Reason for revision, live since 2026-10-10 ------------------------
+//
+// The second custom attribute the TASK itself carries. `EPMReasonForRevision`
+// is `multiline TRUE` with no maximum length, measured on PROJEC PERSONAAL
+// (39261.35329.24627.54655), whose value runs to two lines - so it is prose,
+// not a one-line field, and the renderer must keep the break.
+const reason = costBy['Reason for revision of this form'];
+assert.ok(!reason.hidden, 'it is drawn now, not pending');
+assert.strictEqual(reason.source, 'task');
+assert.strictEqual(reason.field, 'EPMReasonForRevision');
+assert.strictEqual(reason.display, 'longtext',
+  'multiline on the platform, so prose here - a text row would eat the break');
+
+// it sits directly under Change of Scope, where the user asked for it, and
+// NOT where the paper form prints it (the footer, beside the Rev. No.)
+const costLabels = costSpec.fields.map(f => f.label);
+assert.strictEqual(costLabels.indexOf('Reason for revision of this form'),
+                   costLabels.indexOf('Change of Scope') + 1,
+                   'directly below Change of Scope');
+
+// the prose renderer keeps line breaks, which is the whole reason for
+// `longtext` rather than `text`
+assert.ok(/whiteSpace = 'pre-wrap'/.test(costTableViewSrc),
+  'prose keeps the line breaks the platform stored');
+
+// and it resolves against the TASK, beside the boolean - one more reason the
+// form has to read two objects, not one
+const reasonRow = View._resolve(reason,
+  { attributes: { EPMReasonForRevision: 'line one\nline two' } }, {});
+assert.strictEqual(reasonRow.value, 'line one\nline two');
+assert.strictEqual(reasonRow.missing, false);
+assert.strictEqual(
+  View._resolve(reason, { attributes: {} }, {}).missing, true,
+  'a task created before the attribute existed says so, rather than ' +
+  'printing an empty line');
+
+// page 2 - a schedule view of the WBS, not a field set - was a "not built"
+// row until 2026-10-10. It is now drawn from the baseline; section 23 below
+// is where it is asserted
+assert.strictEqual(costBy['Project Planning'].display, 'schedule');
+assert.ok(!costBy['Project Planning'].hidden);
 
 // the three signatures come from the route (WGT-09), exactly as on the proposal
 assert.strictEqual(
@@ -2209,6 +2323,389 @@ assert.strictEqual(VALUE_FORMAT.yesno('true'), 'Yes', 'case does not matter');
 assert.strictEqual(VALUE_FORMAT.yesno(''), '', 'unset is not "No"');
 
 console.log('irstasks-cost-form: all assertions passed');
+
+// ---- 23. the monthly plan: page 2 of R&D-PRJ-02 (user, 2026-10-10) -----
+//
+// One row per task of the BASELINE - the plan as approved, not the live WBS,
+// for the same reason the dates above it come from the baseline. The fixtures
+// are the payload the JPO twin returned on 2026-10-10 for task
+// 39261.35329.11988.10674 (baseline B-85756263-0000116).
+
+const planSpec = JSON.parse(fs.readFileSync(
+  path.join(base, 'js/data/forms/personnel-cost.json'), 'utf8'));
+const planRow = planSpec.fields.filter(f => f.display === 'schedule')[0];
+assert.ok(planRow, 'the form has a monthly plan');
+assert.strictEqual(planRow.source, 'baseline',
+  'the plan is the baseline`s, so a form with a Rev. No. keeps the approved dates');
+assert.ok(!planRow.hidden, 'and it is drawn - it was a "not built" row until now');
+
+const planViewSrc = fs.readFileSync(
+  path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
+
+// the live four tasks, all inside October 2026
+const LIVE_PLAN = [
+  { name: 'T-85756263-0000138', sourceId: 'SRC-138',
+    estimatedStartDate: '10/7/2026 8:00:00 AM',
+    estimatedFinishDate: '10/7/2026 5:00:00 PM' },
+  { name: 'visti to port in city of chenai', sourceId: 'SRC-VISIT',
+    estimatedStartDate: '10/7/2026 8:00:00 AM',
+    estimatedFinishDate: '10/7/2026 5:00:00 PM' },
+  { name: 'T-85756263-0000137', sourceId: 'SRC-137',
+    estimatedStartDate: '10/7/2026 8:00:00 AM',
+    estimatedFinishDate: '10/8/2026 5:00:00 PM' },
+  { name: 'T-85756263-0000139', sourceId: 'THIS-TASK',
+    estimatedStartDate: '10/12/2026 8:00:00 AM',
+    estimatedFinishDate: '10/13/2026 5:00:00 PM' }
+];
+
+function planRows(baseline, task) {
+  const out = View._blockBody(planRow, null, null, baseline, task || { id: 'THIS-TASK' });
+  const rows = [];
+  (function walk(n) {
+    if (n.tagName === 'TR') { rows.push(n); }
+    n.children.forEach(walk);
+  })(out);
+  return { node: out, rows: rows };
+}
+
+const planLive = planRows({
+  linked: true, name: 'B-85756263-0000116', state: 'Active',
+  tasks: LIVE_PLAN, ganttUrl: 'https://host/3dspace/webapps/x?objectId=1'
+});
+assert.strictEqual(planLive.rows.length, 5, 'a heading row and the four tasks');
+assert.deepStrictEqual(planLive.rows[0].children.map(c => c.textContent),
+  ['Task', 'Start', 'Finish', 'Oct 2026'],
+  'one column per month the plan spans - these four tasks span only October');
+assert.strictEqual(planLive.rows[4].children[1].textContent, '12 Oct 2026',
+  'the dates print as the rest of the form prints dates');
+
+// the band marks the months a task covers, so the row says WHEN at a glance
+const planBanded = planLive.rows[1].children.filter(
+  c => (' ' + c.className + ' ').indexOf(' irs-plan-band ') >= 0);
+assert.strictEqual(planBanded.length, 1, 'a one-month task bands one month');
+
+// THIS task's row is marked. Four similar task numbers and no marker is how
+// an approver loses track of which page they are signing
+assert.ok((' ' + planLive.rows[4].className + ' ').indexOf(' table-active ') >= 0,
+  'the row whose Source ID is this task is marked');
+assert.ok(allText(planLive.rows[4]).indexOf('this task') >= 0);
+assert.ok(!allText(planLive.rows[1]).includes('this task'),
+  'and no other row is');
+
+// a plan that spans several months bands only the ones each task covers
+const planSpread = planRows({
+  linked: true, name: 'B-TEST', state: 'Active', ganttUrl: '',
+  tasks: [
+    { name: 'Design', sourceId: 'a',
+      estimatedStartDate: '11/3/2026 8:00:00 AM',
+      estimatedFinishDate: '1/20/2027 5:00:00 PM' },
+    { name: 'Hull analysis', sourceId: 'b',
+      estimatedStartDate: '12/1/2026 8:00:00 AM',
+      estimatedFinishDate: '12/20/2026 5:00:00 PM' }
+  ]
+});
+assert.deepStrictEqual(planSpread.rows[0].children.slice(3).map(c => c.textContent),
+  ['Nov 2026', 'Dec 2026', 'Jan 2027'],
+  'the columns cross the year boundary by month, not by calendar year');
+assert.strictEqual(planSpread.rows[1].children.filter(
+  c => (' ' + c.className + ' ').indexOf(' irs-plan-band ') >= 0).length, 3,
+  'Design spans all three months');
+assert.strictEqual(planSpread.rows[2].children.filter(
+  c => (' ' + c.className + ' ').indexOf(' irs-plan-band ') >= 0).length, 1,
+  'and the sub-task only December');
+// nothing is indented any more: the OOTB answer flags a summary task
+// instead of giving a depth, so the parent is bold and no child is
+// pushed right (the flags are asserted further down)
+assert.ok(allText(planSpread.rows[2]).indexOf('\u2514') < 0,
+  'there is no level in the OOTB answer to indent by');
+
+// a task the platform returned without dates keeps its ROW. Dropping it would
+// quietly shorten the approved plan, which is worse than an empty band
+const planUndated = planRows({
+  linked: true, name: 'B-TEST', state: 'Active', ganttUrl: '',
+  tasks: [
+    { name: 'Kick-off', sourceId: 'a',
+      estimatedStartDate: '10/7/2026 8:00:00 AM',
+      estimatedFinishDate: '10/9/2026 5:00:00 PM' },
+    { name: 'Undated', sourceId: 'b',
+      estimatedStartDate: '', estimatedFinishDate: '' }
+  ]
+});
+assert.strictEqual(planUndated.rows.length, 3, 'the undated task still has a row');
+assert.ok(allText(planUndated.rows[2]).indexOf('no dates in the baseline') >= 0,
+  'and it says so, rather than drawing an empty band');
+
+// the three states that are NOT a plan, each distinct
+assert.ok(allText(planRows({ linked: false, tasks: [] }).node)
+  .indexOf('No baseline has been captured') >= 0,
+  'no baseline yet is a sentence, not an empty table');
+assert.ok(allText(planRows(null).node).indexOf('could not be read') >= 0,
+  'a failed call does not read as "no baseline"');
+assert.ok(allText(planRows({ linked: true, tasks: [] }).node)
+  .indexOf('no tasks') >= 0, 'a baseline with no tasks says that instead');
+
+
+
+// ---- the rows keep the PLATFORM's order (user, 2026-10-10) -----------
+//
+// They first arrived in no order at all, and for one afternoon this view
+// sorted them by date, because `select rel attribute[Sequence Order]` came
+// back as 1 on every link and I read that as "the platform stores no
+// sequence". It stores one: the OOTB project resource the user pointed at
+// answers `sequenceOrder` 1..7, the order its own pages list. The plan comes
+// from there now and the view sorts nothing.
+const ootbOrder = [
+  ['PROJECT PROPSAL FORM', '2026-10-30', '2026-10-30'],
+  ['PROJEC PERSONAAL', '2026-11-30', '2026-11-30'],
+  ['T-85756263-0000151', '2026-12-25', '2026-12-25'],
+  ['T-85756263-0000152', '2027-10-01', '2027-11-11'],
+  ['T-85756263-0000153', '2027-02-01', '2027-03-19'],
+  ['T-85756263-0000154', '2027-02-24', '2027-03-16'],
+  ['T-85756263-0000155', '2027-03-02', '2027-03-15']
+].map(row => ({
+  name: row[0], sourceId: row[0],
+  estimatedStartDate: row[1] + 'T08:00:00.000',
+  estimatedFinishDate: row[2] + 'T17:00:00.000'
+}));
+
+const inOrder = planRows({ linked: true, name: 'B-85756263-0000118',
+                           state: 'Create', tasks: ootbOrder, ganttUrl: '' });
+assert.deepStrictEqual(
+  inOrder.rows.slice(1).map(r => r.children[0].textContent),
+  ootbOrder.map(t => t.name),
+  'the rows print in the order they arrive - 152 before 153, as the ' +
+  'platform lists them, even though 153 starts eight months earlier');
+assert.ok(!/\.sort\(/.test(costTableViewSrc.match(
+  /function planTable[\s\S]*?\n    \}/)[0]),
+  'and the table sorts nothing');
+
+// ISO dates from the OOTB service print the same way the kernel's US
+// spelling did on the endpoint above it
+assert.strictEqual(inOrder.rows[1].children[1].textContent, '30 Oct 2026');
+
+// a summary task is flagged, not indented: the OOTB answer gives
+// `isSummaryTask`, never a depth
+const flagged = planRows({ linked: true, name: 'B', state: 'Active', ganttUrl: '',
+  tasks: [
+    { name: 'Design phase', sourceId: 'p', isSummary: true, summary: true,
+      estimatedStartDate: '2027-01-05T08:00:00.000',
+      estimatedFinishDate: '2027-01-09T17:00:00.000' },
+    { name: 'Kick-off', sourceId: 'm', milestone: true,
+      estimatedStartDate: '2027-01-05T08:00:00.000',
+      estimatedFinishDate: '2027-01-05T17:00:00.000' }
+  ] });
+assert.ok(flagged.rows[1].children[0].className.indexOf('fw-semibold') >= 0,
+  'a summary task is bold');
+assert.ok(flagged.rows[2].children[0].textContent.indexOf('\u25c6') === 0,
+  'a milestone carries a diamond');
+
+// an undated task still keeps its row, and an open-ended one is still banded
+const mixedPlan = planRows({ linked: true, name: 'B', state: 'Active', ganttUrl: '',
+  tasks: [
+    { name: 'Dated', sourceId: 'd',
+      estimatedStartDate: '2027-01-05T08:00:00.000',
+      estimatedFinishDate: '2027-01-09T17:00:00.000' },
+    { name: 'Undated', sourceId: 'u',
+      estimatedStartDate: '', estimatedFinishDate: '' },
+    { name: 'Open', sourceId: 'o',
+      estimatedStartDate: '2027-01-05T08:00:00.000', estimatedFinishDate: '' }
+  ] });
+assert.strictEqual(mixedPlan.rows.length, 4, 'every task keeps its row');
+assert.ok(allText(mixedPlan.rows[2]).indexOf('no dates in the baseline') >= 0);
+assert.strictEqual(mixedPlan.rows[3].children[2].textContent, '\u2014',
+  'the open-ended task says it has no finish date');
+assert.strictEqual(mixedPlan.rows[3].children.filter(
+  c => (' ' + c.className + ' ').indexOf(' irs-plan-band ') >= 0).length, 1,
+  'but it is banded in the month it starts');
+
+// the plan is a SECOND call, so it can fail on its own - and then the dates
+// above it, which came from the call that worked, must still print
+const brokenPlan = planRows({ linked: true, name: 'B', state: 'Active',
+                              tasks: [], planError: 'HTTP 500' });
+assert.ok(allText(brokenPlan.node).indexOf('could not be read') >= 0 &&
+          allText(brokenPlan.node).indexOf('HTTP 500') >= 0,
+  'a failed plan says so, and does not read as "no tasks"');
+
+// ---- the plan comes from the OOTB project resource ---------------------
+//
+// `GET /resources/v1/modeler/projects/{baselineId}?$include=tasks` - a
+// Project Baseline IS a project to that service. We built the same list in
+// the REST JAR first; the user pointed at this, and it carries the WBS order
+// ours could not find.
+const PlanRequest = {
+  _calls: [],
+  get: function (p, opts) {
+    PlanRequest._calls.push({ path: p, opts: opts });
+    if (p.indexOf('modeler/projects/') >= 0) {
+      return Promise.resolve({ data: [{ title: 'B-1', tasks: [
+        { id: 'T2', title: 'Second', nlsType: 'Task', state: 'Create',
+          sequenceOrder: '2', sourceId: 'S2', isSummaryTask: 'FALSE',
+          isTypeMilestone: 'FALSE',
+          estimatedStartDate: '2027-02-01T08:00:00.000',
+          dueDate: '2027-03-19T17:00:00.000' },
+        { id: 'T1', title: 'First', nlsType: 'PROJECT REVIEW', state: 'Create',
+          sequenceOrder: '1', sourceId: 'S1', isSummaryTask: 'TRUE',
+          isTypeMilestone: 'FALSE',
+          estimatedStartDate: '2027-01-01T08:00:00.000',
+          dueDate: '2027-01-09T17:00:00.000' }
+      ] }] });
+    }
+    return Promise.resolve({ taskId: 'X', baseline: {
+      linked: 'true', id: 'LEG', physicalId: 'PID', name: 'B-1',
+      state: 'Active', actualStartDate: '', actualFinishDate: '',
+      estimatedStartDate: '', estimatedFinishDate: ''
+    } });
+  }
+};
+const PlanBaseline = load(path.join(base, 'js/services/BaselineService.js'),
+  [PlanRequest, { get3DSpaceUrl: () => Promise.resolve('https://host/3dspace') }, Log]);
+
+PlanBaseline.get('TASK-1').then(out => {
+  const planCall = PlanRequest._calls.filter(
+    c => c.path.indexOf('modeler/projects/') >= 0)[0];
+  assert.ok(planCall, 'the OOTB project resource is called');
+  assert.strictEqual(planCall.path, 'resources/v1/modeler/projects/PID',
+    'on the baseline, by its physical id');
+  assert.strictEqual(planCall.opts.params['$include'], 'none,tasks');
+  assert.ok(planCall.opts.params['$fields'].indexOf('tasks.sequenceOrder') >= 0,
+    'asking for the order');
+  assert.ok(planCall.opts.params['$fields'].indexOf('predecessors') < 0,
+    'and NOT for the forty fields the Gantt editor needs - a printed grid ' +
+    'needs nine, and each one is work the server does per task');
+
+  assert.deepStrictEqual(out.tasks.map(t => t.name), ['First', 'Second'],
+    'the rows come back in sequenceOrder, whatever order the service sent');
+  assert.strictEqual(out.tasks[0].type, 'PROJECT REVIEW',
+    'nlsType is the printed type name, not EPMPROJECT_REVIEW');
+  assert.strictEqual(out.tasks[0].summary, true);
+  assert.strictEqual(out.tasks[0].sourceId, 'S1',
+    'Source ID survives - it is how the form finds its own row');
+  assert.strictEqual(out.tasks[1].estimatedFinishDate, '2027-03-19T17:00:00.000',
+    'dueDate is the finish date in this service\'s spelling');
+  console.log('irstasks-plan-ootb: all assertions passed');
+}).catch(err => { console.error(err); process.exitCode = 1; });
+
+// ---- a LONG plan scrolls, it does not squeeze (user, 2026-10-10) -------
+//
+// A 14-month plan shrank every column to fit the pane: the task names broke
+// to one character a line and the dates overlapped. The cause was
+// Bootstrap's `.table { width: 100% }` - the table never overflowed, so
+// `.table-responsive` had nothing to scroll.
+const planCss = fs.readFileSync(path.join(base, 'css/IRSTasks.css'), 'utf8');
+const planRules = planCss.replace(/\/\*[\s\S]*?\*\//g, '');
+assert.ok(/\.irs-plan\s*\{[^}]*width:\s*auto/.test(planRules),
+  'the plan keeps its natural width instead of shrinking to the pane');
+assert.ok(/\.irs-plan th[\s\S]{0,40}\{[^}]*white-space:\s*nowrap/.test(planRules),
+  'and no cell solves the overflow by wrapping');
+assert.ok(/\.irs-plan-name\s*\{[^}]*position:\s*sticky/.test(planRules),
+  'the task name stays put while the months scroll past it');
+assert.ok(/\.irs-plan-name\s*\{[^}]*background-color/.test(planRules),
+  'a sticky cell is transparent, so it needs its own background or the ' +
+  'bands slide under it');
+
+// 14 months of plan: the full-width view is offered
+const longTasks = [];
+for (let m = 0; m < 14; m++) {
+  longTasks.push({
+    name: 'Task ' + m, sourceId: 't' + m,
+    estimatedStartDate: (m + 1) + '/5/2027 8:00:00 AM',
+    estimatedFinishDate: (m + 1) + '/20/2027 5:00:00 PM'
+  });
+}
+function planButtons(node) {
+  const out = [];
+  (function walk(n) {
+    if (n.tagName === 'BUTTON') { out.push(n); }
+    n.children.forEach(walk);
+  })(node);
+  return out;
+}
+const longPlan = planRows({ linked: true, name: 'B-LONG', state: 'Active',
+                            tasks: longTasks.slice(0, 12), ganttUrl: '' });
+assert.strictEqual(longPlan.rows[0].children.length, 3 + 12,
+  'three fixed columns and one per month');
+assert.strictEqual(planButtons(longPlan.node).length, 1,
+  'a wide plan offers the full-width view');
+assert.ok(allText(longPlan.node).indexOf('Open the plan full width') >= 0);
+
+// a short one does not - a button that does nothing useful is noise
+assert.strictEqual(planButtons(planRows({
+  linked: true, name: 'B-1', state: 'Active', tasks: LIVE_PLAN, ganttUrl: ''
+}).node).length, 0, 'a one-month plan offers nothing to expand');
+
+// the first column is the sticky one, in the head and in every row
+assert.ok((' ' + longPlan.rows[0].children[0].className + ' ')
+  .indexOf(' irs-plan-name ') >= 0, 'the heading cell is the sticky column');
+assert.ok((' ' + longPlan.rows[1].children[0].className + ' ')
+  .indexOf(' irs-plan-name ') >= 0, 'and so is each task name');
+
+// the overlay is OUR panel, not a Bootstrap modal: only Bootstrap's CSS is
+// loaded on this page, never its JavaScript
+const planHtml = fs.readFileSync(path.join(base, 'IRSTasks.html'), 'utf8');
+assert.ok(!/bootstrap[^"']*\.bundle|bootstrap[^"']*\.js/.test(planHtml),
+  'no Bootstrap JavaScript is loaded, so no modal API exists to call');
+assert.ok(/irs-tasks irs-plan-overlay/.test(planViewSrc),
+  'the overlay carries the root class - it hangs off <body>, outside the ' +
+  'widget element every rule of ours is scoped under');
+
+// ---- the link beside the plan -----------------------------------------
+//
+// Three were tried on this VM, 2026-10-10, each in the browser:
+//   1 gantt-widget.html           - BLANK, and blank through DS's own JSP
+//                                   redirect and the portal's Gantt tab too;
+//                                   it wants the 3DDashboard app context
+//   2 emxPortalDisplay.jsp        - renders, but a bare frame with no header
+//   3 emxNavigator.jsp ENOPRPR_AP - the baseline inside ENOVIA Project
+//                                   Management, header and all
+const baselineSrc = fs.readFileSync(
+  path.join(base, 'js/services/BaselineService.js'), 'utf8');
+// CODE only, so the comment may still explain the two we rejected - that
+// reasoning is the most valuable thing in the file
+const baselineCode = baselineSrc
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\/\/[^\n]*/g, '');
+assert.ok(/emxNavigator\.jsp/.test(baselineCode) &&
+          /appName=ENOPRPR_AP/.test(baselineCode),
+  'the link opens the baseline in ENOVIA Project Management');
+assert.ok(!/gantt-widget\.html/.test(baselineCode),
+  'never the page that renders blank outside the dashboard app');
+assert.ok(!/emxPortalDisplay/.test(baselineCode),
+  'and not the bare portal frame either');
+
+const planLinked = planRows({
+  linked: true, name: 'B-1', state: 'Active', tasks: LIVE_PLAN,
+  ganttUrl: 'https://host/3dspace/webapps/ENOProjectMgmtList/gantt-widget.html?objectId=1'
+});
+const planAnchors = [];
+(function walk(n) {
+  if (n.tagName === 'A') { planAnchors.push(n); }
+  n.children.forEach(walk);
+})(planLinked.node);
+assert.strictEqual(planAnchors.length, 1, 'one link, under the plan');
+assert.strictEqual(planAnchors[0].target, '_blank');
+assert.ok(/noopener/.test(planAnchors[0].rel),
+  'a cross-origin tab never gets a handle on the dashboard window');
+assert.strictEqual(
+  planRows({ linked: true, name: 'B-1', state: 'Active', tasks: LIVE_PLAN,
+             ganttUrl: '' }).node.children
+    .filter(c => c.tagName === 'A').length, 0,
+  'and no link at all when the 3DSpace root could not be resolved');
+
+// `_shape` no longer carries the plan: `tasks` comes from the OOTB project
+// resource (tested above), and the endpoint's own `tasks` field is ignored
+// until the next JAR build drops it
+const ShapeBaseline = load(path.join(base, 'js/services/BaselineService.js'),
+  [Request, { get3DSpaceUrl: () => Promise.resolve('https://host/3dspace') }, Log]);
+assert.deepStrictEqual(ShapeBaseline._shape({ baseline: {
+  linked: 'true', name: 'B-1', physicalId: 'PID',
+  tasks: [{ name: 'ignored', physicalId: 'T1' }]
+} }).tasks, [], 'the endpoint\'s task list is not read any more');
+assert.deepStrictEqual(ShapeBaseline._shape({}).tasks, [],
+  'and a body with no baseline shapes to an empty plan, never undefined');
+
+console.log('irstasks-plan: all assertions passed');
+
+
 
 // ---- 22. every AMD module is actually loaded by the page ----------------
 //
@@ -2592,8 +3089,10 @@ const BaselineRequest = {
       : Promise.resolve(BaselineRequest._body);
   }
 };
+// three deps now: Credentials sits between them, because the service builds
+// the link to the platform's own Gantt from the 3DSpace root
 const Baseline = load(path.join(base, 'js/services/BaselineService.js'),
-  [BaselineRequest, Log]);
+  [BaselineRequest, { get3DSpaceUrl: () => Promise.resolve('https://host/3dspace') }, Log]);
 
 BaselineRequest._body = {
   taskId: '299036CE0000C6D46AC7888900000580',
@@ -2744,7 +3243,12 @@ assert.ok(!/baselineError/.test(readerSrc),
 // left to a comment.
 [['the JAR reader', readerSrc], ['the twin', twinBaseline]].forEach(([what, src]) => {
   const body = src.slice(src.search(/private static Map<String, Object> readTaskBaseline\(/));
-  const upto = body.slice(0, body.indexOf('\n    }'));
+  // CODE only. The method's note NAMES ProjectBaseline.getSubtasks, to record
+  // the task list this endpoint stopped serving on 2026-10-10 - and
+  // "getSubtasks" contains "Subtask", which this very check bans below
+  const upto = body.slice(0, body.indexOf('\n    }'))
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '');
   // the traversal stops at the far end of the link - one hop, no task list
   assert.ok(/from\[" \+ rel \+ "\]\.to\./.test(upto),
     what + ' reads the far end of IRSTaskBaseline');
@@ -2764,3 +3268,471 @@ baselineChecks.then(() => console.log('irstasks-baseline: all assertions passed'
 memberChecks.then(() => console.log('irstasks-members: all assertions passed'))
   .catch(err => { console.error(err); process.exit(1); });
 
+
+// ---- 24. the stage-validation form: R&D-VAL, the form that costs nothing ----
+//
+// The smallest of the four forms, and the only one that needed NO new DMC
+// attribute and NO new call. Every assertion here is against values measured
+// on this VM on 2026-10-10 - the type's own attribute list in MQL, and the
+// live OOTB task response for T-85756263-0000152.
+
+const svSpec = JSON.parse(fs.readFileSync(
+  path.join(base, 'js/data/forms/stage-validation.json'), 'utf8'));
+
+// the same 404 banner section 19 opened with: TaskFields declares this field
+// set, and until today the file it names did not exist
+assert.strictEqual(Fields.fieldSet('EPMPROJECT_STAGE_VALIDATION'), 'stage-validation');
+assert.strictEqual(svSpec.taskType, 'EPMPROJECT_STAGE_VALIDATION');
+assert.strictEqual(svSpec.form, 'R&D-VAL-Rev.00');
+
+const svBy = {};
+svSpec.fields.forEach(f => { svBy[f.label] = f; });
+
+// ---- the form may not name an attribute the TYPE does not carry.
+// MEASURED: `print type EPMPROJECT_STAGE_VALIDATION select attribute` returns
+// these two custom attributes and no others. A row naming anything else would
+// resolve as `missing` on every task forever, which is the failure this pins
+const SV_TYPE_ATTRS = ['EPMValidationDetails', 'EPMValidationRemarks'];
+svSpec.fields.filter(f => f.source === 'task').forEach(f => {
+  assert.ok(SV_TYPE_ATTRS.indexOf(f.field) >= 0,
+    f.field + ' is an attribute EPMPROJECT_STAGE_VALIDATION actually carries');
+});
+// and both of them are read - neither is left on the floor
+SV_TYPE_ATTRS.forEach(a => {
+  assert.ok(svSpec.fields.some(f => f.field === a), a + ' is read by the form');
+});
+
+// ---- both are multiline strings, so both are prose and not one-liners
+assert.strictEqual(svBy['Validation Details'].display, 'longtext');
+assert.strictEqual(svBy['Remarks'].display, 'longtext');
+
+// ---- Details BEFORE Remarks, matching the printed form (worklog 2026-10-06,
+// where the platform's own properties form was put in this same order rather
+// than in the order the two were named in the request)
+const svOrder = svSpec.fields.map(f => f.label);
+assert.ok(svOrder.indexOf('Validation Details') < svOrder.indexOf('Remarks'),
+  'Details comes before Remarks, as the paper form prints them');
+
+// ---- the visible rows are exactly the four agreed (user, 2026-10-10): the
+// paper's Project No., the Project Name added beside it, and the two prose
+// blocks
+assert.deepStrictEqual(svSpec.fields.filter(f => !f.hidden).map(f => f.label),
+  ['Project Name', 'Project No.', 'Validation Details', 'Remarks']);
+
+// ---- THE DATE IS PARKED, NOT FORGOTTEN (user, 2026-10-10: "date we will see
+// later"). A hidden `pending` row carrying the note that says what is
+// undecided - the same shape as the rows with no attribute on the cost form,
+// so a reader of the file finds a decision rather than an omission
+assert.strictEqual(svBy['Date'].hidden, true);
+assert.strictEqual(svBy['Date'].display, 'pending');
+assert.strictEqual(svBy['Date'].source, 'none');
+// and the note must name the candidates, or the parked row is just a hole
+['actualFinishDate', 'dueDate', 'originated']
+  .forEach(c => assert.ok(svBy['Date'].note.indexOf(c) >= 0,
+    'the Date note names ' + c + ' as a candidate'));
+
+// ---- TWO signatory lines, not one - the correction made on 2026-10-06 after
+// 'Checked by:' and 'In-Charge/HOD -' were first read as one caption over one
+// signature. Both are approvals, so both are drawn by the route panel
+['Checked by', 'In-Charge / HOD'].forEach(label => {
+  assert.strictEqual(svBy[label].hidden, true, label + ' is not a form field');
+  assert.strictEqual(svBy[label].display, 'approval', label + ' is an approval');
+});
+
+// ---- no stage row and no Rev. No. row, both by explicit decision
+// (user, 2026-10-06). The stage is the task's position in the WBS; the
+// document is never revised, so there is no revision to print
+assert.ok(!svSpec.fields.some(f => f.field === 'EPMStageValidation'),
+  'the stage is the WBS position, not a field');
+assert.ok(!svSpec.fields.some(f => /Rev\. No\./.test(f.label)),
+  'this form carries no Rev. No. - its document is never revised');
+assert.ok(/position in the wbs/i.test(svSpec._whyNoStageRow),
+  'and the file says why, for whoever reads it next');
+assert.ok(/never revised/i.test(svSpec._whyNoRevNo));
+
+// ---- THE PROPERTY THAT MAKES THIS FORM FREE: it asks for nothing beyond the
+// two calls every form already makes. No `service` row means the context call
+// is skipped; no `baseline` row means the baseline call is skipped. This is
+// the claim in _whyThisFormIsSmall, and it is the one that would rot silently
+// if somebody added a row without noticing what it costs
+assert.deepStrictEqual(Context.sectionsFor(svSpec), [],
+  'no service section, so ProjectContextService is never called');
+assert.ok(!svSpec.fields.some(f => f.source === 'baseline' && !f.hidden),
+  'no baseline row, so BaselineService is never called');
+// for contrast, the cost form needs both - so the check above is measuring
+// something real rather than an empty object
+assert.ok(Context.sectionsFor(costSpec).length > 0);
+assert.ok(costSpec.fields.some(f => f.source === 'baseline' && !f.hidden));
+
+// ---- resolved against the LIVE values, line breaks and all.
+// Measured from the RAW payload on 2026-10-10, not through a browser's JSON
+// viewer - which collapses the breaks and cost a wrong correction once already
+const svTask = {
+  attributes: {
+    EPMValidationDetails: 'some smaple validin \ngood valin g\n1. pokng \n2. pong',
+    EPMValidationRemarks: 'some smaple validin \ngood valin g\n1. pokng'
+  }
+};
+const svProject = {
+  attributes: { name: 'Copy of TEMPLATE TEST', title: '', EPMProjectNo: 'R&D-26013-HY' }
+};
+
+const svDetails = View._resolve(svBy['Validation Details'], svTask, svProject);
+assert.strictEqual(svDetails.value,
+  'some smaple validin \ngood valin g\n1. pokng \n2. pong');
+assert.ok(svDetails.value.indexOf('\n') > 0,
+  'the line breaks reach the row - the API does NOT flatten them');
+assert.strictEqual(svDetails.missing, false);
+assert.strictEqual(svDetails.empty, false);
+
+// the header pair: the paper's number, and the name added beside it. Title is
+// empty on every project measured, so Project Name must NOT fall back to it
+const svName = View._resolve(svBy['Project Name'], svTask, svProject);
+assert.strictEqual(svName.value, 'Copy of TEMPLATE TEST');
+assert.strictEqual(svName.usedFallback, false);
+assert.strictEqual(
+  View._resolve(svBy['Project No.'], svTask, svProject).value, 'R&D-26013-HY');
+
+// ---- a task nobody has filled in yet reads EMPTY, not MISSING. The two
+// states mean different things on this page, and this form is the one where
+// it shows: a validation report in Create legitimately has no text in it
+const svBlank = View._resolve(svBy['Validation Details'],
+  { attributes: { EPMValidationDetails: '', EPMValidationRemarks: '' } }, svProject);
+assert.strictEqual(svBlank.empty, true);
+assert.strictEqual(svBlank.missing, false,
+  'an unwritten report is not a platform failure');
+
+// ---- ONE subtype serves R&D and AR, so there is no second file to keep in
+// step. Recorded in the spec because the to-be document says the opposite for
+// Project Review, and the two are easy to confuse
+assert.ok(/RDAREA-VAL-Rev\.00/.test(svSpec._oneFormTwoAreas));
+
+console.log('irstasks-stage-validation: all assertions passed');
+
+
+// ---- 25. the project-review form: R&D-REV, the last of the four ------------
+//
+// The largest of the four by attributes read - seven, all on the task - and
+// the only one whose two areas print DIFFERENT forms. Every assertion here is
+// against values measured on this VM on 2026-10-10: the type's attribute list
+// and each attribute's data type and range in MQL, and the live OOTB task
+// response for T-85756263-0000155 (299036CE0000A4346AC9CFF1000000EA).
+
+const prSpec = JSON.parse(fs.readFileSync(
+  path.join(base, 'js/data/forms/project-review.json'), 'utf8'));
+
+assert.strictEqual(Fields.fieldSet('EPMPROJECT_REVIEW'), 'project-review');
+assert.strictEqual(prSpec.taskType, 'EPMPROJECT_REVIEW');
+assert.strictEqual(prSpec.form, 'R&D-REV-Rev.02');
+
+const prBy = {};
+prSpec.fields.forEach(f => { prBy[f.label] = f; });
+
+// ---- the form may not name an attribute the TYPE does not carry. MEASURED:
+// `print type EPMPROJECT_REVIEW select attribute` returns these seven custom
+// attributes and no others
+const PR_TYPE_ATTRS = ['EPMAdhesionToSchedule', 'EPMStatusOfCompletion',
+  'EPMValidation', 'EPMTechnicalFindingObservations',
+  'EPMFollow_upActionRecommended', 'EPMDataDrive', 'EPMNextReviewDate'];
+// every attribute this form names, wherever it is named: four of the seven
+// live inside the Review Observations box's `rows` rather than on a field of
+// their own, and the box is exactly where a wrong name would hide
+const prNamed = [];
+prSpec.fields.forEach(f => {
+  if (f.source === 'task' && f.field) { prNamed.push(f.field); }
+  (f.rows || []).forEach(r => { if (r.field) { prNamed.push(r.field); } });
+});
+prNamed.forEach(name => {
+  assert.ok(PR_TYPE_ATTRS.indexOf(name) >= 0,
+    name + ' is an attribute EPMPROJECT_REVIEW actually carries');
+});
+// and ALL SEVEN are read - this is the one form that leaves nothing on the
+// floor, so a new attribute added to the subtype shows up here as a gap
+PR_TYPE_ATTRS.forEach(a => {
+  assert.ok(prNamed.indexOf(a) >= 0, a + ' is read by the form');
+});
+
+// ---- each display type matches the attribute's own SHAPE on the platform,
+// which is what keeps the printed form from lying about the data:
+//   boolean          -> yesno   (ENOVIA answers the STRING "TRUE")
+//   string + range   -> choice  (one token on the platform, spaced on paper)
+//   multiline TRUE   -> longtext
+//   multiline FALSE  -> text
+//   timestamp        -> date
+const prObs = prBy['Review Observations'];
+assert.ok(prObs, 'the four numbered items are ONE boxed section');
+assert.strictEqual(prObs.display, 'observations');
+const prObsBy = {};
+prObs.rows.forEach(r => { prObsBy[r.label] = r; });
+assert.strictEqual(prObsBy['Adhesion to the Schedule'].format, 'yesno');
+assert.strictEqual(prObsBy['Status of completion to the relevant task'].format,
+  undefined, 'multiline FALSE on the platform, so plain one-line text');
+assert.strictEqual(prObsBy['Validation (R&D form only)'].format, 'choice');
+assert.strictEqual(prObsBy['Technical finding / Observations'].format,
+  'longtext');
+assert.strictEqual(prBy['Follow-up Action Recommended'].display, 'longtext');
+assert.strictEqual(prBy['Data copied to the project common drive (R&D form only)']
+  .display, 'choice');
+assert.strictEqual(prBy['Next Review Date'].display, 'date');
+
+// ---- the visible rows are exactly the ten agreed (user, 2026-10-10)
+assert.deepStrictEqual(prSpec.fields.filter(f => !f.hidden).map(f => f.label), [
+  'Project Name',
+  'Project No.',
+  'Review No.',
+  'Reviewer(s)',
+  'Review Observations',
+  'Follow-up Action Recommended',
+  'Data copied to the project common drive (R&D form only)',
+  'Next Review Date'
+]);
+// the box sits where the paper draws it - after the header pairs and before
+// the follow-up action, which on the paper is the box that comes next
+assert.deepStrictEqual(prObs.rows.map(r => r.label), [
+  'Adhesion to the Schedule',
+  'Status of completion to the relevant task',
+  'Validation (R&D form only)',
+  'Technical finding / Observations'
+], 'the four items in the order the paper numbers them');
+
+// ---- THE TWO DATES ARE NOT THE SAME QUESTION, which is why one is drawn
+// and one is not. The top Review Date has no attribute anywhere and stays
+// parked, naming its candidates; Next Review Date has one, it held live data,
+// and it is drawn (user, 2026-10-10)
+assert.strictEqual(prBy['Review Date'].hidden, true);
+assert.strictEqual(prBy['Review Date'].source, 'none');
+assert.strictEqual(prBy['Review Date'].display, 'pending');
+['actualFinishDate', 'dueDate', 'originated', 'approval'].forEach(c => {
+  assert.ok(prBy['Review Date'].note.indexOf(c) >= 0,
+    'the parked Review Date names ' + c + ' as a candidate');
+});
+assert.ok(!prBy['Next Review Date'].hidden, 'Next Review Date is drawn');
+assert.strictEqual(prBy['Next Review Date'].source, 'task');
+assert.strictEqual(prBy['Next Review Date'].field, 'EPMNextReviewDate');
+assert.ok(/no attribute anywhere/.test(prSpec._theTwoDates),
+  'and the file says WHICH of the two the platform cannot answer');
+
+// ---- THE TWO AREAS DIFFER HERE, and this is the form where the to-be
+// document's R06 note is actually true. R&D-REV-Rev.02 carries two items that
+// RDAREA-REV-Rev.00 does not; the user chose to draw both on both areas,
+// labelled, rather than hide them on an Analysis project
+assert.ok(/RDAREA-REV-Rev\.00/.test(prSpec._twoFormsOneSubtype));
+[prObsBy['Validation (R&D form only)'],
+ prBy['Data copied to the project common drive (R&D form only)']]
+  .forEach(item => {
+    assert.ok(item, 'the row is drawn');
+    assert.ok(!item.hidden, 'it is visible on BOTH areas');
+    assert.ok(/R&D form only/.test(item.label),
+      'and the label itself carries the difference - the only place a short ' +
+      'row can say it, because notes render on table blocks only');
+  });
+// the stage-validation file says the same difference belongs to THIS form, so
+// the two files cannot drift apart on it
+assert.ok(/Project Review/.test(svSpec._oneFormTwoAreas));
+
+// ---- THE REVIEW NO. IS THE DOCUMENT'S REVISION, and it must be OUR
+// document. The reviewer also attaches the signed form and the reviewed
+// reports, all on the same `Task Deliverable` relationship, so the first
+// deliverable is not reliably the form
+const prRev = prBy['Review No.'];
+assert.strictEqual(prRev.source, 'derived');
+assert.strictEqual(prRev.from, 'task');
+assert.strictEqual(prRev.documentType, 'DMPPROJECT_REVIEW');
+assert.strictEqual(prRev.field, 'revision');
+
+// live shape: one deliverable, type DMPPROJECT_REVIEW, PRV-0000004 rev 01
+const prTask = {
+  deliverables: [{ typeName: 'DMPPROJECT_REVIEW', name: 'PRV-0000004',
+                   revision: '01' }],
+  assignees: ['PLM User 2', 'Dr. Asokendu Samanta', 'PLM User 3', 'PLM User 1'],
+  attributes: {
+    EPMAdhesionToSchedule: 'TRUE',
+    EPMStatusOfCompletion: 'status is ok for the completed task',
+    EPMValidation: 'Final',
+    EPMTechnicalFindingObservations:
+      'techncal finding are ok and we are good to go with the technical findiing',
+    EPMFollow_upActionRecommended: 'follow up recomendation',
+    EPMDataDrive: 'No',
+    EPMNextReviewDate: '2026-10-21T06:30:00.000Z'
+  }
+};
+const prProject = {
+  type: 'EPMAnalysisProject',
+  attributes: { name: 'Copy of TEMPLATE TEST', EPMProjectNo: 'R&D-26013-HY' }
+};
+
+assert.strictEqual(View._resolve(prRev, prTask, prProject).value, '01');
+
+// a signed upload connected FIRST must not answer the Review No.
+const prWithUpload = {
+  deliverables: [
+    { typeName: 'Document', name: 'signed review scan', revision: '12' },
+    { typeName: 'DMPPROJECT_REVIEW', name: 'PRV-0000004', revision: '03' }
+  ],
+  attributes: {}
+};
+assert.strictEqual(View._resolve(prRev, prWithUpload, prProject).value, '03',
+  'the review document answers, not the first deliverable');
+
+// and a task not yet sent for approval has no form document: EMPTY, not
+// missing - the document is created when the task leaves In Work
+const prUnraised = View._resolve(prRev, { deliverables: [], attributes: {} },
+  prProject);
+assert.strictEqual(prUnraised.empty, true);
+assert.strictEqual(prUnraised.missing, false,
+  'no review document yet is not a platform failure');
+
+// ---- WHY NOT THE ID THE PLATFORM ALREADY STORES. The project keeps the
+// review document's id in the interface attribute IRSProjectReviewDocumentId,
+// which is the obvious source and does not reach the client. Measured twice
+// on 2026-10-10 and recorded in the view, because the next person to look
+// will have the same idea
+const detailViewSrc = fs.readFileSync(
+  path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
+assert.ok(/IRSProjectReviewDocumentId/.test(detailViewSrc),
+  'the view records why the stored id is not used');
+assert.ok(/INTERFACE attribute/.test(detailViewSrc),
+  'reason 1: the project response carries TYPE attributes only');
+assert.ok(/physical ids/.test(detailViewSrc),
+  'reason 2: the stored value is an MQL id and REST answers physical ids');
+// and the live project response proves reason 1 the other way round: every
+// EPM* attribute came back, and the IRS* interface one did not
+assert.ok(!/IRSProjectReviewDocumentId/.test(JSON.stringify(prProject)));
+
+// ---- REVIEWER(S) IS THE ASSIGNEE LIST, which arrives free in the call the
+// page already makes. The route's Project Reviewer level is chosen from
+// exactly this list (user, 2026-10-07), so it is the reviewer pool the paper
+// form asks for in the plural
+const prReviewers = prBy['Reviewer(s)'];
+assert.strictEqual(prReviewers.source, 'derived');
+assert.strictEqual(prReviewers.from, 'task');
+assert.strictEqual(prReviewers.field, 'assignees');
+assert.strictEqual(View._resolve(prReviewers, prTask, prProject).value,
+  'PLM User 2, Dr. Asokendu Samanta, PLM User 3, PLM User 1');
+assert.ok(View._resolve(prReviewers, prTask, prProject).value.indexOf(', ') > 0,
+  'a list prints as a list - String([a, b]) would run the names together');
+// an unassigned review task is empty, not missing: it is also the state that
+// blocks the route, and the dialog is where that is said
+const prNobody = View._resolve(prReviewers, { assignees: [], attributes: {} },
+  prProject);
+assert.strictEqual(prNobody.empty, true);
+assert.strictEqual(prNobody.missing, false);
+
+// ---- the seven values resolved against the LIVE response -----------------
+const prRows = prSpec.fields.filter(f => !f.hidden)
+  .map(f => View._resolve(f, prTask, prProject));
+const prValues = {};
+prRows.forEach(r => { prValues[r.label] = r; });
+
+// nothing on this form may resolve as `missing` on a task that HAS been
+// filled in - that would mean the spec names something the platform does not
+// return, which is the failure the attribute list above is meant to prevent
+prRows.forEach(r => assert.strictEqual(r.missing, false,
+  r.label + ' resolves against the live response'));
+
+assert.strictEqual(prValues['Project Name'].value, 'Copy of TEMPLATE TEST');
+assert.strictEqual(prValues['Project Name'].usedFallback, false);
+assert.strictEqual(prValues['Project No.'].value, 'R&D-26013-HY');
+assert.strictEqual(prValues['Follow-up Action Recommended'].value,
+  'follow up recomendation');
+
+// the date resolves from the task and prints without a clock on it - the
+// reviewer recorded a day, not a moment
+assert.strictEqual(prValues['Next Review Date'].value,
+  '2026-10-21T06:30:00.000Z');
+assert.strictEqual(View._format(prValues['Next Review Date']), '21 Oct 2026');
+// a review nobody has scheduled yet is empty, not missing
+const prNoNext = View._resolve(prBy['Next Review Date'],
+  { attributes: { EPMNextReviewDate: '' } }, prProject);
+assert.strictEqual(prNoNext.empty, true);
+assert.strictEqual(prNoNext.missing, false);
+
+// ---- THE BOX ITSELF, drawn against the live values. It reads the task
+// directly, as the cost and man-day tables read the project, so this is the
+// only check that it prints anything at all
+const prBox = View._blockBody(View._resolve(prObs, prTask, prProject),
+  null, prProject, null, prTask);
+const prBoxText = allText(prBox);
+assert.ok(/1\) Adhesion to the Schedule/.test(prBoxText),
+  'the items are numbered as the paper numbers them');
+assert.ok(/4\) Technical finding \/ Observations/.test(prBoxText));
+assert.ok(/Yes/.test(prBoxText),
+  'the boolean prints Yes inside the box, not the string TRUE');
+assert.ok(!/TRUE/.test(prBoxText));
+assert.ok(/Final/.test(prBoxText));
+assert.ok(/status is ok for the completed task/.test(prBoxText));
+// an attribute the platform did not return says so IN THE BOX - the failure
+// this replaces is a blank cell, which reads as "nobody filled it in"
+const prThin = { attributes: { EPMAdhesionToSchedule: 'TRUE' } };
+const prBoxGap = allText(View._blockBody(
+  View._resolve(prObs, prThin, prProject), null, prProject, null, prThin));
+assert.ok(/not returned/.test(prBoxGap));
+
+// ---- the two FORMATS this form needed, both of them the platform's own
+// spelling against the paper's. A boolean arrives as the STRING "TRUE"
+assert.strictEqual(prTask.attributes.EPMAdhesionToSchedule, 'TRUE',
+  'the raw value is the string the kernel answers');
+assert.strictEqual(View._format({ display: 'yesno', value: 'TRUE' }), 'Yes',
+  'and the form prints Yes - asserted inside the box above as well');
+assert.strictEqual(View._format({ display: 'yesno', value: 'FALSE' }), 'No');
+
+// a range value is ONE TOKEN on the platform and spaced words on the paper
+assert.strictEqual(View._format({ display: 'choice', value: 'NotApplicable' }),
+  'Not Applicable');
+assert.strictEqual(View._format({ display: 'choice', value: 'NotRequired' }),
+  'Not Required');
+// a single word, or a value already written with spaces, is untouched - so a
+// range edited on the platform later cannot be mangled by this
+assert.strictEqual(View._format({ display: 'choice', value: 'Final' }), 'Final');
+assert.strictEqual(View._format({ display: 'choice', value: 'Not Required' }),
+  'Not Required');
+assert.strictEqual(View._format({ display: 'choice', value: '' }), '');
+
+// the same format on a kernel-spelled date, which is how the baseline's dates
+// arrive - the two spellings must both land on one day and no clock
+assert.strictEqual(
+  View._format({ display: 'date', value: '10/21/2026 8:00:00 AM' }),
+  '21 Oct 2026');
+
+// ---- the three one-line observation rows each START a line, so none of them
+// pairs off with the prose row that precedes it (the same fix the cost form
+// needed on 2026-10-09)
+// the one short row left outside the box starts a line of its own, so it does
+// not pair off with the prose block above it
+assert.strictEqual(
+  prBy['Data copied to the project common drive (R&D form only)'].newLine,
+  true);
+
+// ---- the section numbers are NOT printed, and on this form that is not just
+// consistency: AR has no Validation row, so the SAME item is numbered
+// differently in the two areas and a printed number would be wrong for one of
+// the two readers
+// numbers stay off the screen everywhere EXCEPT inside the box, where they
+// are the content - and the file says so, because this reverses the rule the
+// other three forms follow
+assert.ok(/ONE exception/.test(prSpec._layout));
+assert.ok(/RDAREA-REV-Rev\.00 numbers the same items differently/
+  .test(prObs._numbering),
+  'and it says what that costs an AR reader, and what answers it');
+assert.strictEqual(prObs.ref, '1-4');
+
+// ---- NO SERVICE SECTION AND NO BASELINE ROW, so this form - like stage
+// validation - adds no call to the two the page already makes. Seven
+// attributes on one task is still one call
+assert.deepStrictEqual(Context.sectionsFor(prSpec), [],
+  'no service section, so ProjectContextService is never called');
+assert.ok(!prSpec.fields.some(f => f.source === 'baseline' && !f.hidden),
+  'no baseline row, so BaselineService is never called');
+// the cost form as the contrast, so an empty result cannot pass for a check
+assert.ok(Context.sectionsFor(costSpec).length > 0);
+assert.ok(costSpec.fields.some(f => f.source === 'baseline' && !f.hidden));
+
+// ---- all four forms now exist, and TaskFields declares no file that is not
+// there. This is the assertion that section 19's 404 banner was waiting for
+['project-proposal', 'personnel-cost', 'stage-validation', 'project-review']
+  .forEach(id => {
+    assert.ok(fs.existsSync(path.join(base, 'js/data/forms/' + id + '.json')),
+      id + '.json exists');
+  });
+
+console.log('irstasks-project-review: all assertions passed');

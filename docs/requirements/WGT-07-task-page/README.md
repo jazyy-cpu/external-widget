@@ -156,10 +156,10 @@ offering what it knows will fail.
 
 | # | Item |
 |---|---|
-| O-P1 | **The other three forms have no JSON yet.** `personnel-cost`, `stage-validation` and `project-review` are declared in `TaskFields` and their files do not exist - the page says so plainly instead of failing. Those three DO have task attributes, so they will use `source: "task"` |
+| ~~O-P1~~ | ~~The other three forms have no JSON yet~~ - **`personnel-cost` built 2026-10-09/10** and **`stage-validation` built 2026-10-10** (both below). **`project-review` built 2026-10-10** (below). **All four are now there**, so no subtype resolves to a missing file any more - the banner that said so has nothing left to report |
 | O-P2 | **Nothing is editable.** The next slice is the edit control for an In Work task, and it writes through the **REST JAR**, not a JPO (worklog 2026-10-06-01) |
 | O-P3 | **The approval levels are not shown.** Who must approve, in what order, what each has done. `GET .../dsrt/routes/{routeId}?$include=tasks`, one call for one task - and the capture shows the Inbox Task fields that carry it (`routeTaskAction`, `routeTaskApprovalAction`, `routeTaskApprovalComments`, `routeTaskInstructions`) |
-| O-P4 | **The generated form document is named but not opened.** The sidebar shows `PPF-0000004 rev 01`; it could link to the document or offer its file |
+| O-P4 | **The generated form document is named but not opened.** The sidebar shows `PPF-0000004 rev 01`; it could link to the document or offer its file. Its REVISION is now printed on the personnel/cost form as the Rev. No. |
 | O-P5 | Department is still absent everywhere (grid O-T7): not in either payload, it comes from the project's `IRSDepartmentProject` link |
 | O-P6 | `onlyForDesignAndDevelopment` is carried through from the catalogue on four fields and **nothing acts on it**. The printed form marks them as applicable only to design and development of a new product or service |
 | O-P7 | **`project.title` is empty on every project measured** (TEST PROJECT, Solize XYZ) while `name` is filled. The Project Name row falls back to `name`; confirm whether `Title` is simply unused on projects before any other screen leans on it |
@@ -177,6 +177,218 @@ js/App.js                            the task/:id route now renders the page
 IRSTasks.html                        three more module script tags
 src/test/js/irstasks-detail.test.js
 ```
+
+
+## The second form: PROJECT PERSONNEL / COST ESTIMATION (2026-10-09/10)
+
+Running on live data, read-only. **12 visible rows of 17** in
+`js/data/forms/personnel-cost.json`. It is the first form that needed data the
+platform does not hand over in one call, and the first with tables that have
+to look like the paper they replace.
+
+| Block | Source |
+|---|---|
+| Header, Change of Scope, Reason for revision | the TASK's own attributes |
+| Rev. No. | the task's deliverable - the document the route generates |
+| Project Members | our REST JAR, `$include=members` |
+| Estimated Man days, Cost Estimation | the PROJECT's attributes |
+| Start / Planned End Date | the Project Baseline linked to the task, our JAR |
+| Project Planning (page 2) | the baseline's tasks, **OOTB project resource** |
+
+Four decisions worth knowing before changing any of it:
+
+1. **The printed tables are data.** The cost lines and man-day columns live in
+   the JSON; the renderers know the shape and name no attribute. Nothing adds
+   up - five of the eight figures are `ReadOnly` in DMC and computed
+   server-side.
+2. **The monthly plan comes from the OOTB resource**, not ours. We built it in
+   the JAR first; the user pointed at
+   `GET /resources/v1/modeler/projects/{baselineId}?$include=tasks`, which
+   answers a baseline (a baseline IS a project to that service) **with
+   `sequenceOrder`** - the WBS order our own reader could not find. The JAR's
+   task list was deleted; the JAR keeps the one job the platform does not do,
+   following `IRSTaskBaseline` from task to baseline.
+3. **The plan refuses to invent.** Columns are the months the plan actually
+   spans; an undated task keeps its row and says so; the REV / S-VAL / VER /
+   VAL / CIN markers of the paper grid are NOT drawn, because the mapping from
+   those letters to task subtypes does not exist yet.
+4. **The Rev. No. costs no call.** `IRSTaskDocumentId` holds the document's id
+   but is an interface attribute, which the OOTB task resource will not
+   return; the same call already carries the deliverable, and it is the same
+   object.
+
+Two rows stay `hidden` for want of an attribute - Software Resource required
+and Reviewer Name. **Reason for revision was a third until 2026-10-10**, when
+`EPMReasonForRevision` was created: the row was already written, so bringing
+it in cost one JSON entry. That is what the recorded gaps are for.
+
+Full detail, including the three links tried beside the plan and why two were
+rejected: devlog
+[2026-10-10-01](../../devlog/2026/2026-10-10-01_personnel-cost-form-and-baseline-plan.md).
+
+### Open items this form adds
+
+| # | Item |
+|---|---|
+| O-P10 | **A nested work breakdown is untested.** The plan asks the OOTB resource without `level`; no project here has a nested WBS, so whether children come back whole is unknown |
+| ~~O-P11~~ | ~~The Rev. No. reads the FIRST deliverable~~ - **fixed 2026-10-10** while building the review form, and with no JAR endpoint and no restart: the row names the document's TYPE (`DMPPERSONNEL_COST`), which is already in the response, so an upload on the same relationship cannot answer. `IRSTaskDocumentId` turned out to be unusable anyway - interface attributes do not arrive in the OOTB response, and the stored value is an MQL id where REST answers physical ids |
+| O-P12 | The five page-2 markers (REV / S-VAL / VER / VAL / CIN) need a mapping to task subtypes before they can be drawn |
+| O-P13 | The deployed JAR still returns a `tasks` field nothing reads - it goes at the next rebuild |
+
+
+## The third form: STAGE-VALIDATION REPORT (2026-10-10)
+
+Running on live data, read-only. **4 visible rows of 7** in
+`js/data/forms/stage-validation.json`, from `R&D-VAL-Rev.00`.
+
+The smallest of the four forms, and **the only one that cost nothing**: no new
+DMC attribute, no new call, no view change, no CSS, no server-side change. One
+JSON file.
+
+| Row | Source |
+|---|---|
+| Project Name, Project No. | the PROJECT - the project call the page already makes |
+| Validation Details, Remarks | the TASK's `EPMValidationDetails` / `EPMValidationRemarks` - the task call it already makes |
+
+Project Name is **not on the paper**; added at the user's request beside the
+Project No. the form does ask for.
+
+### Why it was free, and what that says
+
+`print type EPMPROJECT_STAGE_VALIDATION select attribute` returns those two
+custom attributes and no others, and both are TYPE attributes, so both arrive
+in `dataelements` - verified against the live response. The page's two extra
+calls are gated on the spec having a `service` row (`ProjectContextService`) or
+a visible `baseline` row (`BaselineService`); this spec has neither, so neither
+fires.
+
+**The reason is the paper form, not the code.** Personnel/cost needed four
+calls because it asks for members, a baseline's dates and a baseline's whole
+task list. This one asks for two paragraphs the task already holds.
+
+### What it deliberately does not show
+
+Three rows are `hidden`, and each inherits an earlier decision rather than
+re-opening it:
+
+1. **Date - parked**, user 2026-10-10: *"date we will see later"*. The paper
+   asks for a Date and no attribute exists for it; the open question is which
+   date it means. The row stays in the file with its **four candidate sources
+   named** (`actualFinishDate`, `dueDate`, `originated`, the approval date),
+   all already in the task response. Bringing it back is deleting one line.
+2. **No stage row** - the stage is the task's position in the WBS (user,
+   2026-10-06), carried by the task name into the document title, the route
+   name and the page header.
+3. **No Rev. No.** - this form's document is never revised, because each record
+   validates a different stage. The other two forms revise and do print one.
+
+The two signatory lines (**Checked by**, **In-Charge / HOD** - two blocks, not
+one caption) are approvals, drawn by the WGT-09 panel.
+
+### One form, two areas
+
+`R&D-VAL-Rev.00` and `RDAREA-VAL-Rev.00` are identical apart from the form
+code, so one subtype and one file serve R&D and AR both. The to-be document's
+R06 note that the two areas' forms differ is true for **Project Review**, not
+for this one - recorded in the spec, because the next form built is where it
+matters.
+
+Full detail: devlog
+[2026-10-10-02](../../devlog/2026/2026-10-10-02_stage-validation-form.md).
+
+### Open items this form adds
+
+| # | Item |
+|---|---|
+| O-P14 | **The printed form's Date has no source chosen.** Four candidates, all free; parked by the user 2026-10-10 |
+| O-P15 | **The report number `SVR-nnnnnnn` is not shown.** This form has no Rev. No., so the document name is what identifies the record. Reading it no longer means the first deliverable: since 2026-10-10 a row can name the document's TYPE (`DMPSTAGE_VALIDATION`), which separates our generated document from the signed upload on the same `Task Deliverable` relationship without the `IRSGeneratedDocument` interface, which does not reach the client. What is still open is whether to show the number at all - decide it with the review form's report number |
+
+
+## The fourth form: PROJECT REVIEW (2026-10-10)
+
+Running on live data, read-only. **8 visible rows of 12** in
+`js/data/forms/project-review.json`, from `R&D-REV-Rev.02` - one of the eight
+is the *Review Observations* box, which carries four more. **All seven of the
+subtype's attributes are on screen.**
+
+**All four forms now have a file.** Every subtype `TaskFields` declares resolves
+to a spec, so O-P1 is closed.
+
+| Row | Source |
+|---|---|
+| Project Name, Project No. | the PROJECT - the project call the page already makes |
+| Review No. | the task's own review DOCUMENT, picked by type - its revision |
+| Reviewer(s) | the task's `assignees` - free in the task call |
+| **Review Observations** - items 1) to 4) in one box, as the paper draws them | four of the TASK's attributes, each with its own format |
+| Follow-up Action Recommended, Data copied to common drive | the TASK's other two |
+
+Seven attributes read from one task, and **still no extra call**: the spec has no
+`service` row and no visible `baseline` row, so neither `ProjectContextService`
+nor `BaselineService` fires. Both gates are asserted in the test with the cost
+form as the contrast.
+
+### The Review No., and a correction to the cost form
+
+The Review No. is the review document's revision (user, 2026-10-07: the revision
+chain IS the review sequence). The question is **which document** - a review task
+also carries the signed form and the reviewed reports, and an attachment uses the
+**same `Task Deliverable` relationship** as our generated document.
+
+The row names the document's TYPE (`DMPPROJECT_REVIEW`; an upload is a plain
+`Document`), which is already in the response. The id the platform stores for
+exactly this purpose - `IRSProjectReviewDocumentId`, interface
+`IRSProjectDocuments` - cannot be used, measured twice on 2026-10-10: the project
+response carries TYPE attributes only, so the interface attribute never arrives;
+and the stored value is an MQL object id where REST answers physical ids.
+
+**The cost form's `Rev. No.` was corrected the same way** - it had been reading
+the task's first deliverable. That closes **O-P11**, and the test pins the
+failing case: an upload connected first must not answer.
+
+### The two areas differ here, and R06 is about this form
+
+`R&D-REV-Rev.02` carries two items `RDAREA-REV-Rev.00` does not - *Validation*
+(`EPMValidation`) and *Data copied to the project common drive* (`EPMDataDrive`).
+They are additive, so AR is an older revision of the same form and one subtype
+carries both attributes.
+
+The user chose 2026-10-10 to **draw both rows on both areas, labelled
+*(R&D form only)***, rather than hide them on an Analysis project - the project
+subtype would have answered the area for free. A visible labelled row says what
+the difference is; a hidden one says nothing. The label carries the note because
+short rows have nowhere else to put one.
+
+Printed section numbers stay off the screen for a new reason as well as the
+old one: the same item is numbered 4 on the R&D form and 3 on the AR one.
+
+**One exception, added 2026-10-10 at the user's request:** the four items
+inside the *Review Observations* box ARE numbered, because there the number is
+the content - a reviewer reads item 3 off the paper and looks for item 3 on
+screen. An AR reader sees four where their paper has three, and the third
+carries *(R&D form only)*, which is what tells them why.
+
+### What it deliberately does not show
+
+1. **The top *Review Date* - parked.** The platform has no attribute for it at
+   all, the same gap as on stage validation, so the row names its four
+   candidate sources and waits. The reviewer's approval date is the strongest
+   of them here, because the printed page says *"(To be filled by Reviewer
+   only)"*. *Next Review Date* is a different question and **is drawn** - it
+   has `EPMNextReviewDate` and live data in it (user, 2026-10-10).
+2. **The report number** `PRV-nnnnnnn` - the document's name, as against its
+   revision. Decided together with O-P15, below.
+3. **Grade A / the skill-based reviewer** - not implemented by decision of
+   2026-10-07; the reviewer is the task's assignee, which Reviewer(s) prints.
+
+Full detail: devlog
+[2026-10-10-05](../../devlog/2026/2026-10-10-05_project-review-form.md).
+
+### Open items this form adds
+
+| # | Item |
+|---|---|
+| O-P16 | **The Review No. is off by one on legacy document families.** New families start at revision `01`, so `01` is Review No. 1; families created before 2026-10-07 start at `0` and read one low. The page prints the revision as it is rather than adding one, which would be wrong for everything new |
+| ~~O-P17~~ | ~~The parked `Next Review Date` is ready to draw~~ - **drawn 2026-10-10**, the same day, at the user's word. One line deleted: parking a row wired rather than empty is what made it that cheap |
 
 ## Layout: Bootstrap only (decided 2026-10-08)
 

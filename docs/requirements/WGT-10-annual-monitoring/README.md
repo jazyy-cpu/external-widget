@@ -1,0 +1,138 @@
+# WGT-10 - Annual Monitoring report (G15) and Skill Matrix (G16)
+
+| | |
+|---|---|
+| Work package | [WP01](../../../../documents/work-packages/01-organization-master-data-skill-matrix/README.md) |
+| Design of record | [WP01 doc 10](../../../../documents/work-packages/01-organization-master-data-skill-matrix/10-annual-monitoring.md) - **read §10 before this page** |
+| Status | **skeleton built 2026-10-10**, 20 unit checks pass, **never opened in 3DDashboard**. Shell, department picker, rounds grid and create form exist; listing and creating both wait on the REST service, and the HOD check is not applied yet (a visible banner says so). Schema and both delete guards are live on the VM; O1 answered - [api.md](api.md) |
+| Source | R&D requirement G15/G16; forms R&D-AM-HY/-ST/-RR/-LS Rev.04 and RDAREA-AM-FS/-SR; user instructions 2026-10-05 |
+| Widget | `WidgetPacket/IRSAnnualMonitoring/` (new packet) |
+
+> **Id note:** the user asked for "WGT-09", but that id is already the approval
+> route, built 2026-10-08. This is **WGT-10**. WGT-05 was never used and is left
+> free rather than back-filled, so the numbering stays chronological.
+
+---
+
+## 1. What was asked
+
+The user's flow, 2026-10-05:
+
+1. **On login, check whether the person is an HOD.** From the person, read the
+   connected department and the role. **An annual monitoring object can be
+   created by the HOD only** - later widened: **In-Charge as well**, because the
+   forms sign off as "In-Charge/HOD".
+2. **The HOD sees only their own department.**
+3. The HOD **creates the master annual monitoring object**. A department can
+   have **many** reports over time.
+4. While creating it, **connect the training projects**, and later read from
+   them what training each person did.
+5. Once the master object exists, **the department's people appear under it
+   automatically**, and **each person's report then runs its own lifecycle**.
+6. **Projects are filled in from the financial year** - the master object
+   carries a start and end date, defaulting to April-March, changeable so a
+   department can run two reports in one year. A project counts if it falls in
+   that range and the person is a member.
+7. **Trainings undergone** come from the training tasks the person is assigned
+   to in the connected training plans.
+8. **Training recommendation** is picked from the released training offering
+   documents - latest revision.
+9. **Domain rating** uses the skills already captured at department level; only
+   the **formula** had to be settled.
+10. Reuse the **look and feel of the older widget**, and the **same Tabulator**.
+11. Show the data **Excel-style in Tabulator** - plain Tabulator, **not
+    Luckysheet**.
+12. **Each person's report must print and export to Excel.**
+
+## 2. What is already decided
+
+All of it is in [WP01 doc 10 §10](../../../../documents/work-packages/01-organization-master-data-skill-matrix/10-annual-monitoring.md),
+which is the design of record. The points that shape this UI:
+
+| | Decision |
+|---|---|
+| Who may create | **HOD and In-Charge**, resolved through `IRSResponsibility` / `IRSResponsibilityRole`. A person can be HOD of **more than one** department, so the widget needs a **department picker** |
+| Rating rows | the person's **own** domains, from their standing skill list - **not** every department domain. A domain they do not hold is hidden or shown **NA**. This deviates from the printed form on purpose |
+| Points | **computed, never typed**: `min(10, 0.044 × man-days)` per domain per year. The HOD enters **man-days**; the system enters points |
+| The Note block | the customer asked for the **rule text to be rendered on the form**, not just the result |
+| Closing a round | the HOD closes it **manually**, once every person report is complete |
+| Date range | April-March default, editable; selection is an **overlap test**, not "start or end inside the range" |
+| Offerings | only **`RELEASED`** documents are selectable |
+| Export | plain Tabulator; CSV free, XLSX and PDF add libraries - [WP03 02](../../../../documents/work-packages/03-project-widget/02-grid-export-and-print.md) |
+
+## 3. What exists to build on
+
+**On the platform (built and verified 2026-10-05):** `IRSSkillAssessment`,
+`IRSAnnualMonitoring`, `IRSDomainRating`, the `IRSSkillAssessment` policy
+(Draft → In Assessment → Completed), interfaces `IRSRnDRating` /
+`IRSRnDMonitoring`, six relationships including the `IRSRatedDomain` REL2REL,
+and `ASM-` / `AMR-` / `RAT-` generators. Both delete guards are live.
+
+**Nothing behaves yet** - no creation logic, no points/grade computation, no
+project or training feed.
+
+**In the widget project:** `JazzySole` already provides the request wrapper,
+router, credential bar, formatters, notifications, Tabulator and Bootstrap. Three
+widget packets exist to copy from, `IRSProjects`, `IRSTasks` and the task page.
+
+## 4. Blockers - none of this is cosmetic
+
+| # | Blocker | Why it gates the work |
+|---|---|---|
+| **B1** | **The widget cannot call a JPO.** Creation and every write go in the **custom REST JAR** | `IRSRatedDomain` is a REL2REL, and a rel2rel can be created only through MQL or a web application - never through OOTB REST. So the rating cannot be written from the widget without the service. See [custom-rest-service.md](../../reference/custom-rest-service.md) |
+| **B2** | **A write from the widget has never been proven.** Only authenticated GETs have been tested against a custom modeler path | Every page past read-only depends on a POST working through the request wrapper with tenant, SecurityContext and CSRF |
+| **B3** | **E1 - does a Tabulator download work inside the 3DDashboard iframe?** | Blob + synthetic anchor click can be blocked by the iframe sandbox or CSP. The user will test this. If it fails, export moves server-side ([WP05](../../../../documents/work-packages/05-approval-output-pdf-and-jobs/README.md)) |
+| **B4** | **Q13 - man-days has no source.** No project→domain link, no per-person effort | Decides whether the HOD types a judgement or the system measures. Does not block the UI, but it decides whether the man-days column is an input or a read-only roll-up |
+
+B1 and B2 are sequencing, not design: the read-only pages can be built first.
+
+## 5. Acceptance checks
+
+Unticked until seen working in 3DDashboard, not in a unit test.
+
+| # | Check |
+|---|---|
+| A1 | A person who is **neither HOD nor In-Charge** of any department sees no create action and no department list |
+| A2 | A person who is HOD of **two** departments gets a picker and sees only those two |
+| A3 | `admin_platform` (HOD of HY) and `PlmUser2` (In-Charge of HY) both reach the same department; `PlmUser1` (Division Head of the BU) is handled per §8 O4 |
+| A4 | The rounds grid lists only the chosen department's assessments, newest first, with year, period, range and state |
+| A5 | Creating a round writes the date range, year and period, connects the department, and creates **one report per Person member** |
+| A6 | Each report lists **only that person's own domains** as rating rows |
+| A7 | Entering man-days updates the points column **without a round trip**, and the grade follows the stored thresholds |
+| A8 | The per-person **man-days total** is visible against the 228-day ceiling, and exceeding it is refused server-side, not only warned in the browser |
+| A9 | The **Note block** (the points and grade rules) is rendered under the rating table |
+| A10 | Projects listed for a person match the **overlap test**, including a project that starts before and ends after the range, and one with an empty finish date |
+| A11 | Trainings listed are `Complete` `EPMTRAINING_TASK` objects under the **connected** plans only |
+| A12 | The training recommendation picker offers **only `RELEASED`** offerings |
+| A13 | A person's report **exports to Excel** and **prints** in a form that resembles R&D-AM-HY, not a raw grid |
+| A14 | The round cannot be completed while any person report is open; completing it is a **deliberate HOD action** |
+| A15 | A completed round is read-only everywhere in the UI, and the platform refuses a write even if the UI is bypassed |
+| A16 | Navigation survives a browser refresh (rule R6) on every page |
+
+## 6. Out of scope here
+
+- The G16 Skill Matrix **export format** beyond a grid - agreed as a later step.
+- Approval routing to the Division Head: doc 10 Q5 is unsettled, and the policy
+  deliberately has no DH state.
+- New-joiner resume attachment - approved in principle, not specified.
+
+## 7. Open items
+
+| # | Item |
+|---|---|
+| ~~O1~~ | ~~Which OOTB REST services can read our custom types~~ | **Answered 2026-10-10** — 3DSearch returns our custom types with id, Title, name, type, policy, **state**, dates, owner and department, but **not** custom attribute values and **not** relationships. See [api.md](api.md). Follow-on: **O7** |
+| O2 | Whether the department picker should also offer departments where the user is **only** a member (read-only view) or strictly HOD/In-Charge |
+| O3 | What a person with **no domains** should see - an empty report, or no report created at all |
+| O4 | Whether a **Division Head** sees every department in the BU read-only |
+| O5 | Whether the man-days column is editable at all once Q13 is answered |
+| O6 | Where the Note block text lives - hardcoded, a JSON file like WGT-07's form descriptors, or read from the platform |
+| **O7** | **Is there an OOTB detail/expand service that returns custom attributes and relationships for a plain business object?** The Project Web Services do it for EPM attributes; if an equivalent exists the REST JAR shrinks a lot. Answer this before writing service code |
+| O8 | The three Annual Monitoring types have **never been indexed**, so federated search will not find them even once objects exist. `update searchindex type` for all three, after a `searchindexcustom` commit - prerequisite for step 2 |
+
+## 8. Related
+
+- [design.md](design.md) - pages, modules, data flow, the rating grid
+- [WP01 doc 10](../../../../documents/work-packages/01-organization-master-data-skill-matrix/10-annual-monitoring.md) §10 - design of record
+- [custom-rest-service.md](../../reference/custom-rest-service.md) - why writes need the JAR, and the JPO-first practice
+- [WP03 02-grid-export-and-print.md](../../../../documents/work-packages/03-project-widget/02-grid-export-and-print.md) - export libraries and licensing
+- [WGT-08](../WGT-08-training-management/README.md) - the training side this consumes

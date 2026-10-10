@@ -1,14 +1,15 @@
 {
-  "_about": "What the PROJECT PERSONNEL / COST ESTIMATION task page shows. One file per form (user, 2026-10-07): change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the subtype's entry in js/config/TaskFields.js.",
+  "_about": "What the PROJECT PERSONNEL / COST ESTIMATION task page shows. One file per form (user, 2026-10-07): change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the subtype's entry in js/config/TaskFields.js. A `derived` row reads a property of the shaped object rather than an attribute - see _source.",
   "_generated": "Written 2026-10-09 from R&D-PRJ-02-Rev.00 page 1, with every field verified read-only in MQL on this VM the same day. Page 2 (the 12-month PROJECT PLANNING grid) is deliberately not here - it is a schedule view of the WBS, not a field set.",
   "_source": {
-    "baseline": "read from the Project Baseline OBJECT linked to this task over IRSTaskBaseline, through our own REST service. The form carries a Rev. No., so its dates are the ones AS APPROVED, not the live schedule (user, 2026-10-09). IMPORTANT - it is the baseline OBJECT, not the copy of this task that lives inside the baseline. The two carry different dates and both are reachable: measured on B-85756263-0000116, the object spans 8 Oct (actual start) to 13 Oct (estimated finish) which is the PROJECT, while its copy of task T-85756263-0000139 spans 12-13 Oct with no actual start at all, which is that one approval task window. The form asks for the project. Confirmed by the user, 2026-10-09. Most tasks have no baseline yet and that is a normal state, not an error - the row says so.",
+    "baseline": "read from the Project Baseline OBJECT linked to this task over IRSTaskBaseline, through our own REST service. The form carries a Rev. No., so its dates are the ones AS APPROVED, not the live schedule (user, 2026-10-09). IMPORTANT - it is the baseline OBJECT, not the copy of this task that lives inside the baseline. The two carry different dates and both are reachable: measured on B-85756263-0000116, the object spans 8 Oct (actual start) to 13 Oct (estimated finish) which is the PROJECT, while its copy of task T-85756263-0000139 spans 12-13 Oct with no actual start at all, which is that one approval task window. The form asks for the project. Confirmed by the user, 2026-10-09. Most tasks have no baseline yet and that is a normal state, not an error - the row says so. The month grid of page 2 is a SECOND call, and not to this endpoint: the OOTB project resource GET /resources/v1/modeler/projects/{baselineId}?$include=tasks answers the baseline's whole task list, with `sequenceOrder` - the WBS order - which our own reader could not find (user, 2026-10-10). A Project Baseline is a project to that service. Our endpoint keeps the one job the platform does not do: following IRSTaskBaseline from the task to its baseline.",
     "project": "read from the PROJECT's dataelements - the eleven cost attributes and both dates live on EPMRandD and arrive in the project call the page already makes",
-    "task": "read from the TASK's own dataelements. Unlike the proposal, this form HAS one: EPMChangeOfScope, measured on EPMPROJECT_PERSONNEL_COST 2026-10-09",
+    "task": "read from the TASK's own dataelements. This form has two: EPMChangeOfScope (boolean, measured 2026-10-09) and EPMReasonForRevision (multiline string, created 2026-10-10)",
     "service": "a list, not a value - its own objects, read through a second call",
-    "none": "not a value: it lives in a relationship, in its own objects, in the WBS or in the approval route"
+    "none": "not a value: it lives in a relationship, in its own objects, in the WBS or in the approval route",
+    "derived": "not an attribute: a property TaskDetailService computed from the response. `from` names the object - `project` (the default) or `task`"
   },
-  "_hidden": "A field with \"hidden\": true is not drawn at all. The three pending rows here are the ones with NO attribute anywhere on the platform (checked against the whole IRS*/EPM* attribute inventory, 2026-10-09): Software Resource, Reviewer Name and Reason for revision. They are kept in the file, with the note that says what is missing, so the gap is a recorded decision and not a silent omission. Delete the one line to bring a row back once the attribute exists.",
+  "_hidden": "A field with \"hidden\": true is not drawn at all. The two pending rows here are the ones with NO attribute anywhere on the platform (checked against the whole IRS*/EPM* attribute inventory, 2026-10-09): Software Resource and Reviewer Name. Reason for revision was the third until 2026-10-10, when EPMReasonForRevision was created - which is what a recorded gap is for. They are kept in the file, with the note that says what is missing, so the gap is a recorded decision and not a silent omission. Delete the one line to bring a row back once the attribute exists.",
   "_display": {
     "text": "one line",
     "longtext": "prose - the form asks for paragraphs here",
@@ -21,7 +22,8 @@
     "approval": "an approval signature - a route task, not a field",
     "date": "a date, printed as 8 Oct 2026",
     "costs": "the printed Cost Estimation table - Sr. No. / Resources / Description / Estimated Price in Rs., with a Total row and the man-day rate as a footnote. Its lines live in `rows`, so adding one is a JSON edit",
-    "mandays": "the printed Estimated Man days table - one column per figure, under its own heading. Its columns live in `columns`"
+    "mandays": "the printed Estimated Man days table - one column per figure, under its own heading. Its columns live in `columns`",
+    "schedule": "the monthly plan - one row per task of the baseline, one column per month it spans, with a link to the platform's own Gantt chart"
   },
   "_calculated": "Five of the eight numbers are produced by the back end and carry DMC User Access = ReadOnly, so this widget never computes them and must never offer them for edit: TotalMandays = IRS + Outside; ManpowerCostIRS = MandaysIRS x Rate; ManpowerCostOutsideAgency = MandaysOutsideAgency x Rate; TotalEstimatedPrice = the two manpower costs + OtherCost. Verified on three live projects 2026-10-09 (ana 310000, Solize XYZ 240552, TEST PROJECT 212500) - the arithmetic is already correct server-side.",
   "form": "R&D-PRJ-02-Rev.00",
@@ -53,6 +55,16 @@
       "note": "The Department linked by IRSDepartmentProject, with the Business Unit that owns it (relationship Company Department)"
     },
     {
+      "ref": "Header",
+      "label": "Rev. No.",
+      "source": "derived",
+      "from": "task",
+      "documentType": "DMPPERSONNEL_COST",
+      "field": "revision",
+      "display": "text",
+      "note": "The revision of the FORM, which is the revision of the document the approval route generates for this task (user, 2026-10-10). The route creates it on the first round and REVISES it on each later one, connecting each revision to that round's own task - so a task's document is its round's revision, and that is the number this form carries. Measured on PROJEC PERSONAAL (39261.35329.24627.54655): document PCE-0000009, revision 01. Empty until the route has run, which is honest - there is no revision of a form nobody has raised. `documentType` ADDED 2026-10-10 and it is a correction, not a refinement: this row used to read the FIRST deliverable of the task, so an attachment the user connected before the route ran would have printed its revision as the form's. The type tells our generated document from an upload - both hang on the same `Task Deliverable` relationship - and it closes the open item O-P11."
+    },
+    {
       "ref": "I",
       "label": "Project Members",
       "source": "service",
@@ -74,6 +86,14 @@
       "field": "EPMChangeOfScope",
       "display": "yesno",
       "note": "The one custom attribute the task itself carries - boolean, default FALSE, and in use: TRUE on two live tasks (Solize XYZ T-85756263-0000134 and TEST PROJECT T-85756263-0000139) as at 2026-10-09"
+    },
+    {
+      "ref": "Footer",
+      "label": "Reason for revision of this form",
+      "source": "task",
+      "field": "EPMReasonForRevision",
+      "display": "longtext",
+      "note": "The second custom attribute the TASK itself carries, created on the platform 2026-10-10 - until then this row was a recorded gap. `EPMReasonForRevision` is a string with `multiline TRUE` and no maximum length, so it is drawn as prose and keeps its line breaks: measured on PROJEC PERSONAAL (39261.35329.24627.54655), whose value is two lines. It sits under Change of Scope at the user's request, not where the paper form prints it (the footer, beside the Rev. No.) - a reviser fills the two together, and the footer of this page is the approval block."
     },
     {
       "ref": "IV",
@@ -155,19 +175,10 @@
     },
     {
       "ref": "X",
-      "label": "Project Planning: task break-up against the months",
-      "hidden": true,
-      "source": "none",
-      "display": "elsewhere",
-      "note": "Page 2 of the printed form - a task x 12-month grid with REV / S-VAL / VER / VAL / CIN markers. It is a view of the OOTB work breakdown (Subtask, Task, Phase, Gate, Milestone) and their estimated dates, not a field set, so it needs its own component and a mapping from those five markers to task subtypes. Not built"
-    },
-    {
-      "ref": "Footer",
-      "label": "Reason for revision of this form",
-      "hidden": true,
-      "source": "none",
-      "display": "pending",
-      "note": "No attribute exists. The printed form carries a Rev. No., so this belongs with whatever freezes the figures at the gate. One DMC string attribute is needed"
+      "label": "Project Planning",
+      "source": "baseline",
+      "display": "schedule",
+      "note": "Page 2 of the printed form: the tasks of the project against the months. Drawn from the Project Baseline's own copy of every task (user, 2026-10-10), for the same reason the dates above come from the baseline - the form carries a Rev. No., so the plan it prints is the plan AS APPROVED, and the live WBS moves afterwards. The printed form rules twelve fixed months; on screen the columns are the months the plan actually spans, because eleven empty columns read as missing data rather than as a short project. The five REV / S-VAL / VER / VAL / CIN markers of the paper grid are NOT drawn: they are a mapping from those letters to task subtypes that nobody has defined yet, and inventing one would put a wrong letter on an approved plan."
     },
     {
       "ref": "Footer",

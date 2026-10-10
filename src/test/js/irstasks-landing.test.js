@@ -157,12 +157,27 @@ pickable.forEach(field => {
 });
 
 // ---- 4. the column set -----------------------------------------------
+//
+// THREE COLUMNS WERE REMOVED ON 2026-10-10 and none of them should come back
+// without something that can fill it. Each drew a dash on every row from the
+// day it was added; measured on the live list of 87 tasks:
+//
+//   Department       not in the task payload at all - it comes from the
+//                    project's IRSDepartmentProject link (O-T7, still open)
+//   Route Task       never assigned a value; the route task is another object
+//   Action Required  `routeTaskAction` is non-empty on 35 of 87 rows and on
+//                    NONE of the 40 IRS-subtype rows this grid shows. The 35
+//                    are inbox tasks, which have their own tab and their own
+//                    Action column
+//
+// An always-empty column reads as data that failed to load, which is worse
+// than not offering it.
 
 const cols = columns(() => {});
 const titles = cols.map(c => c.title);
 assert.deepStrictEqual(titles, [
   '#', 'Title', 'Task Type', 'Status', 'Assigned To', 'Project',
-  'Department', 'Route', 'Route Task', 'Action Required', 'Est. Finish'
+  'Route', 'Est. Finish'
 ], 'the column set taken from the POC grid, minus Needs Review and Actions');
 
 // every data column must name a field that the service's row shape carries,
@@ -274,12 +289,33 @@ Service.list().then(result => {
   const row = Service._toRow({ id: 'X', type: 'T', dataelements: {} });
   ['id', 'type', 'typeLabel', 'stateLabel', 'fromPlatform', 'title', 'state',
    'editable', 'assignedTo', 'projectId', 'projectType', 'projectName',
-   'projectTitle', 'department', 'route', 'routeId', 'routeTask',
-   'actionRequired', 'finish', 'start']
+   'projectTitle', 'route', 'routeId', 'finish', 'start']
     .forEach(key => assert.ok(Object.prototype.hasOwnProperty.call(row, key),
       'the row shape must carry ' + key));
   Object.keys(row).forEach(key => assert.notStrictEqual(row[key], undefined,
     key + ' must default to an empty string'));
+  // the three the grid stopped drawing are gone from the row as well: a key
+  // nothing fills is a column waiting to be re-added by mistake
+  ['department', 'routeTask', 'actionRequired'].forEach(key =>
+    assert.ok(!Object.prototype.hasOwnProperty.call(row, key),
+      key + ' was removed with its column'));
+
+  // ---- Est. Finish reads `dueDate`, and this is the regression that
+  // matters: it was mapped from `taskEstimatedFinishDate`, which 0 of 87 live
+  // tasks carry, so the column AND the grid's default sort (this field) were
+  // both empty from the day they were added
+  const dated = Service._toRow({
+    id: 'D', type: 'T',
+    dataelements: {
+      estimatedStartDate: '2027-03-02T08:00:00.000',
+      dueDate: '2027-03-15T17:00:00.000',
+      taskEstimatedFinishDate: ''
+    }
+  });
+  assert.strictEqual(dated.finish, '2027-03-15T17:00:00.000',
+    'the planned finish is dueDate');
+  assert.strictEqual(dated.start, '2027-03-02T08:00:00.000');
+  assert.ok(dated.finish > dated.start, 'ISO text sorts chronologically');
 
   // ---- the platform's own names win where they arrive ----------------
   Request._body = {

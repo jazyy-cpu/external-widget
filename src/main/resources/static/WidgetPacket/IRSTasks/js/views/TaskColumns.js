@@ -14,13 +14,29 @@
  *   - **Dropped the `Actions` button column.** The POC opened a modal from it;
  *     here the title is the link, as in the project widget, so the row has one
  *     obvious target instead of two.
- *   - **Added `Department`** (user's point 3): a form may hide attributes
- *     depending on the project's department, so the grid should say which one a
- *     task belongs to.
- *   - **Added `Route Task`** (user's point 4): the route task connected to the
- *     custom subtask, beside the route itself.
- *   - **Added `Est. Finish`**, so a list of approvals can be sorted by when
- *     they are due.
+ *   - **Added `Est. Finish`**, so a list can be sorted by when tasks are due.
+ *
+ * ## Three columns removed, 2026-10-10
+ *
+ * `Department`, `Route Task` and `Action Required` were added on 2026-10-03
+ * and every one of them drew a dash on every row ever since. The user asked
+ * what they were for; the answer, measured on the live list of 87 tasks, is
+ * that none of the three can be filled from the call this grid makes:
+ *
+ *   - **Department** is not in the task payload at all. It comes from the
+ *     project's `IRSDepartmentProject` link, so filling it means asking our
+ *     REST JAR once per PROJECT in the list - a feature, not a column
+ *     definition. Open item O-T7 stays open: the reason it was wanted (a form
+ *     hides attributes by department) has not gone away.
+ *   - **Route Task** was never assigned a value in the first place. The route
+ *     task is a separate object and reading it is one call per row.
+ *   - **Action Required** reads `routeTaskAction`, which IS in the payload -
+ *     on 35 of 87 rows, and on **none** of the 40 IRS-subtype rows this grid
+ *     shows. Those 35 are inbox tasks, which have their own tab, where the
+ *     column already exists and is filled.
+ *
+ * An always-empty column is worse than a missing one: it reads as data that
+ * failed to load. Each is a few lines to restore once something can answer it.
  *
  * No header filter on any column: one search control in the toolbar instead,
  * the same decision as the project grid - a filter box under every heading
@@ -113,26 +129,14 @@ define('IRSTasks/views/TaskColumns', [
                 }
             },
             {
-                title: 'Department', field: 'department', width: 140, minWidth: 110,
-                formatter: textOrDash
-            },
-            {
                 title: 'Route', field: 'route', width: 150, minWidth: 120,
                 formatter: textOrDash
             },
             {
-                title: 'Route Task', field: 'routeTask', width: 150, minWidth: 120,
-                formatter: textOrDash
-            },
-            {
-                title: 'Action Required', field: 'actionRequired',
-                width: 140, minWidth: 120,
-                formatter: function (cell) {
-                    var value = cell.getValue();
-                    return value ? Format.badge(value, 'irs-action') : Format.empty();
-                }
-            },
-            {
+                // the task's planned finish - `dueDate` on the platform. It
+                // was mapped from a field that does not exist until
+                // 2026-10-10, so this column, and the default sort that uses
+                // it, were both empty
                 title: 'Est. Finish', field: 'finish', width: 130, minWidth: 115,
                 formatter: dateCell, sorter: 'string'
             }

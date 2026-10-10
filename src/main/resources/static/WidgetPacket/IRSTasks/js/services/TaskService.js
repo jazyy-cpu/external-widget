@@ -61,9 +61,23 @@
  * The approval levels of a task's route - who has to approve, in what order,
  * and what each one has done. The POC read them with
  * `GET resources/v1/modeler/dsrt/routes/{routeId}?$include=tasks`, which is one
- * call per task and belongs to the task view, not to a grid of fifty rows. The
- * row keeps `routeTask` and `actionRequired` so the view can fill them without
- * the grid changing shape.
+ * call per task and belongs to the task view, not to a grid of fifty rows.
+ *
+ * The row used to keep `routeTask` and `actionRequired` empty "so the view can
+ * fill them without the grid changing shape". **Dropped 2026-10-10**, measured
+ * on the live list of 87 tasks:
+ *
+ *   - `routeTaskAction` IS in the payload and non-empty on 35 rows - and on
+ *     **none of the 40 IRS-subtype rows**. Those 35 are the inbox tasks
+ *     themselves, which this grid filters out, and they have their own tab
+ *     with its own Action column. On this tab the field is structurally empty;
+ *   - `routeTask` was never assigned at all, and the route task is a separate
+ *     object - one call per row;
+ *   - `routeTaskRouteId` is empty on all 87, so `routeId` comes from the
+ *     related route, which is why it works.
+ *
+ * Keeping a column against a future that needs a different call is how a grid
+ * ends up with four columns of dashes.
  */
 define('IRSTasks/services/TaskService', [
     'JazzySole/Request',
@@ -140,13 +154,26 @@ define('IRSTasks/services/TaskService', [
             projectType: (project && project.type) || '',
             projectName: projectData.name || '',
             projectTitle: projectData.title || '',
-            department: '',       // not in this payload - see O-T7
             route: (route && (route.dataelements || {}).name) || '',
+            // `routeTaskRouteId` is empty on every row measured, so this is
+            // the related route's id in practice. Both are read because the
+            // first costs nothing and would be the better answer if it came
             routeId: value(item, 'routeTaskRouteId') || (route && route.id) || '',
-            routeTask: '',        // the approval level - the task view's call
-            actionRequired: value(item, 'routeTaskAction') || '',
-            finish: value(item, 'taskEstimatedFinishDate') || '',
-            start: value(item, 'taskEstimatedStartDate') || ''
+            /**
+             * The task's planned finish - `dueDate`, NOT
+             * `taskEstimatedFinishDate`.
+             *
+             * CORRECTED 2026-10-10. The old name is returned by nothing: 0 of
+             * 87 live tasks carry it, so the column had been empty since it
+             * was added and the grid's DEFAULT SORT, which is this field, had
+             * been sorting on nothing. `dueDate` is non-empty on 39 of the 40
+             * IRS tasks, and on a task with `estimatedStartDate` 2027-03-02
+             * and a 10-day duration it reads 2027-03-15 - the estimated
+             * finish, which is what the column says.
+             */
+            finish: value(item, 'dueDate') || '',
+            start: value(item, 'estimatedStartDate') ||
+                   value(item, 'taskEstimatedStartDate') || ''
         };
     }
 
