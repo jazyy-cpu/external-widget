@@ -46,7 +46,7 @@ and the owning organization. **Steps 2-4 of the build order need no JAR work.**
 `DMPTrainingCategory`, `DMPTrainingMode`, ...). **None of them appear** in the
 hit. Only the `ds6w:*` standard set comes back.
 
-This matters directly: `IRSAssessmentYear`, `IRSAssessmentPeriod`, the date
+This matters directly: `IRSAssessmentYear`, the date
 range, and every rating value (`IRSMandaysSpent`, `IRSCurrentYearPoints`,
 `IRSAccumulatedPoints`, `IRSGrade`) are custom attributes. **A rounds grid
 showing year and period cannot be fed by search alone.**

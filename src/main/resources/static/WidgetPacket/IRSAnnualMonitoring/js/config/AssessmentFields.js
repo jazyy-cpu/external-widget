@@ -27,7 +27,20 @@ define('IRSAnnualMonitoring/config/AssessmentFields', [], function () {
     };
 
     /**
-     * The points rule, universal for every department since 2026-10-05.
+     * The points rule.
+     *
+     * !! NOT UNIVERSAL ANY MORE (2026-10-14). This formula is the **AR /
+     * RDAREA** rule only. R&D departments (Hydrodynamics and Multiphysics,
+     * Marine and Offshore Structures, Risk and System Reliability Assessment,
+     * Long Term Strength Assessment) do not use it at all: their points are
+     * TYPED by the HOD from the nature of the work, and their form has no
+     * man-days column. Calling points() for an R&D rating would invent a
+     * number the rule has no use for.
+     *
+     * The grid columns differ with it - see doc 10 section 4. This file still
+     * carries only the AR rule because the division branch is built with the
+     * rating grid, which does not exist yet; it is noted here so the next
+     * person does not assume one rule from one function.
      *
      *   Points = min(10, 0.044 x man-days)      per domain, per year
      *
@@ -97,8 +110,7 @@ define('IRSAnnualMonitoring/config/AssessmentFields', [], function () {
         grades: 'Grade A: Reviewer.   Grade B: Independent.   Grade C: Under Supervision.'
     };
 
-    /** The assessment period values, from attribute IRSAssessmentPeriod. */
-    var PERIODS = ['Annual', 'H1', 'H2'];
+
 
     /**
      * The financial year runs April to March (doc 10 section 10.3). Returns the
@@ -136,7 +148,6 @@ define('IRSAnnualMonitoring/config/AssessmentFields', [], function () {
         TYPES: TYPES,
         STATES: STATES,
         STATE_BADGE: STATE_BADGE,
-        PERIODS: PERIODS,
         POINTS_FACTOR: POINTS_FACTOR,
         POINTS_CAP: POINTS_CAP,
         MANDAYS_PER_YEAR: MANDAYS_PER_YEAR,

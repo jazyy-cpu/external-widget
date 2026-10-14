@@ -4,7 +4,7 @@
 |---|---|
 | Work package | [WP01](../../../../documents/work-packages/01-organization-master-data-skill-matrix/README.md) |
 | Design of record | [WP01 doc 10](../../../../documents/work-packages/01-organization-master-data-skill-matrix/10-annual-monitoring.md) - **read §10 before this page** |
-| Status | **skeleton built 2026-10-10**, 20 unit checks pass, **never opened in 3DDashboard**. Shell, department picker, rounds grid and create form exist; listing and creating both wait on the REST service, and the HOD check is not applied yet (a visible banner says so). Schema and both delete guards are live on the VM; O1 answered - [api.md](api.md) |
+| Status | **working end to end (2026-10-14).** A round is created from the widget: the assessment, one report per member, one rating per domain held, the R&D interfaces and the REL2REL links - verified by reading the database back. Listing, the HOD check and both refusals are live. Next: the rating grid, the points/grade triggers, and the G16 matrix - [api.md](api.md) |
 | Source | R&D requirement G15/G16; forms R&D-AM-HY/-ST/-RR/-LS Rev.04 and RDAREA-AM-FS/-SR; user instructions 2026-10-05 |
 | Widget | `WidgetPacket/IRSAnnualMonitoring/` (new packet) |
 
@@ -31,7 +31,7 @@ The user's flow, 2026-10-05:
    automatically**, and **each person's report then runs its own lifecycle**.
 6. **Projects are filled in from the financial year** - the master object
    carries a start and end date, defaulting to April-March, changeable so a
-   department can run two reports in one year. A project counts if it falls in
+   department can assess a shorter window. A project counts if it falls in
    that range and the person is a member.
 7. **Trainings undergone** come from the training tasks the person is assigned
    to in the connected training plans.

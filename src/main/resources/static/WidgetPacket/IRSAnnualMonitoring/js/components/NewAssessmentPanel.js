@@ -6,12 +6,13 @@
  * never run. Native inputs plus Bootstrap classes only.
  *
  * What it collects is exactly the four things an IRSSkillAssessment carries -
- * year, period and the two dates - plus a Title. The date range defaults to the
+ * year and the two dates - plus a Title. The date range defaults to the
  * current April-March financial year and is editable, because a department is
- * allowed two rounds in one year (doc 10 section 10.3).
+ * one round per department per year (doc 10 section 2.5); the range is editable
+ * only to assess a shorter window.
  *
  * It does NOT validate against existing rounds. "One assessment per department
- * per year and period" is a rule the platform has to enforce with a create
+ * per year" is a rule the platform has to enforce with a create
  * check trigger; a browser check would only be a courtesy, and is not written
  * here so that nobody mistakes it for the control.
  */
@@ -71,16 +72,6 @@ define('IRSAnnualMonitoring/components/NewAssessmentPanel', [
             yearInput.min = '2000';
             yearInput.max = '2100';
 
-            var periodSelect = document.createElement('select');
-            periodSelect.className = 'form-select form-select-sm';
-            Fields.PERIODS.forEach(function (p) {
-                var option = document.createElement('option');
-                option.value = p;
-                option.textContent = p;
-                periodSelect.appendChild(option);
-            });
-            field(row, 'Period', periodSelect);
-
             var startInput = field(row, 'From', input('date', range.start));
             var endInput = field(row, 'To', input('date', range.end));
 
@@ -88,8 +79,9 @@ define('IRSAnnualMonitoring/components/NewAssessmentPanel', [
 
             var hint = document.createElement('div');
             hint.className = 'form-text';
-            hint.textContent = 'Defaults to the April-March financial year. Change it to run ' +
-                'two rounds in one year. Projects and trainings are selected by overlap with this range.';
+            hint.textContent = 'Defaults to the April-March financial year. There is one ' +
+                'round per department per year; change the range only to assess a shorter ' +
+                'window. Projects and trainings are selected by overlap with this range.';
             card.appendChild(hint);
 
             var errorBox = document.createElement('div');
@@ -132,7 +124,6 @@ define('IRSAnnualMonitoring/components/NewAssessmentPanel', [
                     departmentCode: department.code,
                     title: (titleInput.value || '').trim(),
                     year: Number(yearInput.value),
-                    period: periodSelect.value,
                     startDate: startInput.value,
                     endDate: endInput.value
                 };

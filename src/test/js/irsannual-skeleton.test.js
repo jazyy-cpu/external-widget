@@ -168,7 +168,6 @@ check('policy.state is split, keeping only the state', () => {
 check('custom attributes are blank, because search does not return them', () => {
   const row = Service._toRow({ physicalId: 'X', attributes: {} });
   assert.strictEqual(row.year, '');
-  assert.strictEqual(row.period, '');
   assert.strictEqual(row.startDate, '');
   assert.strictEqual(row.endDate, '');
 });
@@ -187,10 +186,40 @@ const pending = Service.list({ departmentCode: '0000000001' }).then((result) => 
     assert.strictEqual(result.rows.length, 0);
     assert.ok(result.reason, 'a reason must be given to the user');
   });
+  check('list() sends the department as `params`, the option the wrapper reads', () => {
+    // The regression: the option was called `query`. JazzySole/Request names it
+    // `params` and silently ignores anything else, so the request went out with
+    // no department and the service refused it with 400. Nothing in the browser
+    // said which option was wrong - only the network log did.
+    const opts = Request._calls[0].opts || {};
+    assert.ok(opts.params, 'no params: the query option is named `params`');
+    assert.strictEqual(opts.params.department, '0000000001');
+  });
+
   check('list() targets our own REST service', () => {
     assert.ok(Request._calls.length > 0);
-    assert.ok(Request._calls[0].path.indexOf('resources/v1/irs/annualmonitoring') === 0);
+    // irsmonitoring, NOT irs/annualmonitoring: the monitoring JAR has its own
+    // JAX-RS application path and must not nest under the hello JAR's
+    assert.ok(Request._calls[0].path.indexOf('resources/v1/irsmonitoring') === 0,
+      'unexpected path: ' + Request._calls[0].path);
   });
+});
+
+check('create() sends the body as `data`, and the key is `department`', () => {
+  // do NOT clear _calls: the list() checks below run asynchronously and read
+  // _calls[0], so emptying it here made them inspect this call instead
+  const before = Request._calls.length;
+  Service.create({
+    departmentId: 'ABC123', departmentCode: '0000000001',
+    title: 'T', year: '2026',
+    startDate: '2026-04-01', endDate: '2027-03-31'
+  }).catch(() => {});
+  const opts = Request._calls[before].opts || {};
+  // `body` is ignored by the wrapper, and the service's parameter is
+  // `department` - sending departmentId created nothing, silently
+  assert.ok(opts.data, 'no data: the body option is named `data`');
+  assert.strictEqual(opts.data.department, 'ABC123');
+  assert.strictEqual(opts.method, 'POST');
 });
 
 // ---- 7. the seeded file is read from an ABSOLUTE url ------------------
@@ -223,7 +252,10 @@ console.log('columns');
 check('the grid has its final shape from the start', () => {
   const cols = Columns.build({});
   const fields = cols.map((c) => c.field);
-  ['title', 'name', 'year', 'period', 'startDate', 'endDate', 'state'].forEach((f) => {
+  // no Period column: H1 / H2 were removed on 2026-10-14. They were never in a
+  // customer document, and the rule is one round per department per year.
+  assert.ok(fields.indexOf('period') < 0, 'the Period column should be gone');
+  ['title', 'name', 'year', 'startDate', 'endDate', 'state'].forEach((f) => {
     assert.ok(fields.indexOf(f) >= 0, 'missing column: ' + f);
   });
 });

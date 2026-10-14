@@ -135,6 +135,30 @@ define('JazzySole/Request', [
         try {
             if (!err.status && transport && transport.status) { err.status = transport.status; }
         } catch (e) { /* transport not readable */ }
+
+        // THE RESPONSE BODY, when the transport reported only its own wording.
+        //
+        // On a failure WAFData hands `reason` back as a string or an Error -
+        // "NetworkError: URL ... return ResponseCode with value '400'" - so the
+        // branch above never sees the server's JSON, and a caller that wants to
+        // show WHY the server refused has nothing to show. Our REST services
+        // answer every failure with {error: {status, code, message}}, and that
+        // message is the only part written for a person.
+        //
+        // Only `body` is filled. `message` is deliberately left alone: it is
+        // matched by isCsrfFailure above, and rewriting it would change which
+        // failures look like a stale token. (Observed 2026-10-14: the widget
+        // showed the transport's 400 instead of "... already has an assessment
+        // round for 2026".)
+        if (!err.body) {
+            try {
+                var raw = transport && transport.responseText;
+                if (raw && typeof raw === 'string') {
+                    var parsed = JSON.parse(raw);
+                    if (parsed && typeof parsed === 'object') { err.body = parsed; }
+                }
+            } catch (notJson) { /* an HTML error page, or no body at all */ }
+        }
         return err;
     }
 

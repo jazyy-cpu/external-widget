@@ -131,3 +131,43 @@ rather than throwing.
 Open: whether the third widget should share one copy of this resolver rather
 than a third hand-copied one. Not done now - the duplication is 30 lines and
 the shared-module question belongs with the JazzySole layer.
+
+## Update 2026-10-14 - A1-A9 pass in the dashboard, and B2 is answered
+
+Opened on the PROJECT EXECUTION / MONITORING dashboard tab as user Sharad S
+Dhavalikar, credential `Common Space . IRS . Leader`.
+
+**What rendered.** Title bar, degraded banner, department `<select>` already on
+Hydrodynamics and Multiphysics, New assessment / Refresh, credential bar, the
+grid with its final eight columns and an empty-state "No assessment rounds".
+The create form opened inline with every default correct: title
+`Hydrodynamics and Multiphysics 2026`, year 2026, period Annual,
+01-04-2026 to 31-03-2027. No console error came from our code - the only
+errors on the page are the dashboard's own `[3DSearch] No active tenant!`.
+
+### B2 is answered: the write reaches 3DSpace and only routing refuses it
+
+```
+POST https://<server>/3dspace/resources/v1/irs/annualmonitoring/assessments
+     ?tenant=OnPremise&SecurityContext=<redacted>
+-> 404
+```
+
+**404, not 401 and not 403.** The request left the widget with its tenant and
+security context attached, crossed the origin to 3DSpace and was rejected by
+*routing alone*. There is no CSRF failure and no authentication failure in the
+path.
+
+One honest limit: an unknown path returns 404 before the resource's own auth
+runs, so this proves the request *arrives*, not that it would be *authorised*.
+That is only provable once the JAR answers the path - but the failure modes B2
+was written to distinguish (a modeler that cannot be reached, versus a token
+the wrapper does not carry) are both ruled out.
+
+The GET fails identically, so listing is blocked by the same single cause.
+
+**Acceptance:** A1-A9 (shell, picker, grid, create form, defaults, validation)
+pass. A10 onward need the service.
+
+The skeleton has nothing left to prove in the browser. Everything open now
+reduces to one thing: the REST service.

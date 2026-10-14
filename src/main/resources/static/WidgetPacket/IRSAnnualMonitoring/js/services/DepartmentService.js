@@ -26,11 +26,17 @@ define('IRSAnnualMonitoring/services/DepartmentService', [
     'use strict';
 
     /**
-     * The planned endpoint on our own REST JAR. It does not exist yet; this is
-     * the path WGT-10 reserves for it, so the fallback can be deleted in one
-     * place later.
+     * The endpoint on our own REST JAR - irs-monitoring-rest, built 2026-10-14.
+     *
+     * It returns {login, departments:[{id, code, label, roles, roleLabels,
+     * isHod, isInCharge}]}, derived entirely from the AUTHENTICATED user: this
+     * widget cannot ask on anyone else's behalf, by design.
+     *
+     * The path is NOT under 'resources/v1/irs' - that is the hello JAR's
+     * application path, and nesting one JAX-RS application under another's
+     * makes which one serves a URL container-dependent.
      */
-    var ENDPOINT = 'resources/v1/irs/annualmonitoring/my-departments';
+    var ENDPOINT = 'resources/v1/irsmonitoring/departments/mine';
 
     var cache = null;
 
@@ -152,14 +158,18 @@ define('IRSAnnualMonitoring/services/DepartmentService', [
             return fromService().then(function (departments) {
                 cache = { departments: departments, degraded: false, reason: '' };
                 return cache;
-            }).catch(function () {
-                // The endpoint is not built yet, which is expected today.
+            }).catch(function (err) {
+                // The service is built; this path is now a REAL degradation -
+                // the JAR is not deployed, the session expired, or the read
+                // failed. The reason carries the error so it is diagnosable
+                // from the banner instead of only from the console.
+                var detail = (err && err.message) ? ' (' + err.message + ')' : '';
                 return seeded().then(function (departments) {
                     cache = {
                         departments: departments,
                         degraded: true,
-                        reason: 'The Head of Department / In-Charge check is not wired yet - ' +
-                            'it needs the custom REST service. Every department is listed.'
+                        reason: 'The Head of Department / In-Charge check could not be ' +
+                            'applied, so every department is listed' + detail + '.'
                     };
                     return cache;
                 });

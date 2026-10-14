@@ -10,7 +10,7 @@
  *   1. the three Annual Monitoring types have NEVER BEEN INDEXED, so search
  *      finds nothing until `update searchindex type` is run for each
  *      (WGT-10 open item O8). The list will legitimately be empty until then;
- *   2. search does NOT return custom attribute values, so the year, period and
+ *   2. search does NOT return custom attribute values, so the year and
  *      date range of a round cannot come from it (api.md section 3.1). The grid
  *      shows what search gives and leaves those columns blank rather than
  *      inventing them.
@@ -31,8 +31,12 @@ define('IRSAnnualMonitoring/services/AssessmentService', [
 ], function (Request, Fields) {
     'use strict';
 
-    /** Our own REST JAR. Reserved path; not built yet. */
-    var BASE = 'resources/v1/irs/annualmonitoring';
+    /** Our own REST JAR, irs-monitoring-rest. Live since 2026-10-14. */
+    // The Annual Monitoring JAR's own application path. NOT under
+    // 'resources/v1/irs' - that belongs to irs-hello-rest, and nesting one
+    // JAX-RS application under another's path makes which one serves a URL
+    // container-dependent (IrsMonitoringModeler, 2026-10-14).
+    var BASE = 'resources/v1/irsmonitoring';
 
     /**
      * Map one search hit to a grid row.
@@ -59,7 +63,6 @@ define('IRSAnnualMonitoring/services/AssessmentService', [
             createdBy: attr(hit, 'ds6w:who/ds6w:responsible'),
             // Custom attributes are NOT returned by search - see the header.
             year: '',
-            period: '',
             startDate: '',
             endDate: ''
         };
@@ -80,8 +83,15 @@ define('IRSAnnualMonitoring/services/AssessmentService', [
             var opts = options || {};
             var query = 'flattenedtaxonomies:"types/' + Fields.TYPES.assessment + '"';
 
+            // The id is sent in preference to the code. The service accepts
+            // either - it resolves a P&O name to an id before it does anything
+            // else - but the id needs no lookup and cannot be ambiguous.
+            // `params`, not `query`. JazzySole/Request names the query-string
+            // option `params` and silently ignores anything else, so `query`
+            // sent the request with NO department at all - which the service
+            // correctly refused with 400. Caught in the dashboard, 2026-10-14.
             return Request.get(BASE + '/assessments', {
-                query: { department: opts.departmentCode || '' }
+                params: { department: opts.departmentId || opts.departmentCode || '' }
             }).then(function (body) {
                 var rows = ((body && body.assessments) || []).map(function (a) {
                     return {
@@ -91,7 +101,6 @@ define('IRSAnnualMonitoring/services/AssessmentService', [
                         state: a.state,
                         department: a.department,
                         year: a.year,
-                        period: a.period,
                         startDate: a.startDate,
                         endDate: a.endDate,
                         reports: a.reports,
@@ -100,31 +109,44 @@ define('IRSAnnualMonitoring/services/AssessmentService', [
                 });
                 return { rows: rows, indexed: true, source: 'service' };
             }).catch(function (err) {
-                // The service is not built yet. Say so rather than showing an
-                // empty grid that looks like "this department has no rounds".
+                // The service IS built now, so this path means a real failure -
+                // the JAR is not deployed, the session expired, or the read
+                // broke. Say so rather than showing an empty grid, which would
+                // read as "this department has no rounds".
                 var reason = err && err.message ? err.message : String(err);
                 return { rows: [], indexed: false, source: 'none', reason: reason, query: query };
             });
         },
 
         /**
-         * Create a round. Needs the REST service - see the module header.
+         * Create a round: the assessment, one report per department member, and
+         * one rating per domain each member holds.
          *
-         * @param {Object} data {departmentId, departmentCode, title, year, period, startDate, endDate}
+         * The key is `department`, singular, and it carries the id - that is
+         * the service's parameter name, and sending departmentId/departmentCode
+         * instead silently created nothing (the service read an empty
+         * department and refused).
+         *
+         * Dates go as ISO yyyy-MM-dd. The server converts them: a `kind date`
+         * attribute rejects ISO outright, and the browser should not have to
+         * know the platform's date format.
+         *
+         * @param {Object} data {departmentId, departmentCode, title, year, startDate, endDate}
          */
         create: function (data) {
+            // `data`, not `body`, and an OBJECT rather than a string: the
+            // wrapper serialises it and sets Content-Type itself. It also adds
+            // the CSRF token and retries once if the token has expired, which
+            // is the whole reason writes go through send().
             return Request.send(BASE + '/assessments', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    departmentId: data.departmentId,
-                    departmentCode: data.departmentCode,
+                data: {
+                    department: data.departmentId || data.departmentCode,
                     title: data.title,
                     year: data.year,
-                    period: data.period,
                     startDate: data.startDate,
                     endDate: data.endDate
-                })
+                }
             });
         }
     };

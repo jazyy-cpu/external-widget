@@ -17,6 +17,44 @@ define('IRSAnnualMonitoring/views/AssessmentListView', [
 ], function (TabulatorLoader, Notify, AssessmentService, AssessmentColumns, NewAssessmentPanel) {
     'use strict';
 
+    /**
+     * The message the server sent, when it sent one.
+     *
+     * Our REST services answer every failure with
+     * {error: {status, code, message}}, and JazzySole/Request hangs the parsed
+     * body off the Error as `err.body`. That message is written for a person;
+     * `err.message` is often only the transport's wording ("...returned
+     * ResponseCode with value '400'"), which tells the reader nothing about
+     * what to change.
+     */
+    function serverMessage(err) {
+        try {
+            var body = err && err.body;
+            if (body && body.error && body.error.message) {
+                return body.error.message;
+            }
+        } catch (ignored) { /* fall through below */ }
+
+        // No body. The transport's own sentence is a URL and a response code -
+        // true, and useless to the person reading it. Say what we actually
+        // know, and keep the technical text out of their way.
+        //
+        // This is the fallback, NOT the normal path: the service sends its
+        // refusals as 200 + success:false precisely so the sentence above
+        // arrives. Reaching here means something else failed.
+        var status = 0;
+        try {
+            var match = /ResponseCode with value "?(\d{3})/.exec((err && err.message) || '');
+            if (match) { status = parseInt(match[1], 10); }
+        } catch (ignored2) { status = 0; }
+
+        if (status === 401) { return 'Your session has expired. Reload the page and sign in again.'; }
+        if (status === 403) { return 'You are not allowed to do this for this department.'; }
+        if (status === 404) { return 'The Annual Monitoring service did not answer at that address.'; }
+        if (status >= 500)  { return 'The server could not complete this. Nothing was changed.'; }
+        return (err && err.message) ? err.message : String(err);
+    }
+
     /** Leave room for the top band; the grid takes the rest of the widget. */
     function availableHeight() {
         var height = (widget.body && widget.body.clientHeight) || 420;
@@ -77,8 +115,11 @@ define('IRSAnnualMonitoring/views/AssessmentListView', [
                         // Be explicit. An empty grid otherwise reads as "this
                         // department has no rounds", which is a different and
                         // much more reassuring statement than the truth.
-                        note('No rounds could be read yet. The Annual Monitoring REST service ' +
-                             'is not built, so nothing can be listed. (' + (result.reason || '') + ')',
+                        // The service is live, so this is a REAL failure now -
+                        // not "the feature is missing". Saying the wrong one
+                        // sends the reader to the wrong place.
+                        note('The rounds could not be read, so this list is not showing ' +
+                             'what the department has. ' + (result.reason || ''),
                              'warning');
                     } else if (!result.rows.length) {
                         note('This department has no assessment rounds yet.', 'secondary');
@@ -100,12 +141,27 @@ define('IRSAnnualMonitoring/views/AssessmentListView', [
                             return load();
                         }).catch(function (err) {
                             panel.busy(false);
-                            // The expected failure today: the endpoint does not
-                            // exist. Say which half failed, so a real error
-                            // later is not mistaken for this one.
-                            panel.error('The round could not be created. The Annual Monitoring ' +
-                                'REST service is not built yet, so there is nothing to post to. ' +
-                                'Underlying error: ' + (err && err.message ? err.message : err));
+                            // SHOW THE SERVER'S OWN WORDS. Every refusal this
+                            // endpoint makes is one the head can act on - a
+                            // duplicate round, a department with no domains or
+                            // no members, a department they do not run - and
+                            // the service words each of them for a person. The
+                            // first version of this printed a fixed sentence
+                            // instead, so a duplicate round read as "the REST
+                            // service is not built yet", which was both wrong
+                            // and useless (seen in the dashboard, 2026-10-14).
+                            // A NOTIFICATION, not only the inline box: the user
+                            // asked for it, and it is the right shape - the
+                            // refusal is about the whole action, and the form is
+                            // still open and still valid to correct.
+                            //
+                            // warning, not error: "this year already has a
+                            // round" is a fact about the data, not a fault. An
+                            // error toast never auto-dismisses, which is for
+                            // things that are broken.
+                            var why = serverMessage(err);
+                            Notify.warning(why);
+                            panel.error(why);
                         });
                     }
                 });

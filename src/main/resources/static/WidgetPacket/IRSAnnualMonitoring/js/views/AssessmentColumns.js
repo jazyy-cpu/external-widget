@@ -46,7 +46,6 @@ define('IRSAnnualMonitoring/views/AssessmentColumns', [
                 },
                 { title: 'Code', field: 'name', width: 130 },
                 { title: 'Year', field: 'year', width: 80, hozAlign: 'right' },
-                { title: 'Period', field: 'period', width: 90 },
                 { title: 'From', field: 'startDate', width: 110 },
                 { title: 'To', field: 'endDate', width: 110 },
                 {

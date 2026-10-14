@@ -188,6 +188,31 @@ J1-J3 were answered by the September build; what is left is narrower.
 | J5 | A direct copy into `WEB-INF\lib` **can be lost on a WAR rebuild**. The candidate persistent input is `C:\DassaultSystemes\R2024x\3DSpace\STAGING\ematrix\WEB-INF\lib` - confirm the packaging process before relying on the deployment | **open** |
 | J6 | Authorization model for write endpoints: `getAuthenticatedContext(request, false)` only proves a session. The HOD / In-Charge check must be re-enforced server-side | **open** |
 
+## 6b. Where the JAR sources live - changed 2026-10-14
+
+**The VM is now the only copy.** `C:\dev\jar-creation\<project>\` holds the source,
+`MANIFEST.MF`, `build.ps1` and the README for each of the three JARs
+(`irs-hello-rest`, `irs-project-rest`, `irs-monitoring-rest`).
+
+The host copy under `external-widget/rest-jar/` was deleted at the user's
+request, because Java sitting inside the Spring project looked like part of the
+Spring app. It never was: Maven does not compile it, and it runs inside 3DSpace's
+TomEE, not in Spring.
+
+**Know what that costs.** The earlier note (2026-10-11) kept a host master for a
+reason: *"a VM mirror does not survive a rebuilt VM and cannot be handed to a
+customer"*, and this workspace is not under version control. Before deleting, the
+host and VM trees were compared file by file and three differences were found -
+two READMEs that existed only on the host, and a `ProjectContextReader.java`
+where the **host** held the newer version (the ProgramCentral removal) while the
+VM still had the older one. All three were pushed up and every file verified
+byte for byte first, so nothing was lost - but had the delete been done without
+that check, `irs-project-rest` would have been left unable to compile, because
+its `build.ps1` no longer lists the `program.jar` and `common.jar` that the stale
+reader needed.
+
+**If the VM is ever rebuilt or handed over, copy `C:\dev\jar-creation` out first.**
+
 ## 7. Sources
 
 - **`documents/technical-notes/2026-09-22-r2024x-custom-rest-api-jar.md`** - the
@@ -220,7 +245,7 @@ latter carrying the origin project's name and `EPMProjectNo`.
 
 | | |
 |---|---|
-| Host master | `external-widget/rest-jar/irs-project-rest/` - its README has the payload, the error shapes and the open items |
+| Source | `C:\dev\jar-creation\irs-project-rest\` **on the VM** - its README has the payload, the error shapes and the open items. The host copy under `external-widget/rest-jar/` was **deleted 2026-10-14** at the user's request: Java inside the Spring project read as part of the Spring app, which it never was. See the warning below |
 | VM build copy | `C:\dev\jar-creation\irs-project-rest` |
 | Status | **built, zero warnings, verified through its JPO twin. NOT deployed** - that needs the ~216s TomEE restart |
 | Worklog | `worklog/entries/2026/2026-10-07-04_project-context-rest-service.md` |

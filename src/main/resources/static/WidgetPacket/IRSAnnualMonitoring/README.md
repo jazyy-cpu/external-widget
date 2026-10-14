@@ -33,19 +33,22 @@ node src/test/js/irsannual-skeleton.test.js
 | Department picker | plain text when there is one department, a `<select>` when there are several; the choice is a preference, so it survives a refresh |
 | Routing | four routes registered; `assessments` is built, the other three show an honest placeholder with a Back button rather than a blank page |
 | Rounds grid | Tabulator, final column shape, state badges |
-| Create form | collects Title, Year, Period and the April-March range, validates the dates, and posts |
+| Create form | collects Title, Year and the April-March range, validates the dates, and posts. There is no Period field: one round per department per year (doc 10 §2.5) |
 
 ## What does not work, and why
 
 Both are blockers recorded in WGT-10, not oversights.
 
-**The Head of Department check is not applied.** The real rule - the person
+**The Head of Department check now works** (2026-10-14). The rule - the person
 holds `role_IRSHeadOfDepartment` or `role_IRSInCharge` on the Department through
-`IRSResponsibility` - is a relationship traversal, and federated search indexes
-objects, not links. OOTB REST cannot answer it. So `DepartmentService.mine()`
-falls back to the seeded `js/data/departments.json`, reports `degraded: true`,
-and the App shows a **visible banner**. The widget never silently implies the
-check passed.
+`IRSResponsibility` - is a relationship traversal that OOTB REST cannot answer,
+so it needed our own service: `GET resources/v1/irsmonitoring/departments/mine`
+in `irs-monitoring-rest`, and the platform enforces it again on every read.
+
+The seeded `js/data/departments.json` is still there, but it is now the
+**failure** path, not the normal one: if the service cannot be reached the
+widget lists every department, reports `degraded: true` with the error attached,
+and the App shows a visible banner. It never silently implies the check passed.
 
 **Nothing can be listed or created.** Both go to
 `resources/v1/irs/annualmonitoring/...` on our own REST JAR, which is not built.
