@@ -27,7 +27,8 @@
   },
   "_calculated": "Five of the eight numbers are produced by the back end and carry DMC User Access = ReadOnly, so this widget never computes them and must never offer them for edit: TotalMandays = IRS + Outside; ManpowerCostIRS = MandaysIRS x Rate; ManpowerCostOutsideAgency = MandaysOutsideAgency x Rate; TotalEstimatedPrice = the two manpower costs + OtherCost. Verified on three live projects 2026-10-09 (ana 310000, Solize XYZ 240552, TEST PROJECT 212500) - the arithmetic is already correct server-side.",
   "form": "R&D-PRJ-02-Rev.00",
-  "title": "PROJECT PERSONNEL / COST ESTIMATION",
+  "_titleRenamed": "Was \"PROJECT PERSONNEL / COST ESTIMATION\" until 2026-10-11, when the user renamed the form - first to \"PROJECT RESOURCE AND SCHEDULE PLANNING AND COST\" and then, the same day, to the wording here. Changed HERE rather than in the PDF config because this file is the one source both the screen and the printed page are generated from - renaming it in one of them would be the drift this arrangement exists to prevent.",
+  "title": "PROJECT RESOURCE/COST ESTIMATION AND SCHEDULE PLANNING",
   "taskType": "EPMPROJECT_PERSONNEL_COST",
   "fields": [
     {

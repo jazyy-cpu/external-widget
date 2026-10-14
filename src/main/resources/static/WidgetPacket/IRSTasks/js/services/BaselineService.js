@@ -66,47 +66,111 @@ define('IRSTasks/services/BaselineService', [
      * calendars. A read-only month grid needs nine, and every extra field is
      * work the server does per task on a form that is only printed.
      *
-     * `level` is left off too. The Gantt passes `level=1`; without it the
-     * service answers with the same seven tasks for this baseline, so the
-     * default is at least as deep. Whether a NESTED work breakdown comes back
-     * whole is untested - no project here has one yet (open item).
+     * ## `level=0` - THE WHOLE WORK BREAKDOWN, NOT JUST ITS TOP ROW
+     *
+     * Without `level` the service answers with the FIRST LEVEL ONLY. That was
+     * invisible until 2026-10-12, when a baseline with phases showed three
+     * rows - "Phase 1", "Phase 2 Task", "Phase 3 Task" - and the seven tasks
+     * inside them were silently missing from an approved plan. Every baseline
+     * before it was flat, so first level and whole plan were the same list.
+     *
+     * Measured that day against baseline B-85756263-0000125, all four in one
+     * browser session:
+     *
+     *   (no level)   3 rows, no children
+     *   level=10     3 rows, no children   <- the Gantt's own value, lazy
+     *   $depth=10    3 rows, no children      expansion, NOT a depth request
+     *   level=0     10 rows, nested         <- this one
+     *
+     * `level=0` means "all levels" and nests each task's own tasks under a
+     * `children` array, with the SAME fields filled in at every depth - the
+     * `$fields` list below is not repeated per level. So one call still
+     * answers the whole plan; there is no per-task fetch and no N+1.
+     *
+     * ## Two numbers come back, and both are used
+     *
+     *   `sequenceOrder`  1..n over the WHOLE plan, depth first. The gaps gave
+     *                    the bug away before the children did: the top level
+     *                    read 1, 5, 8, so six rows were unaccounted for.
+     *   `taskWBS`        the hierarchical number - "1", "1.1", "1.2". This is
+     *                    what the row prints, because a flat list of ten tasks
+     *                    with no shape is harder to read than the same list
+     *                    numbered.
+     *
+     * Both are the platform's own, computed by the service. They are NOT the
+     * `Sequence Order` / `Task WBS` attributes on the Subtask relationship -
+     * those are stored as 1 on every link here (MQL, 2026-10-12), which is
+     * what sent an earlier version looking for an order that is not in the
+     * database.
+     *
+     * The rows stay FLAT, by the user's call (2026-10-12): the plan is a
+     * printed form, the number carries the hierarchy, and nothing else about
+     * the table has to change.
      */
     var PLAN_PATH = 'resources/v1/modeler/projects/';
     var PLAN_FIELDS = [
         'none', 'title',
         'tasks.title', 'tasks.nlsType', 'tasks.state', 'tasks.sequenceOrder',
+        'tasks.taskWBS',
         'tasks.estimatedStartDate', 'tasks.dueDate', 'tasks.sourceId',
         'tasks.isSummaryTask', 'tasks.isTypeMilestone'
     ].join(',');
+
+    /** How deep the flattener will follow `children` before giving up. */
+    var MAX_PLAN_DEPTH = 20;
+
+    /**
+     * The nested answer, depth first, as one flat list.
+     *
+     * Depth first is the order the plan is read in - a phase, then what is
+     * inside it - and it is also `sequenceOrder`, so the sort below is a
+     * safety net rather than the thing that creates the order.
+     */
+    function flattenPlan(tasks, depth, out) {
+        (tasks || []).forEach(function (item) {
+            item = item || {};
+            out.push({
+                id: text(item.id),
+                name: text(item.title),
+                type: text(item.nlsType) || text(item.type),
+                state: text(item.state),
+                // WBS order, straight from the platform - no sorting here
+                sequence: Number(item.sequenceOrder) || 0,
+                // "1", "1.1", "1.2" - what the row prints
+                wbs: text(item.taskWBS),
+                depth: depth,
+                summary: text(item.isSummaryTask) === 'TRUE',
+                milestone: text(item.isTypeMilestone) === 'TRUE',
+                // the LIVE task this copy was taken from - how the form
+                // finds its own row in the plan
+                sourceId: text(item.sourceId),
+                estimatedStartDate: text(item.estimatedStartDate),
+                estimatedFinishDate: text(item.dueDate)
+            });
+            // `children` is what level=0 nests under; `tasks` is accepted too
+            // so that a flat answer from an older server still reads
+            if (depth < MAX_PLAN_DEPTH) {
+                flattenPlan(item.children || item.tasks, depth + 1, out);
+            }
+        });
+        return out;
+    }
 
     function readPlan(baselineId) {
         return Request.get(PLAN_PATH + encodeURIComponent(baselineId), {
             params: {
                 '$simpleJSON': 'true',
                 '$include': 'none,tasks',
-                '$fields': PLAN_FIELDS
+                '$fields': PLAN_FIELDS,
+                // see the note above: 0 is ALL levels, and it is the only
+                // value that returns them
+                'level': '0'
             }
         }).then(function (body) {
             var data = (body && body.data) || [];
             var tasks = (data[0] && data[0].tasks) || [];
-            return tasks.map(function (item) {
-                item = item || {};
-                return {
-                    id: text(item.id),
-                    name: text(item.title),
-                    type: text(item.nlsType) || text(item.type),
-                    state: text(item.state),
-                    // WBS order, straight from the platform - no sorting here
-                    sequence: Number(item.sequenceOrder) || 0,
-                    summary: text(item.isSummaryTask) === 'TRUE',
-                    milestone: text(item.isTypeMilestone) === 'TRUE',
-                    // the LIVE task this copy was taken from - how the form
-                    // finds its own row in the plan
-                    sourceId: text(item.sourceId),
-                    estimatedStartDate: text(item.estimatedStartDate),
-                    estimatedFinishDate: text(item.dueDate)
-                };
-            }).sort(function (a, b) { return a.sequence - b.sequence; });
+            return flattenPlan(tasks, 1, [])
+                .sort(function (a, b) { return a.sequence - b.sequence; });
         });
     }
 

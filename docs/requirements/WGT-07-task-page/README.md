@@ -230,7 +230,7 @@ rejected: devlog
 
 | # | Item |
 |---|---|
-| O-P10 | **A nested work breakdown is untested.** The plan asks the OOTB resource without `level`; no project here has a nested WBS, so whether children come back whole is unknown |
+| ~~O-P10~~ | ~~A nested work breakdown is untested~~ - **tested 2026-10-12, and it was broken.** The resource answers with the FIRST LEVEL ONLY without `level`, so a ten-task baseline printed three phases and dropped the seven forms inside them, on a page that gets signed. Measured four ways: no `level`, `level=10` and `$depth=10` all give 3 rows; **`level=0` gives 10, nested under `children`**. `level=10` is DS's own literal (`ENOProjectMgmtModels.js`) and is the Gantt's lazy-expansion hint, not a depth. `$fields` is not repeated per level, so the whole plan is still one round trip. Drawn flat with `taskWBS` (1, 1.1, 1.2) in front of the name - a column of its own would have to be sticky too. Devlog [2026-10-12-01](../../devlog/2026/2026-10-12-01_baseline-plan-every-level.md) |
 | ~~O-P11~~ | ~~The Rev. No. reads the FIRST deliverable~~ - **fixed 2026-10-10** while building the review form, and with no JAR endpoint and no restart: the row names the document's TYPE (`DMPPERSONNEL_COST`), which is already in the response, so an upload on the same relationship cannot answer. `IRSTaskDocumentId` turned out to be unusable anyway - interface attributes do not arrive in the OOTB response, and the stored value is an MQL id where REST answers physical ids |
 | O-P12 | The five page-2 markers (REV / S-VAL / VER / VAL / CIN) need a mapping to task subtypes before they can be drawn |
 | O-P13 | The deployed JAR still returns a `tasks` field nothing reads - it goes at the next rebuild |

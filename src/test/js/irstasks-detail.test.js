@@ -2585,6 +2585,151 @@ PlanBaseline.get('TASK-1').then(out => {
   console.log('irstasks-plan-ootb: all assertions passed');
 }).catch(err => { console.error(err); process.exitCode = 1; });
 
+// ---- A NESTED WORK BREAKDOWN COMES BACK WHOLE (bug, 2026-10-12) --------
+//
+// THE BUG. Task 39261.35329.20156.746 is linked to baseline
+// B-85756263-0000125, whose plan is three phases with seven tasks under
+// them. The form printed THREE rows - "Phase 1", "Phase 2 Task", "Phase 3
+// Task" - and said nothing about the seven it had dropped. An approved plan
+// that quietly omits most of itself is worse than one that fails to load.
+//
+// THE CAUSE. The project resource answers with the FIRST LEVEL ONLY unless
+// `level` asks for more, and the request sent none. Every baseline before
+// this one was flat, so the two were the same list and nothing showed.
+//
+// Measured in one browser session that day, same baseline:
+//   (no level) / level=10 / $depth=10  ->  3 rows, no children
+//   level=0                            -> 10 rows, nested under `children`
+//
+// So `level=0` is "all levels", and it is the ONLY one of the four that
+// returns them - `level=10` is the Gantt's lazy-expansion hint, not a depth.
+const NestedRequest = {
+  _calls: [],
+  get: function (p, opts) {
+    NestedRequest._calls.push({ path: p, opts: opts });
+    if (p.indexOf('modeler/projects/') >= 0) {
+      // shaped exactly like the measured answer: the same fields filled in
+      // at every depth, children nested under `children`, `sequenceOrder`
+      // running 1..n over the WHOLE plan and `taskWBS` carrying the shape
+      return Promise.resolve({ data: [{ title: 'B-125', tasks: [
+        { id: 'P1', title: 'Phase 1', nlsType: 'Phase', state: 'Active',
+          sequenceOrder: '1', taskWBS: '1', sourceId: 'SP1',
+          isSummaryTask: 'TRUE', isTypeMilestone: 'FALSE',
+          estimatedStartDate: '2026-10-12T08:00:00.000',
+          dueDate: '2026-10-16T17:00:00.000',
+          children: [
+            { id: 'P1T1', title: 'Project Proposal Form',
+              nlsType: 'PROJECT PROPOSAL / PROFILE', state: 'Complete',
+              sequenceOrder: '2', taskWBS: '1.1', sourceId: 'S11',
+              isSummaryTask: 'FALSE', isTypeMilestone: 'FALSE',
+              estimatedStartDate: '2026-10-12T08:00:00.000',
+              dueDate: '2026-10-14T17:00:00.000' },
+            { id: 'P1T2', title: 'Project Personnel Cost Form 1',
+              nlsType: 'PROJECT PERSONNEL / COST ESTIMATION', state: 'Create',
+              sequenceOrder: '3', taskWBS: '1.2', sourceId: 'THIS-TASK',
+              isSummaryTask: 'FALSE', isTypeMilestone: 'FALSE',
+              estimatedStartDate: '2026-10-12T08:00:00.000',
+              dueDate: '2026-10-16T17:00:00.000',
+              // a third level, to prove the flattener does not stop at two
+              children: [
+                { id: 'P1T2a', title: 'Deeper', nlsType: 'Task',
+                  state: 'Create', sequenceOrder: '4', taskWBS: '1.2.1',
+                  sourceId: 'S121', isSummaryTask: 'FALSE',
+                  isTypeMilestone: 'FALSE',
+                  estimatedStartDate: '2026-10-13T08:00:00.000',
+                  dueDate: '2026-10-13T17:00:00.000' }
+              ] }
+          ] },
+        { id: 'P2', title: 'Phase 2 Task', nlsType: 'Phase', state: 'Create',
+          sequenceOrder: '5', taskWBS: '2', sourceId: 'SP2',
+          isSummaryTask: 'TRUE', isTypeMilestone: 'FALSE',
+          estimatedStartDate: '2026-10-12T08:00:00.000',
+          dueDate: '2026-10-14T17:00:00.000', children: [] }
+      ] }] });
+    }
+    return Promise.resolve({ taskId: 'X', baseline: {
+      linked: 'true', id: 'LEG', physicalId: 'PID', name: 'B-125',
+      state: 'Active', actualStartDate: '', actualFinishDate: '',
+      estimatedStartDate: '', estimatedFinishDate: ''
+    } });
+  }
+};
+const NestedBaseline = load(path.join(base, 'js/services/BaselineService.js'),
+  [NestedRequest, { get3DSpaceUrl: () => Promise.resolve('https://host/3dspace') }, Log]);
+
+NestedBaseline.get('TASK-1').then(out => {
+  const call = NestedRequest._calls.filter(
+    c => c.path.indexOf('modeler/projects/') >= 0)[0];
+  assert.strictEqual(call.opts.params.level, '0',
+    'the whole breakdown is asked for - 0 is all levels, and the only ' +
+    'value of the four tried that returns them');
+  assert.ok(call.opts.params['$fields'].indexOf('tasks.taskWBS') >= 0,
+    'and for the hierarchical number the rows print');
+
+  // FLAT, in sequenceOrder, every level present - the heart of the fix
+  assert.deepStrictEqual(out.tasks.map(t => t.wbs),
+    ['1', '1.1', '1.2', '1.2.1', '2'],
+    'one flat list, depth first, nothing dropped');
+  assert.deepStrictEqual(out.tasks.map(t => t.sequence), [1, 2, 3, 4, 5]);
+  assert.deepStrictEqual(out.tasks.map(t => t.depth), [1, 2, 2, 3, 1],
+    'the depth is kept even though the list is drawn flat');
+  assert.strictEqual(out.tasks[0].summary, true, 'a phase is a summary task');
+  assert.strictEqual(out.tasks[1].type, 'PROJECT PROPOSAL / PROFILE',
+    'a child carries the SAME fields as the top level - $fields is not ' +
+    'repeated per level');
+  assert.strictEqual(out.tasks[3].estimatedFinishDate,
+    '2026-10-13T17:00:00.000', 'and its dates, three levels down');
+
+  // the form still finds its own row, which is now a CHILD and not top level
+  const mine = out.tasks.filter(t => t.sourceId === 'THIS-TASK');
+  assert.strictEqual(mine.length, 1);
+  assert.strictEqual(mine[0].wbs, '1.2');
+
+  console.log('irstasks-plan-nested: all assertions passed');
+}).catch(err => { console.error(err); process.exitCode = 1; });
+
+// And the table prints that number in front of the name, keeping ONE sticky
+// column. This runs synchronously, on the flat list the service produces
+// above, because the DOM stub only exists while this file is being read.
+const NESTED_ROWS = [
+  { name: 'Phase 1', wbs: '1', depth: 1, summary: true, sourceId: 'SP1',
+    estimatedStartDate: '2026-10-12T08:00:00.000',
+    estimatedFinishDate: '2026-10-16T17:00:00.000' },
+  { name: 'Project Proposal Form', wbs: '1.1', depth: 2, sourceId: 'S11',
+    estimatedStartDate: '2026-10-12T08:00:00.000',
+    estimatedFinishDate: '2026-10-14T17:00:00.000' },
+  { name: 'Project Personnel Cost Form 1', wbs: '1.2', depth: 2,
+    sourceId: 'THIS-TASK',
+    estimatedStartDate: '2026-10-12T08:00:00.000',
+    estimatedFinishDate: '2026-10-16T17:00:00.000' },
+  { name: 'Deeper', wbs: '1.2.1', depth: 3, sourceId: 'S121',
+    estimatedStartDate: '2026-10-13T08:00:00.000',
+    estimatedFinishDate: '2026-10-13T17:00:00.000' },
+  { name: 'Phase 2 Task', wbs: '2', depth: 1, summary: true, sourceId: 'SP2',
+    estimatedStartDate: '2026-10-12T08:00:00.000',
+    estimatedFinishDate: '2026-10-14T17:00:00.000' }
+];
+const nested = planRows({ linked: true, name: 'B-125', state: 'Active',
+                          tasks: NESTED_ROWS, ganttUrl: '' });
+assert.strictEqual(nested.rows.length, 1 + 5,
+  'a heading row and all five tasks, not just the two phases');
+assert.deepStrictEqual(nested.rows[0].children.map(c => c.textContent),
+  ['Task', 'Start', 'Finish', 'Oct 2026'],
+  'the columns are unchanged - the number goes inside the name cell');
+assert.strictEqual(nested.rows[3].children[0].textContent,
+  '1.2  Project Personnel Cost Form 1',
+  'the row reads as its WBS number and its name');
+assert.ok((' ' + nested.rows[3].children[0].className + ' ')
+  .indexOf(' irs-plan-name ') >= 0, 'still the one sticky column');
+assert.ok(allText(nested.rows[3]).indexOf('this task') >= 0,
+  'and the row for THIS form is still marked, nested or not');
+// a plan with no WBS numbers - every baseline captured before 2026-10-12 -
+// still prints its names alone, with no stray separator
+assert.strictEqual(planRows({ linked: true, name: 'B', state: 'Active',
+    tasks: LIVE_PLAN, ganttUrl: '' }).rows[1].children[0].textContent,
+  LIVE_PLAN[0].name, 'no number, no prefix');
+console.log('irstasks-plan-wbs-column: all assertions passed');
+
 // ---- a LONG plan scrolls, it does not squeeze (user, 2026-10-10) -------
 //
 // A 14-month plan shrank every column to fit the pane: the task names broke

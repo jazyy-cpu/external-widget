@@ -1108,8 +1108,24 @@ define('IRSTasks/views/TaskDetailView', [
             // a summary task is the parent of the ones under it, which the
             // OOTB answer flags rather than giving a depth - so it is shown
             // in bold rather than by indenting its children
+            // THE WBS NUMBER CARRIES THE HIERARCHY, and the list stays flat.
+            //
+            // Until 2026-10-12 the plan drew only the first level, so a
+            // baseline with phases printed three rows and hid the seven tasks
+            // inside them - see `BaselineService`, which now asks for every
+            // level. The rows arrive flat and in order; "1.2" in front of the
+            // name says where the row sits without indenting a printed form
+            // or adding a column that would have to be made sticky too (user,
+            // 2026-10-12: "with some seq no we can show the flat list then
+            // nothing will change").
+            //
+            // It goes INSIDE the name cell, as one string, rather than in a
+            // column of its own: that column would have to be made sticky as
+            // well, and `.irs-plan-name` is sticky at `left: 0` precisely
+            // because it is the first.
             var name = el('td', 'irs-plan-name' +
                           ((mine || item.summary) ? ' fw-semibold' : ''),
+                          (item.wbs ? toText(item.wbs) + '  ' : '') +
                           (item.milestone ? '\u25c6 ' : '') + toText(item.name));
             if (mine) {
                 name.appendChild(el('span', 'badge text-bg-secondary ms-2', 'this task'));
