@@ -76,10 +76,22 @@ one department never sees the picker.
 ### 4.1 `assessments` - rounds
 
 Credential bar and department picker at the top, then a Tabulator grid: Title,
-Year, Period, Start, End, State, reports total / complete. Toolbar in the
+Year, Start, End, State, reports total / complete. (No Period column: H1 / H2
+were removed on 2026-10-14 - they were in no customer document, and there is one
+round per department per year.) Toolbar in the
 IRSProjects shape - a switch for completed rounds, one search control, Clear,
 Refresh - plus **New assessment**, rendered only when the person is HOD or
 In-Charge of the selected department (A1).
+
+In the **New assessment** panel the **year is the only real input**: the
+April-March range and the suggested title are both derived from it through
+`Fields.rangeForYear` and `Fields.suggestedTitle`, and both follow it as it is
+typed (a title the HOD has typed is left alone). The date pickers remain, for
+testing a shorter window; the agreed direction is to remove them and the year
+box too, defaulting to the current financial year, at which point the panel
+loses three fields and gains no logic. A server-side refusal of a range that
+does not contain its own year was **considered and parked** on the user's
+decision (2026-10-14): once nothing can be chosen, there is nothing to refuse.
 
 ### 4.2 `assessment/:id` - the round
 

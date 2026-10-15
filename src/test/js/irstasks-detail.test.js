@@ -2019,10 +2019,13 @@ costSpec.fields.forEach(f => {
     if (col.amount) { costAttrs.add(col.amount); }
   });
   if (f.total && f.total.amount) { costAttrs.add(f.total.amount); }
-  if (f.footnoteRate) { costAttrs.add(f.footnoteRate); }
+  (f.footnoteRates || []).forEach(r => {
+    if (r.attribute) { costAttrs.add(r.attribute); }
+  });
 });
 ['EPMMandaysIRS', 'EPMMandaysOutsideAgency', 'EPMTotalMandays',
- 'EPMManpowerRatePerManday', 'EPMManpowerCostIRS', 'EPMManpowerCostOutsideAgency',
+ 'EPMManpowerRatePerManday', 'EPMManpowerRatePerMandayOutsideAgency',
+ 'EPMManpowerCostIRS', 'EPMManpowerCostOutsideAgency',
  'EPMOtherCost', 'EPMTotalEstimatedPrice', 'EPMManpowerCostIRSDescription',
  'EPMManpowerCostOutsideAgencyDescription', 'EPMOtherCostDescription']
   .forEach(a => assert.ok(costAttrs.has(a), a + ' is still read by the form'));
@@ -2038,9 +2041,19 @@ assert.deepStrictEqual(costTable.rows.map(r => r.resource),
   'the resource names are the printed form\'s, verbatim');
 assert.strictEqual(costTable.total.label, 'Total Estimated Price');
 assert.strictEqual(costTable.total.amount, 'EPMTotalEstimatedPrice');
-// the rate is READ from the project, never written into the label: it is
-// stamped per project, so an older project must keep printing its own rate
-assert.strictEqual(costTable.footnoteRate, 'EPMManpowerRatePerManday');
+// the rates are READ from the project, never written into the label: each is
+// keyed per project, so an older project must keep printing its own rates.
+// TWO of them since 2026-10-15 - IRS and the outside agency are not bought at
+// the same price, and one rate costing both columns made row 02 the IRS rate
+// times an outside agency's man-days.
+assert.deepStrictEqual(costTable.footnoteRates.map(r => r.attribute),
+  ['EPMManpowerRatePerManday', 'EPMManpowerRatePerMandayOutsideAgency'],
+  'both rates are read, IRS first - the order the amounts above are in');
+assert.deepStrictEqual(costTable.footnoteRates.map(r => r.label),
+  ['IRS', 'Outside agency'],
+  'each footnote says which column its rate produced');
+assert.ok(!Object.prototype.hasOwnProperty.call(costTable, 'footnoteRate'),
+  'the single-rate key is gone, not left beside the new one');
 const costTableViewSrc = fs.readFileSync(
   path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
 const costsBody = costTableViewSrc.match(/function costsBlock[\s\S]*?\n    \}/)[0];

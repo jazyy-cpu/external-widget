@@ -113,20 +113,60 @@ define('IRSAnnualMonitoring/config/AssessmentFields', [], function () {
 
 
     /**
-     * The financial year runs April to March (doc 10 section 10.3). Returns the
-     * default range for "today", which the HOD may then change - a department
-     * is allowed two rounds in one year.
+     * The April-March financial year for one year number (doc 10 section 10.3).
+     *
+     * The range is a FUNCTION OF THE YEAR, not an independent choice: year
+     * 2026 is 1 Apr 2026 to 31 Mar 2027 and can be nothing else. Keeping that
+     * in one place is what stops a round labelled 2027 carrying 2026 dates,
+     * which is how ASM-0000004 and ASM-0000006 came to be mislabelled
+     * (2026-10-14). The form derives both dates from the year through this;
+     * when the dates stop being editable at all - the agreed direction - this
+     * function is already the only source and nothing else has to change.
+     *
+     * @param {number|string} year the financial year's opening calendar year
+     * @returns {{year: number, start: string, end: string}} ISO yyyy-mm-dd
+     */
+    function rangeForYear(year) {
+        var text = year === null || year === undefined ? '' : String(year).trim();
+        var y = Number(text);
+        // Number('') is 0, not NaN, so a cleared Year field would otherwise
+        // produce '0-04-01'. Blank and out-of-range both yield no dates, and
+        // the caller leaves the pickers alone.
+        if (text === '' || !isFinite(y) || y < 2000 || y > 2100) {
+            return { year: Number(text), start: '', end: '' };
+        }
+        return {
+            year: y,
+            start: y + '-04-01',
+            end: (y + 1) + '-03-31'
+        };
+    }
+
+    /**
+     * The financial year that contains "today", as the form's starting point.
+     *
+     * One round per department per year (doc 10 section 2.5), so this is the
+     * year the HOD almost always wants; changing it re-derives the range
+     * through rangeForYear.
      */
     function defaultRange(today) {
         var now = today || new Date();
         var year = now.getFullYear();
         // Before April, the current financial year started last April.
         if (now.getMonth() < 3) { year = year - 1; }
-        return {
-            year: year,
-            start: year + '-04-01',
-            end: (year + 1) + '-03-31'
-        };
+        return rangeForYear(year);
+    }
+
+    /**
+     * The title a round gets unless the HOD types another one.
+     *
+     * The year belongs IN the title: the grid shows the title first, so a title
+     * without a year reads as the department's only round. Kept here beside
+     * rangeForYear so the year reaches the title and the dates from one place.
+     */
+    function suggestedTitle(departmentLabel, year) {
+        var label = (departmentLabel || 'Assessment').toString().trim() || 'Assessment';
+        return label + ' ' + year;
     }
 
     /**
@@ -157,6 +197,8 @@ define('IRSAnnualMonitoring/config/AssessmentFields', [], function () {
         grade: grade,
         gradeClass: gradeClass,
         defaultRange: defaultRange,
+        rangeForYear: rangeForYear,
+        suggestedTitle: suggestedTitle,
         overlaps: overlaps
     };
 });

@@ -305,7 +305,7 @@ define('IRSTasks/views/TaskDetailView', [
             // row stays a JSON edit - see costsBlock
             rows: spec.rows || null,
             total: spec.total || null,
-            footnoteRate: spec.footnoteRate || '',
+            footnoteRates: spec.footnoteRates || null,
             // the Estimated Man days table: one column per figure
             columns: spec.columns || null,
             // start a fresh line of pairs rather than filling the one above
@@ -1293,13 +1293,17 @@ define('IRSTasks/views/TaskDetailView', [
      * a total) that the page used to list one under another, which carried the
      * same numbers but looked nothing like the form being signed.
      *
-     * ## The rate is read, not written into the label
+     * ## The rates are read, not written into the label
      *
-     * The footnote's Rs. 15,000 comes from the project's own
-     * `EPMManpowerRatePerManday`. It is stamped per project at approval time,
-     * so a project approved at 15,000 must keep printing 15,000 after the
-     * corporate rate changes - a constant in this file would quietly lie on
-     * every older project the day the rate moves.
+     * The footnotes' Rs. 15,000 comes from the project's own
+     * `EPMManpowerRatePerManday` and, since 2026-10-15, its separate
+     * `EPMManpowerRatePerMandayOutsideAgency`. Each is keyed per project and
+     * defaults to 15,000 in DMC, so a project costed at 15,000 keeps printing
+     * 15,000 after the corporate rate changes - a constant in this file would
+     * quietly lie on every older project the day the rate moves.
+     *
+     * There are two because one flat rate costed both columns until then,
+     * which made row 02 the IRS rate times an outside agency's man-days.
      *
      * ## Nothing here adds up
      *
@@ -1375,14 +1379,19 @@ define('IRSTasks/views/TaskDetailView', [
         responsive.appendChild(table);
         wrap.appendChild(responsive);
 
-        if (row.footnoteRate) {
-            var rate = toText(attributes[row.footnoteRate]);
-            if (rate) {
-                wrap.appendChild(el('div', 'text-secondary small px-1',
-                    '* Man power cost = ' + VALUE_FORMAT.money(rate) +
-                    '/- per man day.'));
-            }
-        }
+        // One line per rate. Two of them since 2026-10-15 - IRS and the
+        // outside agency are not bought at the same price, and one combined
+        // line would hide which multiplier produced which amount above.
+        // A rate that is missing prints nothing rather than a blank line.
+        (row.footnoteRates || []).forEach(function (spec) {
+            if (!spec || !spec.attribute) { return; }
+            var rate = toText(attributes[spec.attribute]);
+            if (!rate) { return; }
+            var who = spec.label ? ' (' + spec.label + ')' : '';
+            wrap.appendChild(el('div', 'text-secondary small px-1',
+                '* Man power cost' + who + ' = ' + VALUE_FORMAT.money(rate) +
+                '/- per man day.'));
+        });
         return wrap;
     }
 

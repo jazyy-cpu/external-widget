@@ -66,7 +66,7 @@ refused it as a production deploy. Nothing is half-applied: the running JAR is
 still the one with the two department endpoints. The commands are in the
 worklog and were handed to the user.
 
-Workspace worklog: `2026-10-14-03_assessment-creation-built-and-tested.md`.
+Workspace worklog: `2026-10-14-25_assessment-creation-built-and-tested.md`.
 
 ## Update 2026-10-14 - end to end from the dashboard
 

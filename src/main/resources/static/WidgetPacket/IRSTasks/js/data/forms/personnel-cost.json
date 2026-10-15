@@ -25,7 +25,7 @@
     "mandays": "the printed Estimated Man days table - one column per figure, under its own heading. Its columns live in `columns`",
     "schedule": "the monthly plan - one row per task of the baseline, one column per month it spans, with a link to the platform's own Gantt chart"
   },
-  "_calculated": "Five of the eight numbers are produced by the back end and carry DMC User Access = ReadOnly, so this widget never computes them and must never offer them for edit: TotalMandays = IRS + Outside; ManpowerCostIRS = MandaysIRS x Rate; ManpowerCostOutsideAgency = MandaysOutsideAgency x Rate; TotalEstimatedPrice = the two manpower costs + OtherCost. Verified on three live projects 2026-10-09 (ana 310000, Solize XYZ 240552, TEST PROJECT 212500) - the arithmetic is already correct server-side.",
+  "_calculated": "Four of the nine numbers are produced by the back end and carry DMC User Access = ReadOnly, so this widget never computes them and must never offer them for edit: TotalMandays = MandaysIRS + MandaysOutside; ManpowerCostIRS = MandaysIRS x RateIRS; ManpowerCostOutsideAgency = MandaysOutside x RateOutsideAgency; TotalEstimatedPrice = the two manpower costs + OtherCost. The two RATES stopped being derived on 2026-10-15 (worklog 2026-10-15-03): there are now two of them, both ReadWrite and keyed per project, and the JPO reads them instead of stamping one - an attribute that is both written by the calculation and triggers it is a loop. Verified on three live projects 2026-10-09 (ana 310000, Solize XYZ 240552, TEST PROJECT 212500), and the two-rate arithmetic on TEST PROJECT ANA 4 2026-10-15 (10 x 20000 + 5 x 8000 + 1000 = 241000) - the arithmetic is correct server-side.",
   "form": "R&D-PRJ-02-Rev.00",
   "_titleRenamed": "Was \"PROJECT PERSONNEL / COST ESTIMATION\" until 2026-10-11, when the user renamed the form - first to \"PROJECT RESOURCE AND SCHEDULE PLANNING AND COST\" and then, the same day, to the wording here. Changed HERE rather than in the PDF config because this file is the one source both the screen and the printed page are generated from - renaming it in one of them would be the drift this arrangement exists to prevent.",
   "title": "PROJECT RESOURCE/COST ESTIMATION AND SCHEDULE PLANNING",
@@ -172,7 +172,11 @@
         "label": "Total Estimated Price",
         "amount": "EPMTotalEstimatedPrice"
       },
-      "footnoteRate": "EPMManpowerRatePerManday"
+      "_footnoteRates": "TWO RATES SINCE 2026-10-15. One flat rate costed both columns until then, which made row 02 the IRS rate times an outside agency's man-days. Each rate prints on its own line because each is the basis of exactly one amount in the table, and a reader checking the arithmetic needs to see which multiplier produced which figure. Both are keyed on the project and READ here, like every other number in this block - the widget still computes nothing.",
+      "footnoteRates": [
+        { "label": "IRS", "attribute": "EPMManpowerRatePerManday" },
+        { "label": "Outside agency", "attribute": "EPMManpowerRatePerMandayOutsideAgency" }
+      ]
     },
     {
       "ref": "X",

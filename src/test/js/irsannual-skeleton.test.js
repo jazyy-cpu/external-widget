@@ -110,6 +110,52 @@ check('1 April starts the new year, 31 March ends the old one', () => {
   assert.strictEqual(Fields.defaultRange(new Date(2026, 2, 31)).year, 2025);
 });
 
+// The range is a FUNCTION OF THE YEAR. ASM-0000004 and ASM-0000006 were created
+// labelled one year and dated another, because the form let the three move
+// independently (2026-10-14).
+check('the range is derived from the year, for any year', () => {
+  assert.deepStrictEqual(Fields.rangeForYear(2027),
+    { year: 2027, start: '2027-04-01', end: '2028-03-31' });
+  assert.deepStrictEqual(Fields.rangeForYear('2030'),
+    { year: 2030, start: '2030-04-01', end: '2031-03-31' });
+});
+
+check('defaultRange agrees with rangeForYear - one rule, not two', () => {
+  const today = Fields.defaultRange(new Date(2026, 9, 10));
+  assert.deepStrictEqual(today, Fields.rangeForYear(today.year));
+});
+
+// Number('') is 0, so the first version of rangeForYear answered '0-04-01' for
+// a cleared Year field. A half-typed '20' is the same trap.
+check('a blank or out-of-range year yields no dates, not "0-04-01"', () => {
+  ['', '   ', null, undefined, 'abc', '20', 1999, 2101].forEach((bad) => {
+    const r = Fields.rangeForYear(bad);
+    assert.strictEqual(r.start, '', 'start for ' + JSON.stringify(bad));
+    assert.strictEqual(r.end, '', 'end for ' + JSON.stringify(bad));
+  });
+  assert.strictEqual(Fields.rangeForYear(2000).start, '2000-04-01');
+  assert.strictEqual(Fields.rangeForYear(2100).start, '2100-04-01');
+});
+
+check('the suggested title carries the year', () => {
+  assert.strictEqual(Fields.suggestedTitle('Hydrodynamics', 2026),
+    'Hydrodynamics 2026');
+  assert.strictEqual(Fields.suggestedTitle('  ', 2026), 'Assessment 2026');
+  assert.strictEqual(Fields.suggestedTitle(null, 2026), 'Assessment 2026');
+});
+
+// The wiring itself is DOM and this suite has none, so this guards the shape:
+// the panel must take its dates and title from the two functions above and
+// must listen to the year. A date built inline here would drift from them.
+check('the create panel derives title and dates from the year', () => {
+  const src = fs.readFileSync(path.join(base, 'js/components/NewAssessmentPanel.js'), 'utf8');
+  assert.ok(/Fields\.rangeForYear\(/.test(src), 'the panel should call rangeForYear');
+  assert.ok(/Fields\.suggestedTitle\(/.test(src), 'the panel should call suggestedTitle');
+  assert.ok(/yearInput\.addEventListener\('input'/.test(src),
+    'the panel should follow the year as it is typed');
+  assert.ok(!/'-04-01'/.test(src), 'the panel should not build financial-year dates itself');
+});
+
 // ---- 4. the overlap test - the one that was wrong first --------------
 console.log('overlap');
 

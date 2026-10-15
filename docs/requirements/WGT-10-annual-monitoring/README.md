@@ -4,7 +4,7 @@
 |---|---|
 | Work package | [WP01](../../../../documents/work-packages/01-organization-master-data-skill-matrix/README.md) |
 | Design of record | [WP01 doc 10](../../../../documents/work-packages/01-organization-master-data-skill-matrix/10-annual-monitoring.md) - **read §10 before this page** |
-| Status | **working end to end (2026-10-14).** A round is created from the widget: the assessment, one report per member, one rating per domain held, the R&D interfaces and the REL2REL links - verified by reading the database back. Listing, the HOD check and both refusals are live. Next: the rating grid, the points/grade triggers, and the G16 matrix - [api.md](api.md) |
+| Status | **working end to end (2026-10-14).** A round is created from the widget and verified in the database: the assessment, one report per member, one rating per domain held, the R&D interfaces and the REL2REL links. Listing, the HOD check and both refusals are live. One round per department per year (H1/H2 removed). **Resume at "Next" below** - [api.md](api.md) |
 | Source | R&D requirement G15/G16; forms R&D-AM-HY/-ST/-RR/-LS Rev.04 and RDAREA-AM-FS/-SR; user instructions 2026-10-05 |
 | Widget | `WidgetPacket/IRSAnnualMonitoring/` (new packet) |
 
@@ -136,3 +136,63 @@ Unticked until seen working in 3DDashboard, not in a unit test.
 - [custom-rest-service.md](../../reference/custom-rest-service.md) - why writes need the JAR, and the JPO-first practice
 - [WP03 02-grid-export-and-print.md](../../../../documents/work-packages/03-project-widget/02-grid-export-and-print.md) - export libraries and licensing
 - [WGT-08](../WGT-08-training-management/README.md) - the training side this consumes
+
+## Next — where to resume (2026-10-14, end of session)
+
+**Two deploys are pending and neither is mine to run:**
+
+1. ~~**Restart the Spring widget app.**~~ **Done 2026-10-14.** The warning toast
+   was confirmed in 3DDashboard: *"Hydrodynamics and Multiphysics already has an
+   assessment round for 2026: ASM-0000005. There is one round per department per
+   year."* The refusal still appears **twice** — as the toast and as the red box
+   inside the panel. Decide whether the inline box earns its place.
+
+**Then, in order:**
+
+2. ~~**Year / title / date mismatch.**~~ **Done 2026-10-14 (widget half).** The
+   panel now derives the April–March range and the suggested title from the
+   year, through `Fields.rangeForYear` / `Fields.suggestedTitle`, and follows it
+   as it is typed; a title the HOD has typed is left alone. 29 unit checks pass.
+   **Needs the Spring restart above to be seen.**
+
+   The server-side half — refusing a range that does not contain its own year —
+   is **parked by decision, not forgotten**: the direction is that the year and
+   the dates stop being chosen at all (current financial year, fixed 1 Apr –
+   31 Mar), and a refusal is only needed while something can be chosen. Close it
+   when the pickers are removed. See
+   [devlog 2026-10-14-04](../../devlog/2026/2026-10-14-04_year-drives-title-and-range.md).
+3. **The rating grid** — division-aware columns (doc 10 §4): R&D gets an
+   editable *Current Year* and *Worked in last 5 yrs*; AR gets *Mandays spent*
+   with points read-only.
+4. **Points and grade triggers**, division-aware, with the per-person ceiling
+   (AR: man-days ≤ 228; R&D: Σ points ≤ 10, pending **Q14**).
+5. **The create-check trigger** for one-round-per-year. The Java check is a
+   courtesy — two heads pressing Create together both pass it.
+6. **G16 skill matrix** as a live view over the open round (doc 10 §11).
+
+**Smaller, carried:** dates render as `4/1/2026 12:00:00 AM` (format in the
+reader); the `Reports` column is empty; round creation is **not atomic** and
+should become resumable.
+
+**Waiting on the customer:** Q1 (Grade C threshold), Q14 (R&D cap: shared per
+person or per domain), Q15 (the man-days column on the R&D to-be form), Q16
+(which round feeds the matrix), Q5 (HOD only or HOD→DH), Q13 (man-days source,
+RDAREA only now).
+
+**Not demonstrated:** two departments running the same year. The code is scoped
+per department and the refusal names it, but only `0000000001` has an HOD or
+In-Charge configured, so nobody can create a round elsewhere. One
+`IRSResponsibility` connection would let this be proven.
+
+**Live test data: none.** All three rounds and their twelve children were
+deleted on 2026-10-14 (worklog
+[2026-10-14-30](../../../../worklog/entries/2026/2026-10-14-30_annual-monitoring-test-data-cleared.md)),
+two of them being mislabelled by the year/date defect since fixed. The next
+round created will be `ASM-0000008`.
+
+**Decide before step 3:** WP01 doc 10 §4 parked where `IRSMandaysSpent` lives —
+a new `IRSARRating` interface, or left on the base type and unused by R&D —
+noting it is free of migration only while no rating exists. That is true again
+now, and stops being true with the first round created. Recommendation: **leave
+it on the base type**; an `IRSARRating` interface buys symmetry and nothing
+else, since the division branch in `computePoints` is needed either way.

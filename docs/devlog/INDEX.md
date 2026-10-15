@@ -4,6 +4,9 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| 2026-10-15 | [2026-10-15-01 - Two man-day rates on the Cost Estimation table](2026/2026-10-15-01_two-manday-rates.md) | [WGT-07](../requirements/WGT-07-task-page/README.md) | done, rebuild pending |
+| [2026-10-14-04](2026/2026-10-14-04_year-drives-title-and-range.md) | Year drives the title and the April-March range; server-side range refusal parked | WGT-10 | done |
+| 2026-10-14 | [2026-10-14-03 - Annual only, and three attempts at one error message](2026/2026-10-14-03_annual-only-and-the-refusal-message.md) | [WGT-10](../requirements/WGT-10-annual-monitoring/README.md) | done |
 | 2026-10-14 | [2026-10-14-02 - Creating a round: JPO proven, JAR built](2026/2026-10-14-02_assessment-creation.md) | [WGT-10](../requirements/WGT-10-annual-monitoring/README.md) | done, end to end |
 | 2026-10-14 | [2026-10-14-01 - irs-monitoring-rest: the first real API for WGT-10](2026/2026-10-14-01_monitoring-rest-jar.md) | [WGT-10](../requirements/WGT-10-annual-monitoring/README.md) | done, live |
 | [2026-10-12-01](2026/2026-10-12-01_baseline-plan-every-level.md) | The baseline plan on R&D-PRJ-02 drew 3 rows of a 10-task WBS: the OOTB project resource answers with the first level only unless `level` asks for more. `level=0` is the one value of four that returns every level (`level=10` is DS's own literal and is NOT a depth), fields come back filled in at each depth so it stays one round trip, and `taskWBS` now prints in front of the name - flat list, no new column, no CSS | WGT-07 | done |

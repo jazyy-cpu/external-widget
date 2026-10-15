@@ -91,7 +91,7 @@ missing.
    testable.
 3. Then `POST /assessments`, written JPO-first like this one.
 
-Workspace worklog: `2026-10-14-01_annual-monitoring-rest-api-jpo-and-jar.md`.
+Workspace worklog: `2026-10-14-23_annual-monitoring-rest-api-jpo-and-jar.md`.
 
 ## Update 2026-10-14 - deployed; the banner is gone
 
