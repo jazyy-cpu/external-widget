@@ -81,7 +81,7 @@
     },
     {
       "ref": "VI",
-      "label": "Input - Technical Data, Information and References",
+      "label": "Input – Technical Data, Information and References",
       "source": "project",
       "field": "EPMInput",
       "display": "longtext"
@@ -95,7 +95,7 @@
     },
     {
       "ref": "VIII",
-      "label": "Complexity of the design and development activity",
+      "label": "Complexity of the design and development activity (applicable only for design and development of new product/service)",
       "source": "project",
       "field": "EPMComplexity",
       "display": "longtext",
@@ -103,7 +103,7 @@
     },
     {
       "ref": "IX",
-      "label": "Identified Standards, Codes, Acts, Rules, Regulations, Statutory and legal requirements",
+      "label": "Identified Standards, Codes, Acts, Rules, Regulations, Statutory and legal requirements, etc. along with its version/year as applicable",
       "source": "project",
       "field": "EPMIdentifiedStandards",
       "display": "longtext",
@@ -111,7 +111,7 @@
     },
     {
       "ref": "X",
-      "label": "Feedback from previous similar design",
+      "label": "Feedback from previous similar design (applicable only for design and development of new product/service)",
       "source": "project",
       "field": "EPMFeedback",
       "display": "longtext",
@@ -119,7 +119,7 @@
     },
     {
       "ref": "XI",
-      "label": "Potential consequences of failure",
+      "label": "Potential consequences of failure (applicable only for design and development of new product/service)",
       "source": "project",
       "field": "EPMPotentialConsequencesOfFailure",
       "display": "longtext",
@@ -127,7 +127,7 @@
     },
     {
       "ref": "XII",
-      "label": "Lessons learnt from failures",
+      "label": "Lessons learnt from failures (applicable only for design and development of new product/service)",
       "source": "service",
       "display": "learnings",
       "note": "Lessons this proposal cites from EARLIER projects, each with the project it came from. The learnings this project itself produces are captured at closure (R&D-COM) and shown on that form, not here",
@@ -136,14 +136,14 @@
     },
     {
       "ref": "XIII",
-      "label": "Risks and opportunities",
+      "label": "Risks and opportunities (Please specify if other than identified in Chap 8: III R&D)",
       "source": "service",
       "display": "risks",
       "note": "The OOTB Risk and Opportunity objects linked by the Risk relationship. Read through our own REST service: the OOTB risk list returns empty for these, and Opportunity has no OOTB route at all (worklog 2026-10-07-03)"
     },
     {
       "ref": "XIV",
-      "label": "Details of stage-validation, verification and validation",
+      "label": "Details of stage-validation, verification and validation (if applicable)",
       "source": "project",
       "field": "EPMStageValidation",
       "display": "longtext"
@@ -157,7 +157,7 @@
     },
     {
       "ref": "XVI",
-      "label": "Project Planning: task break-up, sequencing, review stages",
+      "label": "Project Planning: Task break-up, sequencing, Review Stages and stage-validation, verification and validation stages (Refer to sample format: Page 2 of R&D-PRJ-02)",
       "hidden": true,
       "source": "none",
       "display": "elsewhere",
@@ -165,7 +165,7 @@
     },
     {
       "ref": "Footer",
-      "label": "Approval from Screening Committee obtained",
+      "label": "Approval from Screening Committee is obtained",
       "hidden": true,
       "source": "project",
       "field": "EPMScreeningApprovalObtained",

@@ -818,7 +818,8 @@ assert.ok(findAll(page, 'irs-sum-head')[0].className
 const heads = findAll(page, 'irs-sum-head').map(n => n.textContent);
 assert.ok(heads.indexOf('Need of the Project') >= 0,
   'a prose section is a ruled heading, with no numeral in front of it');
-assert.ok(heads.indexOf('Risks and opportunities') >= 0);
+assert.ok(heads.indexOf('Risks and opportunities (Please specify if other than identified in Chap 8: III R&D)') >= 0,
+  'the heading is the form own wording, not a shortened label');
 assert.ok(!heads.some(h => /^[IVX]+\.\s/.test(h)),
   'no heading carries a section number');
 // `Header` and `Footer` are our grouping words, not printed on the form

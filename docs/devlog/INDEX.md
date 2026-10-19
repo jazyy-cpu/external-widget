@@ -4,6 +4,7 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-10-19-01](2026/2026-10-19-01_proposal-labels-form-wording.md) | PROJECT PROPOSAL / PROFILE labels now read word for word as R&D-PRJ-01-Rev.06 - eight shortened headings restored with their bracketed qualifiers, a JSON edit only; also found the detail test stops at line 3148 because the REST JAR source moved | WGT-07 | done |
 | 2026-10-15 | [2026-10-15-01 - Two man-day rates on the Cost Estimation table](2026/2026-10-15-01_two-manday-rates.md) | [WGT-07](../requirements/WGT-07-task-page/README.md) | done, rebuild pending |
 | [2026-10-14-04](2026/2026-10-14-04_year-drives-title-and-range.md) | Year drives the title and the April-March range; server-side range refusal parked | WGT-10 | done |
 | 2026-10-14 | [2026-10-14-03 - Annual only, and three attempts at one error message](2026/2026-10-14-03_annual-only-and-the-refusal-message.md) | [WGT-10](../requirements/WGT-10-annual-monitoring/README.md) | done |
