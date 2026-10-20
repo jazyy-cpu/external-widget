@@ -19,6 +19,8 @@
  *   task/:id    the task page    - IRSTasks/views/TaskDetailView: a context
  *               sidebar and the form's content, driven by the subtype's JSON
  *               form definition. Read-only; approval actions are still to come
+ *   document/:id the same page for an approvable Document (the STM Document
+ *               of the G11 route), read by IRSTasks/services/StmDocumentService
  *
  * Changing the credential reopens the current page: a different security
  * context can see a different set of tasks, and may not see this one at all.
@@ -32,8 +34,10 @@ define('IRSTasks/App', [
     'JazzySole/Router',
     'JazzySole/CredentialBar',
     'IRSTasks/views/TaskListView',
-    'IRSTasks/views/TaskDetailView'
-], function (Credentials, Router, CredentialBar, TaskListView, TaskDetailView) {
+    'IRSTasks/views/TaskDetailView',
+    'IRSTasks/services/StmDocumentService'
+], function (Credentials, Router, CredentialBar, TaskListView, TaskDetailView,
+             StmDocumentService) {
     'use strict';
 
     var running = null;
@@ -94,7 +98,8 @@ define('IRSTasks/App', [
                 toolbar: slot,
                 onOpenTask: function (row) {
                     if (!row.id) { return; }
-                    router.go('task/:id', { id: row.id });
+                    router.go(row.kind === 'document' ? 'document/:id' : 'task/:id',
+                              { id: row.id });
                 }
             });
         }, 'Tasks');
@@ -113,6 +118,23 @@ define('IRSTasks/App', [
                 onBack: function () { router.go('tasks', null, { replace: true }); }
             });
         }, 'Task');
+
+        /**
+         * An approvable DOCUMENT - the STM Document of the G11 route (worklog
+         * 2026-10-19-14). The same page as a task, with the document's own
+         * loader: the form, the documents panel and the approval chain draw
+         * unchanged from the shape `StmDocumentService` returns. Its own path,
+         * not a flag on `task/:id`, so a refresh reopens the right loader.
+         */
+        router.add('document/:id', function (params) {
+            var target = freshPage();
+            view = TaskDetailView.render(target, {
+                id: params.id,
+                loader: StmDocumentService,
+                toolbar: slot,
+                onBack: function () { router.go('tasks', null, { replace: true }); }
+            });
+        }, 'Document');
 
         return router;
     }

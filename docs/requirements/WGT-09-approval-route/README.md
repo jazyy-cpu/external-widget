@@ -219,6 +219,30 @@ and its chain. No `Title` column (an inbox task's title *is* the role) and no
 `Assigned To` (every row is the signed-in user's). Default shows only what is
 waiting; `Show decided` reveals the rest.
 
+### STM Documents in the Approvals list (2026-10-19)
+
+The G11 route (Archiving New Service / Tool / Method) approves an
+`IRSServiceToolMethod` **Document**, not a task, so its inbox tasks carry the
+Document as `contents[0]`. Decided by the user: shown **only in the Approvals
+list** (never in the task grid); no Category and no Date on the page.
+
+- `TaskFields.DOCUMENT_TYPES` holds the subtype; `isApprovable()` (task subtypes
+  or document subtypes) replaces `isListed()` as the Approvals filter, and the
+  task grid still uses `isListed()`.
+- A row's `connectedKind` is `document`, and `On task` opens route
+  `document/:id`: the same task page, with `StmDocumentService` as its loader.
+- The data comes from our JAR, `GET /resources/v1/irsproject/documents/{id}/stm`
+  (2 server round trips), because the OOTB document resource returns none of the
+  form's attributes, not the project, not the researchers and not the route.
+  The form is `js/data/forms/stm-archive.json`, using the R&D-STM labels.
+- The chain, the signatures and Approve / Reject are unchanged. The route id comes from
+  the JAR (`from[Object Route]`), and the decision acts on the inbox task id.
+- `typeNLS` arrives as the raw `IRSServiceToolMethod`, so the label is ours
+  (`SERVICE / TOOL / METHOD ARCHIVE`).
+
+Detail: devlog [2026-10-19-02](../../devlog/2026/2026-10-19-02_stm-approval-in-task-widget.md),
+worklog `2026-10-19-14`.
+
 ### The decision bar
 
 Under the chain on the task page, because the approver's question is *"is this
@@ -315,6 +339,8 @@ for `admin_platform` - the assertion that would have caught the 400.
 | O-R5 | Rejection has never been exercised live - only Approve |
 | O-R6 | A second login (`PlmUser2`) would confirm that an approver sees only their own rows and only their own decision bar. Evidence from one login says yes |
 | O-R7 | The missing `ABCLogs` fixture |
+| O-R8 | **STM Documents (2026-10-19):** live check pending - an STM Document Frozen with its G11 route started, opened from the Approvals list as each of the three approvers |
+| O-R9 | **STM read access** of the In-Charge / HOD and the Division Head to the Document and its project is assumed, not verified (user, 2026-10-19: fix it if it fails) |
 
 ## Links
 

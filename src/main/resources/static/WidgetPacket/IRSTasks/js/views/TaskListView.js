@@ -236,12 +236,16 @@ define('IRSTasks/views/TaskListView', [
              * `InboxTaskService` drops any row without a connected task, so
              * `connectedId` is always set on a row that reaches the grid; the
              * fallback is there because a formatter is not a contract.
+             *
+             * `kind` is 'document' when the step approves an STM Document
+             * (G11) rather than a task - the caller opens a different page.
              */
             function openTask(row) {
                 if (!options.onOpenTask) { return; }
                 if (mode === 'approvals') {
                     if (!row.connectedId) { return; }
-                    options.onOpenTask({ id: row.connectedId, fromInboxTask: row.id });
+                    options.onOpenTask({ id: row.connectedId, fromInboxTask: row.id,
+                                         kind: row.connectedKind || 'task' });
                     return;
                 }
                 options.onOpenTask(row);

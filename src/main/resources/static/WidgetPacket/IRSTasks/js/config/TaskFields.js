@@ -80,6 +80,32 @@ define('IRSTasks/config/TaskFields', [], function () {
     };
 
     /**
+     * DOCUMENT subtypes an approver may be asked to approve - never listed in
+     * the task grid, only in the Approvals list (user, 2026-10-19).
+     *
+     * The G11 route (Archiving New Service / Tool / Method, worklog
+     * 2026-10-19-12) approves the `IRSServiceToolMethod` Document itself, so
+     * its inbox tasks carry a Document as `contents[0]`, not one of the task
+     * subtypes above. Same keys as TASK_TYPES, plus `kind`, which says which
+     * page opens it: a document is read through our REST JAR
+     * (`StmDocumentService`), because the OOTB document resource returns none
+     * of its form attributes (worklog 2026-10-19-14, step 0).
+     *
+     * `label` is NOT only a fallback here: the platform sends `typeNLS` as the
+     * raw name `IRSServiceToolMethod` (no NLS is defined), so the label shown
+     * is this one.
+     */
+    var DOCUMENT_TYPES = {
+        IRSServiceToolMethod: {
+            label: 'SERVICE / TOOL / METHOD ARCHIVE',
+            badge: 'stm',
+            form: null,
+            fields: 'stm-archive',
+            kind: 'document'
+        }
+    };
+
+    /**
      * Project types whose tasks are **copies** and must never be listed.
      *
      * Found on live data, 2026-10-07, and the POC could not have found it
@@ -171,8 +197,14 @@ define('IRSTasks/config/TaskFields', [], function () {
     var DETAIL_FIELDS = ['none', 'title', 'state', 'owner',
                          'taskEstimatedStartDate', 'taskEstimatedFinishDate'];
 
+    /** A task subtype's or an approvable document subtype's descriptor. */
+    function any(type) {
+        return TASK_TYPES[type] || DOCUMENT_TYPES[type] || null;
+    }
+
     return {
         TASK_TYPES: TASK_TYPES,
+        DOCUMENT_TYPES: DOCUMENT_TYPES,
         COPY_PROJECT_TYPES: COPY_PROJECT_TYPES,
         OPEN_STATES: OPEN_STATES,
         CLOSED_STATES: CLOSED_STATES,
@@ -184,25 +216,40 @@ define('IRSTasks/config/TaskFields', [], function () {
 
         /** The whole descriptor for a subtype, or null. */
         descriptor: function (type) {
-            return TASK_TYPES[type] || null;
+            return any(type);
         },
 
         /** "EPMPROJECT_REVIEW" -> "Project Review"; unknown shows its own name. */
         typeLabel: function (type) {
-            var d = TASK_TYPES[type];
+            var d = any(type);
             return (d && d.label) || type || '';
         },
 
         /** The CSS class for a subtype's badge. */
         typeBadge: function (type) {
-            var d = TASK_TYPES[type];
+            var d = any(type);
             return 'irs-type irs-type-' + ((d && d.badge) || 'unknown');
         },
 
         /** The field-set id whose JSON file drives the task view (F2). */
         fieldSet: function (type) {
-            var d = TASK_TYPES[type];
+            var d = any(type);
             return (d && d.fields) || '';
+        },
+
+        /** 'document' for an approvable document subtype, 'task' otherwise. */
+        kindOf: function (type) {
+            return Object.prototype.hasOwnProperty.call(DOCUMENT_TYPES, type)
+                ? 'document' : 'task';
+        },
+
+        /**
+         * May an inbox task approving this type appear in the Approvals list?
+         * The four task subtypes, and the approvable document subtypes.
+         */
+        isApprovable: function (type) {
+            return Object.prototype.hasOwnProperty.call(TASK_TYPES, type) ||
+                   Object.prototype.hasOwnProperty.call(DOCUMENT_TYPES, type);
         },
 
         /** The platform's display name for a state: "Create" -> "Draft". */

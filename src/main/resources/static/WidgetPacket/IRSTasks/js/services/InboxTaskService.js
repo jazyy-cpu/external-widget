@@ -112,16 +112,27 @@ define('IRSTasks/services/InboxTaskService', [
         var entry = related(item, 'contents')[0] || null;
         if (!entry || !entry.id) { return null; }
         var de = entry.dataelements || {};
+        var type = entry.type || '';
+        // a typeNLS equal to the raw type name is no display name at all - the
+        // STM Document's arrives as `IRSServiceToolMethod` (2026-10-19)
+        var nls = (de.typeNLS && de.typeNLS !== type) ? de.typeNLS : '';
         return {
             id: entry.id,
-            type: entry.type || '',
+            type: type,
             // the platform's own display name when it sends one, ours otherwise
-            typeLabel: de.typeNLS || Fields.typeLabel(entry.type || ''),
+            typeLabel: nls || Fields.typeLabel(type),
             name: de.name || '',
             title: de.title || '',
             stateLabel: de.stateNLS || '',
-            // the test: is the thing being approved one of OUR four subtypes
-            ours: Fields.isListed(entry.type || '')
+            /**
+             * 'task' or 'document' - which page opens it. The G11 route
+             * approves an `IRSServiceToolMethod` DOCUMENT (worklog
+             * 2026-10-19-14), which the task page's OOTB task call cannot read
+             */
+            kind: Fields.kindOf(type),
+            // the test: is the thing being approved one of OUR four subtypes,
+            // or one of our approvable document subtypes
+            ours: Fields.isApprovable(type)
         };
     }
 
@@ -165,6 +176,7 @@ define('IRSTasks/services/InboxTaskService', [
             connected: connected,
             // flattened for the grid, which reads plain fields
             connectedId: connected ? connected.id : '',
+            connectedKind: connected ? connected.kind : '',
             connectedName: connected ? connected.name : '',
             connectedType: connected ? connected.type : '',
             connectedTypeLabel: connected ? connected.typeLabel : '',

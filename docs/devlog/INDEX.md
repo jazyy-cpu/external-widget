@@ -4,6 +4,7 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-10-19-02](2026/2026-10-19-02_stm-approval-in-task-widget.md) | STM Document approvals in the task widget: the G11 steps were dropped by the four-subtype allow-list; now kept in the Approvals list only, opened on the same task page through a new loader and a new JAR read (`documents/{id}/stm`), R&D-STM labels from the paper, no Category, no Date | WGT-09, WGT-07 | built and unit-tested; JAR deploy and live check pending |
 | [2026-10-19-01](2026/2026-10-19-01_proposal-labels-form-wording.md) | PROJECT PROPOSAL / PROFILE labels now read word for word as R&D-PRJ-01-Rev.06 - eight shortened headings restored with their bracketed qualifiers, a JSON edit only; also found the detail test stops at line 3148 because the REST JAR source moved | WGT-07 | done |
 | 2026-10-15 | [2026-10-15-01 - Two man-day rates on the Cost Estimation table](2026/2026-10-15-01_two-manday-rates.md) | [WGT-07](../requirements/WGT-07-task-page/README.md) | done, rebuild pending |
 | [2026-10-14-04](2026/2026-10-14-04_year-drives-title-and-range.md) | Year drives the title and the April-March range; server-side range refusal parked | WGT-10 | done |

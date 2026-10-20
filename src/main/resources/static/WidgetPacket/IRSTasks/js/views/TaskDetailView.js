@@ -1604,7 +1604,11 @@ define('IRSTasks/views/TaskDetailView', [
                     });
             }
 
-            TaskDetailService.get(options.id).then(function (result) {
+            // the task by default; `StmDocumentService` for an approvable
+            // Document (route `document/:id`), which returns the same shape
+            var loader = options.loader || TaskDetailService;
+
+            loader.get(options.id).then(function (result) {
                 if (destroyed) { return; }
                 var task = result.task;
                 var project = result.project;
@@ -1697,10 +1701,11 @@ define('IRSTasks/views/TaskDetailView', [
                     clear(content);
 
                     if (result.note) { banner(messages, result.note, 'warning'); }
+                    var what = task.kind === 'document' ? 'This document' : 'This task';
                     banner(messages, task.editable
-                        ? 'This task is ' + task.stateLabel + '. Editing is not built yet, ' +
+                        ? what + ' is ' + task.stateLabel + '. Editing is not built yet, ' +
                           'so the form is shown read-only.'
-                        : 'This task is ' + task.stateLabel + ', so the form is read-only.',
+                        : what + ' is ' + task.stateLabel + ', so the form is read-only.',
                         task.editable ? 'info' : 'secondary');
 
                     /*
@@ -1764,7 +1769,8 @@ define('IRSTasks/views/TaskDetailView', [
             }).catch(function (err) {
                 if (destroyed) { return; }
                 clear(content);
-                banner(messages, 'The task could not be opened: ' +
+                banner(messages, (options.loader ? 'The document' : 'The task') +
+                    ' could not be opened: ' +
                     (err && err.message ? err.message : err), 'danger');
             });
 
