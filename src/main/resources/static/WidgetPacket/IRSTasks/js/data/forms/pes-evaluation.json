@@ -1,0 +1,26 @@
+{
+  "_about": "What the approver's page shows for a G17 periodic software evaluation. One file per form (user, 2026-10-07): change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the IRSPeriodicSoftwareEvaluation entry in js/config/TaskFields.js (DOCUMENT_TYPES). The G17 route approves the evaluation object itself; the page reads it through our REST JAR, `GET resources/v1/irsproject/evaluations/{id}` (worklog 2026-10-21-12).",
+  "_generated": "Written 2026-10-21 from the paper form R&D-PES-Rev.01 (documents/as-is-markdown/.../1.R&D/Forms/R&D-PES.md), labels in the paper's wording and order, mapped onto what the custom 3DSpace form type_IRSPeriodicSoftwareEvaluation holds (user: paper wording, correct later if anything is off). Values verified on PES-0000007 and PES-0000010 with the JPO twin `exec program IRSPeriodicEvaluationContext`.",
+  "_source": {
+    "task": "the EVALUATION's own values, under the keys EvaluationService puts in `attributes`",
+    "none": "not a value: the signatures live in the route, drawn by the approval panel below the form"
+  },
+  "_notShown": "Rows of the paper with no attribute on the custom form are absent: Evaluator Comments, Action to be taken and Remarks from In-Charge / HOD were removed from the type at the user's request (worklog 2026-10-20-17). Informed Users are on the 3DSpace form but are not shown (user, 2026-10-21). Removed after the first live look (user, 2026-10-21): Test summary, Evaluated by, Checked by, In-Charge / HOD, Approved on, Evaluation expiry date - the three people and their decisions are in the approval chain below the form.",
+  "form": "R&D-PES-Rev.01",
+  "title": "R&D Division - Periodical Evaluation of Software Report",
+  "taskType": "IRSPeriodicSoftwareEvaluation",
+  "fields": [
+    {"ref": "Header", "label": "Evaluation No.", "source": "task", "field": "name", "display": "text", "note": "Not on the paper; the evaluation's autonamed number (PES-0000010)."},
+    {"ref": "Header", "label": "Title", "source": "task", "field": "title", "display": "text", "note": "Not on the paper; attribute[Title] of the evaluation, shown on the 3DSpace form."},
+    {"ref": "Header", "label": "Software Name", "source": "task", "field": "softwareName", "display": "text", "newLine": true, "note": "Title (else name) of the subject Document on IRSEvaluationSubject - a DMPSoftware or IRSServiceToolMethod."},
+    {"ref": "Header", "label": "Version", "source": "task", "field": "version", "display": "text", "note": "IRSEvaluatedVersion - the subject's revision, stamped when it was chosen."},
+    {"ref": "Header", "label": "Evaluation Date", "source": "task", "field": "evaluationDate", "display": "date"},
+    {"ref": "Body", "label": "Reason for evaluation (Tick as applicable)", "source": "task", "field": "reasons", "display": "longtext", "note": "IRSEvaluationReasons, multi-value: one line per reason, in the paper's tick-box wording."},
+    {"ref": "Body", "label": "Any other, please specify", "source": "task", "field": "reasonDetails", "display": "longtext"},
+    {"ref": "Body", "label": "Any change in benchmark example", "source": "task", "field": "benchmarkChanged", "display": "choice", "newLine": true, "note": "Yes / No / Not Applicable."},
+    {"ref": "Body", "label": "Test Result", "source": "task", "field": "result", "display": "text", "note": "OK / NOT OK - the results are the evidence documents beside the form."},
+    {"ref": "Footer", "label": "Signature of Evaluator", "hidden": true, "source": "none", "display": "approval", "note": "Route level 1 - drawn by the approval panel below the form."},
+    {"ref": "Footer", "label": "Checked by (signature)", "hidden": true, "source": "none", "display": "approval", "note": "Route level 2 - drawn by the approval panel below the form."},
+    {"ref": "Footer", "label": "Signature of In-Charge / HOD", "hidden": true, "source": "none", "display": "approval", "note": "Route level 3 - drawn by the approval panel below the form."}
+  ]
+}

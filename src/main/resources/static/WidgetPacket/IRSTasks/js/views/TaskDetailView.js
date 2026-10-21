@@ -1701,7 +1701,8 @@ define('IRSTasks/views/TaskDetailView', [
                     clear(content);
 
                     if (result.note) { banner(messages, result.note, 'warning'); }
-                    var what = task.kind === 'document' ? 'This document' : 'This task';
+                    var what = task.kind === 'document' ? 'This document'
+                             : task.kind === 'evaluation' ? 'This evaluation' : 'This task';
                     banner(messages, task.editable
                         ? what + ' is ' + task.stateLabel + '. Editing is not built yet, ' +
                           'so the form is shown read-only.'
@@ -1769,7 +1770,8 @@ define('IRSTasks/views/TaskDetailView', [
             }).catch(function (err) {
                 if (destroyed) { return; }
                 clear(content);
-                banner(messages, (options.loader ? 'The document' : 'The task') +
+                banner(messages, (options.noun ? 'The ' + options.noun
+                                  : options.loader ? 'The document' : 'The task') +
                     ' could not be opened: ' +
                     (err && err.message ? err.message : err), 'danger');
             });

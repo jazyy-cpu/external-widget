@@ -94,6 +94,11 @@ define('IRSTasks/config/TaskFields', [], function () {
      * `label` is NOT only a fallback here: the platform sends `typeNLS` as the
      * raw name `IRSServiceToolMethod` (no NLS is defined), so the label shown
      * is this one.
+     *
+     * The G17 evaluation (`IRSPeriodicSoftwareEvaluation`, worklog
+     * 2026-10-21-12) is not a Document but lives here for the same reasons:
+     * approvable, never listed, read through our JAR. Its `kind`,
+     * 'evaluation', opens its own page (`EvaluationService`).
      */
     var DOCUMENT_TYPES = {
         IRSServiceToolMethod: {
@@ -102,6 +107,13 @@ define('IRSTasks/config/TaskFields', [], function () {
             form: null,
             fields: 'stm-archive',
             kind: 'document'
+        },
+        IRSPeriodicSoftwareEvaluation: {
+            label: 'PERIODICAL EVALUATION OF SOFTWARE',
+            badge: 'pes',
+            form: null,
+            fields: 'pes-evaluation',
+            kind: 'evaluation'
         }
     };
 
@@ -237,10 +249,13 @@ define('IRSTasks/config/TaskFields', [], function () {
             return (d && d.fields) || '';
         },
 
-        /** 'document' for an approvable document subtype, 'task' otherwise. */
+        /**
+         * The entry's `kind` for an approvable non-task type ('document',
+         * 'evaluation'), 'task' otherwise.
+         */
         kindOf: function (type) {
             return Object.prototype.hasOwnProperty.call(DOCUMENT_TYPES, type)
-                ? 'document' : 'task';
+                ? DOCUMENT_TYPES[type].kind : 'task';
         },
 
         /**

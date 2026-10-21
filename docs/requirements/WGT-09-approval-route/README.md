@@ -243,6 +243,28 @@ list** (never in the task grid); no Category and no Date on the page.
 Detail: devlog [2026-10-19-02](../../devlog/2026/2026-10-19-02_stm-approval-in-task-widget.md),
 worklog `2026-10-19-14`.
 
+### G17 periodic evaluations in the Approvals list (2026-10-21)
+
+The G17 route (`IRSPeriodicEvaluationRoute`: Evaluator, Checker, Approver)
+approves an `IRSPeriodicSoftwareEvaluation`, which is neither a task nor a Document.
+The same pattern as STM, decided by the user: Approvals list only, paper
+R&D-PES-Rev.01 wording mapped onto the custom 3DSpace form's data, **evidence
+documents only** in the documents panel, no Informed Users.
+
+- `TaskFields.DOCUMENT_TYPES.IRSPeriodicSoftwareEvaluation`, `kind: evaluation`;
+  `kindOf()` now returns the entry's own `kind`. Route `evaluation/:id`, loader
+  `EvaluationService`.
+- The data comes from `GET /resources/v1/irsproject/evaluations/{id}`, 2 server
+  round trips: one batched `getInfo` (attributes, subject, the three role
+  Persons, routes) and one `getRelatedObjects` (evidence with its files).
+  The form is `js/data/forms/pes-evaluation.json`.
+- `TaskDocumentsPanel` takes an optional `task.documentGroups`; the evaluation
+  passes one group, *Test results (evidence)*. Tasks are unchanged.
+- The chain, Approve / Reject: unchanged.
+
+Detail: devlog [2026-10-21-01](../../devlog/2026/2026-10-21-01_g17-evaluation-in-task-widget.md),
+worklog `2026-10-21-12`.
+
 ### The decision bar
 
 Under the chain on the task page, because the approver's question is *"is this
@@ -341,6 +363,7 @@ for `admin_platform` - the assertion that would have caught the 400.
 | O-R7 | The missing `ABCLogs` fixture |
 | O-R8 | **STM Documents (2026-10-19):** live check pending - an STM Document Frozen with its G11 route started, opened from the Approvals list as each of the three approvers |
 | O-R9 | **STM read access** of the In-Charge / HOD and the Division Head to the Document and its project is assumed, not verified (user, 2026-10-19: fix it if it fails) |
+| O-R10 | **G17 evaluations (2026-10-21):** live check pending after the JAR deploy - a new evaluation sent to approval, opened from the Approvals list by Evaluator, Checker and Approver; approvers' read access to the evidence assumed as for STM. Paper-label mapping to be corrected by the user if off |
 
 ## Links
 

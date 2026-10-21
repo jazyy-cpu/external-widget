@@ -195,13 +195,19 @@ define('IRSTasks/views/TaskDocumentsPanel', [
     return {
         /**
          * @param {Object} task  as shaped by TaskDetailService - `deliverables`
-         *                       and `attachments`
+         *                       and `attachments`; or, where those two
+         *                       headings mean nothing, its own
+         *                       `documentGroups: [{heading, items}]` (the G17
+         *                       evaluation's one Evidence group, worklog
+         *                       2026-10-21-12)
          * @returns {HTMLElement} the panel, ready to append
          */
         render: function (task) {
-            var deliverables = (task && task.deliverables) || [];
-            var attachments = (task && task.attachments) || [];
-            var total = deliverables.length + attachments.length;
+            var groups = (task && task.documentGroups) || [
+                { heading: 'Deliverables', items: (task && task.deliverables) || [] },
+                { heading: 'Attachments', items: (task && task.attachments) || [] }
+            ];
+            var total = groups.reduce(function (sum, g) { return sum + g.items.length; }, 0);
 
             var panel = el('div', 'card irs-docs');
 
@@ -239,8 +245,9 @@ define('IRSTasks/views/TaskDocumentsPanel', [
                 problem.className = 'alert alert-danger py-1 px-2 mb-2 small';
             }
 
-            body.appendChild(group('Deliverables', deliverables, onError, true));
-            body.appendChild(group('Attachments', attachments, onError, false));
+            groups.forEach(function (g, index) {
+                body.appendChild(group(g.heading, g.items || [], onError, index === 0));
+            });
             panel.appendChild(body);
 
             function paint() {

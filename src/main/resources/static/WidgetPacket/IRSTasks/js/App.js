@@ -21,6 +21,8 @@
  *               form definition. Read-only; approval actions are still to come
  *   document/:id the same page for an approvable Document (the STM Document
  *               of the G11 route), read by IRSTasks/services/StmDocumentService
+ *   evaluation/:id the same page for a G17 periodic software evaluation,
+ *               read by IRSTasks/services/EvaluationService
  *
  * Changing the credential reopens the current page: a different security
  * context can see a different set of tasks, and may not see this one at all.
@@ -35,9 +37,10 @@ define('IRSTasks/App', [
     'JazzySole/CredentialBar',
     'IRSTasks/views/TaskListView',
     'IRSTasks/views/TaskDetailView',
-    'IRSTasks/services/StmDocumentService'
+    'IRSTasks/services/StmDocumentService',
+    'IRSTasks/services/EvaluationService'
 ], function (Credentials, Router, CredentialBar, TaskListView, TaskDetailView,
-             StmDocumentService) {
+             StmDocumentService, EvaluationService) {
     'use strict';
 
     var running = null;
@@ -98,8 +101,9 @@ define('IRSTasks/App', [
                 toolbar: slot,
                 onOpenTask: function (row) {
                     if (!row.id) { return; }
-                    router.go(row.kind === 'document' ? 'document/:id' : 'task/:id',
-                              { id: row.id });
+                    var path = row.kind === 'document' ? 'document/:id'
+                             : row.kind === 'evaluation' ? 'evaluation/:id' : 'task/:id';
+                    router.go(path, { id: row.id });
                 }
             });
         }, 'Tasks');
@@ -135,6 +139,22 @@ define('IRSTasks/App', [
                 onBack: function () { router.go('tasks', null, { replace: true }); }
             });
         }, 'Document');
+
+        /**
+         * A G17 periodic software evaluation (worklog 2026-10-21-12): the same
+         * page again, with the evaluation's loader. Its own path for the same
+         * reason as `document/:id`.
+         */
+        router.add('evaluation/:id', function (params) {
+            var target = freshPage();
+            view = TaskDetailView.render(target, {
+                id: params.id,
+                loader: EvaluationService,
+                noun: 'evaluation',
+                toolbar: slot,
+                onBack: function () { router.go('tasks', null, { replace: true }); }
+            });
+        }, 'Evaluation');
 
         return router;
     }
