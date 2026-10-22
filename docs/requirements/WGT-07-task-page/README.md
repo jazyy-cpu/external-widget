@@ -282,8 +282,10 @@ re-opening it:
 3. **No Rev. No.** - this form's document is never revised, because each record
    validates a different stage. The other two forms revise and do print one.
 
-The two signatory lines (**Checked by**, **In-Charge / HOD** - two blocks, not
-one caption) are approvals, drawn by the WGT-09 panel.
+The signatory line **In-Charge / HOD** is an approval, drawn by the WGT-09
+panel. The paper form's **Checked by** line was a second approval until
+2026-10-22, when the customer confirmed it is not required; the row and the
+route level were removed (worklog `2026-10-22-16`).
 
 ### One form, two areas
 
@@ -318,7 +320,7 @@ to a spec, so O-P1 is closed.
 |---|---|
 | Project Name, Project No. | the PROJECT - the project call the page already makes |
 | Review No. | the task's own review DOCUMENT, picked by type - its revision |
-| Reviewer(s) | the task's `assignees` - free in the task call |
+| Reviewer(s) | **since 2026-10-22** the project's reviewers, as two pairs - *Reviewers - internal* (`IRSProjectReviewer`) and *Reviewers - external* (`EPMExternalReviewers`, line breaks kept) - from the JAR's `reviewers` section (one round trip). Until then the task's `assignees` |
 | **Review Observations** - items 1) to 4) in one box, as the paper draws them | four of the TASK's attributes, each with its own format |
 | Follow-up Action Recommended, Data copied to common drive | the TASK's other two |
 
@@ -378,7 +380,7 @@ carries *(R&D form only)*, which is what tells them why.
 2. **The report number** `PRV-nnnnnnn` - the document's name, as against its
    revision. Decided together with O-P15, below.
 3. **Grade A / the skill-based reviewer** - not implemented by decision of
-   2026-10-07; the reviewer is the task's assignee, which Reviewer(s) prints.
+   2026-10-07. Since 2026-10-22 the route's level 2 follows the project type (In-Charge / HOD or an internal reviewer) and Reviewer(s) prints the project's reviewers.
 
 Full detail: devlog
 [2026-10-10-05](../../devlog/2026/2026-10-10-05_project-review-form.md).

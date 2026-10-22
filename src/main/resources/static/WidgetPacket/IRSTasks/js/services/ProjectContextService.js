@@ -235,6 +235,31 @@ define('IRSTasks/services/ProjectContextService', [
     }
 
     /**
+     * The project's reviewers, as the G7 Project Review header shows them
+     * (user, 2026-10-22).
+     *
+     *   internal   Persons on IRSProjectReviewer - names, in the order the
+     *              platform returns them
+     *   external   the EPMExternalReviewers text AS TYPED: one reviewer may
+     *              take several lines (name, email, company), so the line
+     *              breaks are content and are kept
+     *
+     * `error` is the section's own failure, carried through like the others:
+     * "no reviewers" and "could not read the reviewers" are different answers.
+     */
+    function toReviewers(raw) {
+        raw = raw || {};
+        return {
+            internal: list(raw.internal).map(function (item) {
+                item = item || {};
+                return meaningful(item.fullName) || text(item.name);
+            }).filter(Boolean),
+            external: text(raw.external),
+            error: text(raw.error)
+        };
+    }
+
+    /**
      * The order the printed form puts the people in: the Project Manager line,
      * then the Dy. Project Manager line, then the Project Members table. Any
      * value we do not know about sorts after the three, rather than being
@@ -281,6 +306,7 @@ define('IRSTasks/services/ProjectContextService', [
             customer: toCustomer(body.customer),
             department: toDepartment(body.department),
             members: sortMembers(list(body.members).map(toMember)),
+            reviewers: toReviewers(body.reviewers),
             riskError: text(body.riskError),
             learningError: text(learnings.error),
             memberError: text(body.memberError),
@@ -314,6 +340,8 @@ define('IRSTasks/services/ProjectContextService', [
                 add('department');
             } else if (field.display === 'members') {
                 add('members');
+            } else if (field.display === 'reviewers') {
+                add('reviewers');
             } else if (field.display === 'learnings') {
                 var scope = field.learningScope || 'all';
                 if (scope === 'created') { add('learnings.created'); }
@@ -367,6 +395,7 @@ define('IRSTasks/services/ProjectContextService', [
         _shape: shape,
         _toLearning: toLearning,
         _toCustomer: toCustomer,
-        _toDepartment: toDepartment
+        _toDepartment: toDepartment,
+        _toReviewers: toReviewers
     };
 });

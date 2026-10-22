@@ -8,7 +8,8 @@
     "task": "read from the TASK's own dataelements. This form has two: EPMValidationDetails and EPMValidationRemarks, both `string` with `multiline TRUE`, both measured live 2026-10-10 on T-85756263-0000152 (39261.35329.24627.55224)",
     "none": "not a value: it lives in the approval route, or the platform has no source for it yet"
   },
-  "_hidden": "A field with \"hidden\": true is not drawn at all. Three rows here: the printed form's Date, parked because WHICH date it means is undecided (see its note), and the two signatory lines, which are approvals and are drawn by the WGT-09 panel below the form.",
+  "_hidden": "A field with \"hidden\": true is not drawn at all. Two rows here: the printed form's Date, parked because WHICH date it means is undecided (see its note), and the In-Charge / HOD signatory line, which is an approval and is drawn by the WGT-09 panel below the form.",
+  "_noCheckedBy": "The printed form also has a 'Checked by:' signatory line. It was a hidden approval row here and a route level until 2026-10-22, when the customer confirmed it is not required: the route now has the In-Charge / HOD level only, so the row was removed rather than kept hidden. Worklog 2026-10-22-16.",
   "_display": {
     "text": "one line",
     "longtext": "prose - the form asks for paragraphs here, and the line breaks are real",
@@ -64,20 +65,12 @@
     },
     {
       "ref": "Footer",
-      "label": "Checked by",
-      "hidden": true,
-      "source": "none",
-      "display": "approval",
-      "note": "An approval signature - collected by the route task when the approver acts, not typed into the form. Drawn by the approval panel below the form (WGT-09). THE FORM HAS TWO SIGNATORY LINES, not one (user, 2026-10-06): 'Checked by:' and 'In-Charge/HOD -' are separate blocks on R&D-VAL-Rev.00, and the route has a level for each. This one is unrestricted - any Active Person may check a stage validation, because no rule says who may."
-    },
-    {
-      "ref": "Footer",
       "label": "In-Charge / HOD",
       "hidden": true,
       "source": "none",
       "display": "approval",
-      "note": "The second signatory and the approval proper - the RSD's \"Single stage approval by HOD / In-charge\" describes THIS level, not the check that precedes it. Chosen by department responsibility, unlike Checked by. Also drawn by the WGT-09 panel."
+      "note": "The only signatory since 2026-10-22 - the RSD's \"Single stage approval by HOD / In-charge\". Chosen by department responsibility. Drawn by the WGT-09 panel, which reads the live route, so no field value is involved. The Checked by line that preceded it was dropped at the customer's confirmation (see _noCheckedBy)."
     }
   ],
-  "_layout": "Section numbers (I, II) are NOT printed on screen, as on the other forms - three of the seven rows are hidden, so visible numbers would read with gaps in them and the gaps look like something that failed to load. `ref` stays in this file because it is how the paper form is discussed and how each row is traced back to it. Short fields pair off two to a line in the order they appear here, so Project Name and Project No. share the header line; `newLine` on a field starts a fresh line instead. The two prose blocks take the full width by themselves."
+  "_layout": "Section numbers (I, II) are NOT printed on screen, as on the other forms - two of the six rows are hidden, so visible numbers would read with gaps in them and the gaps look like something that failed to load. `ref` stays in this file because it is how the paper form is discussed and how each row is traced back to it. Short fields pair off two to a line in the order they appear here, so Project Name and Project No. share the header line; `newLine` on a field starts a fresh line instead. The two prose blocks take the full width by themselves."
 }

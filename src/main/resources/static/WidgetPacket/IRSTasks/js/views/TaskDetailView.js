@@ -310,6 +310,8 @@ define('IRSTasks/views/TaskDetailView', [
             columns: spec.columns || null,
             // start a fresh line of pairs rather than filling the one above
             newLine: spec.newLine === true,
+            // the two labels the Reviewer(s) row draws its pairs under
+            pairLabels: spec.pairLabels || null,
             showNote: spec.showNote === true,
             value: '',
             missing: false,
@@ -863,6 +865,27 @@ define('IRSTasks/views/TaskDetailView', [
     }
 
     /**
+     * The project's reviewers as two header pairs (user, 2026-10-22): the
+     * internal people, and the external text with its line breaks kept -
+     * one external reviewer is often a name, an email and a company on three
+     * lines, and joining them would make one person read as three.
+     */
+    function reviewerPairs(row, context) {
+        var labels = row.pairLabels || {};
+        var internalLabel = labels.internal || 'Reviewers - internal';
+        var externalLabel = labels.external || 'Reviewers - external';
+        var reviewers = context && context.reviewers;
+        if (!reviewers || reviewers.error) {
+            return [{ label: internalLabel, value: 'could not be read',
+                      className: 'text-danger' }];
+        }
+        return [
+            { label: internalLabel, value: reviewers.internal.join(', ') },
+            { label: externalLabel, value: reviewers.external, className: 'irs-lines' }
+        ];
+    }
+
+    /**
      * The label-and-value pairs one short field contributes.
      *
      * A list, not a single pair, because Department contributes two - and
@@ -879,6 +902,9 @@ define('IRSTasks/views/TaskDetailView', [
 
         if (row.source === 'service' && row.display === 'department') {
             return departmentPairs(label, context);
+        }
+        if (row.source === 'service' && row.display === 'reviewers') {
+            return reviewerPairs(row, context);
         }
         if (row.missing) {
             return [{ label: label, value: 'not returned', className: 'text-danger' }];
@@ -1620,8 +1646,8 @@ define('IRSTasks/views/TaskDetailView', [
                  * The spec is a local JSON file, so reading it first costs
                  * nothing worth parallelising, and it buys the rule that a
                  * subtype whose form has no object sections makes no call at
-                 * all. PROJECT REVIEW and the two others have no `service` row
-                 * today.
+                 * all. PROJECT REVIEW has one since 2026-10-22, its
+                 * Reviewer(s).
                  *
                  * A failure never reaches the caller: the other twenty-one rows
                  * are worth showing even when this one call is refused, so the
@@ -1646,6 +1672,7 @@ define('IRSTasks/views/TaskDetailView', [
                                 risks: [], opportunities: [], learnings: [],
                                 learningsHere: [], learningsElsewhere: [],
                                 members: [],
+                                reviewers: { internal: [], external: '', error: reason },
                                 riskError: reason, learningError: reason,
                                 memberError: reason, counts: {}
                             };

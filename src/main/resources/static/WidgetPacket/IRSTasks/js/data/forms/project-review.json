@@ -62,11 +62,13 @@
     {
       "ref": "Header",
       "label": "Reviewer(s)",
-      "source": "derived",
-      "from": "task",
-      "field": "assignees",
-      "display": "text",
-      "note": "No attribute holds the reviewer name, and none is needed: the approval route's Project Reviewer level is chosen from THE TASK'S ASSIGNEES (user, 2026-10-07: 'for project reviewer we will show the list of assignee only'), so the assignee list IS the reviewer pool the printed form asks for - and the form writes 'Reviewer(s)' in the plural, which this matches. It arrives free in the call the page already makes: measured 2026-10-10, four assignees on the live review task. The person who finally signed is the approval panel's answer, not this row's."
+      "source": "service",
+      "display": "reviewers",
+      "pairLabels": {
+        "internal": "Reviewers - internal",
+        "external": "Reviewers - external"
+      },
+      "note": "THE PROJECT'S REVIEWERS since 2026-10-22 (user): the internal ones are Persons on IRSProjectReviewer, the external ones the text of EPMExternalReviewers - the two fields of the REVIEWERS section on the project form, under the same two labels. One row in this file, two pairs on screen, the way Department contributes Department and Business Unit. Read by the REST JAR's `reviewers` section (one round trip; the external text rides on the header read). Until 2026-10-22 this row was the TASK'S ASSIGNEES, because the route's Project Reviewer level was chosen from them; that level now follows the project type - In-Charge / HOD on an external project, an internal reviewer on an internal one - so the assignees stopped being the reviewer pool. Who finally signed is still the approval panel's answer, not this row's."
     },
     {
       "ref": "1-4",

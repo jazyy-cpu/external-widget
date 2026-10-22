@@ -3490,13 +3490,14 @@ assert.strictEqual(svBy['Date'].source, 'none');
   .forEach(c => assert.ok(svBy['Date'].note.indexOf(c) >= 0,
     'the Date note names ' + c + ' as a candidate'));
 
-// ---- TWO signatory lines, not one - the correction made on 2026-10-06 after
-// 'Checked by:' and 'In-Charge/HOD -' were first read as one caption over one
-// signature. Both are approvals, so both are drawn by the route panel
-['Checked by', 'In-Charge / HOD'].forEach(label => {
-  assert.strictEqual(svBy[label].hidden, true, label + ' is not a form field');
-  assert.strictEqual(svBy[label].display, 'approval', label + ' is an approval');
-});
+// ---- ONE signatory line since 2026-10-22: the customer confirmed 'Checked
+// by:' is not required, so the route has the In-Charge / HOD level only and the
+// row is gone rather than hidden. The HOD line is an approval, drawn by the
+// route panel
+assert.strictEqual(svBy['In-Charge / HOD'].hidden, true, 'In-Charge / HOD is not a form field');
+assert.strictEqual(svBy['In-Charge / HOD'].display, 'approval', 'In-Charge / HOD is an approval');
+assert.ok(!svBy['Checked by'], 'Checked by was removed (customer, 2026-10-22)');
+assert.ok(/not required/i.test(svSpec._noCheckedBy), 'and the file says why');
 
 // ---- no stage row and no Rev. No. row, both by explicit decision
 // (user, 2026-10-06). The stage is the task's position in the WBS; the
@@ -3758,24 +3759,31 @@ assert.ok(/physical ids/.test(detailViewSrc),
 // EPM* attribute came back, and the IRS* interface one did not
 assert.ok(!/IRSProjectReviewDocumentId/.test(JSON.stringify(prProject)));
 
-// ---- REVIEWER(S) IS THE ASSIGNEE LIST, which arrives free in the call the
-// page already makes. The route's Project Reviewer level is chosen from
-// exactly this list (user, 2026-10-07), so it is the reviewer pool the paper
-// form asks for in the plural
+// ---- REVIEWER(S) IS THE PROJECT'S REVIEWERS since 2026-10-22 (user): the
+// internal Persons on IRSProjectReviewer and the external text, read by the
+// JAR's `reviewers` section. It was the task's assignees until the route's
+// level 2 stopped being chosen from them
 const prReviewers = prBy['Reviewer(s)'];
-assert.strictEqual(prReviewers.source, 'derived');
-assert.strictEqual(prReviewers.from, 'task');
-assert.strictEqual(prReviewers.field, 'assignees');
-assert.strictEqual(View._resolve(prReviewers, prTask, prProject).value,
-  'PLM User 2, Dr. Asokendu Samanta, PLM User 3, PLM User 1');
-assert.ok(View._resolve(prReviewers, prTask, prProject).value.indexOf(', ') > 0,
-  'a list prints as a list - String([a, b]) would run the names together');
-// an unassigned review task is empty, not missing: it is also the state that
-// blocks the route, and the dialog is where that is said
-const prNobody = View._resolve(prReviewers, { assignees: [], attributes: {} },
-  prProject);
-assert.strictEqual(prNobody.empty, true);
-assert.strictEqual(prNobody.missing, false);
+assert.strictEqual(prReviewers.source, 'service');
+assert.strictEqual(prReviewers.display, 'reviewers');
+assert.deepStrictEqual(prReviewers.pairLabels,
+  { internal: 'Reviewers - internal', external: 'Reviewers - external' },
+  'the same two labels as the REVIEWERS section of the project form');
+assert.ok(Context.sectionsFor(prSpec).indexOf('reviewers') >= 0,
+  'the form asks the JAR for the reviewers section');
+// a service row carries no value of its own - and is never `missing`
+assert.strictEqual(View._resolve(prReviewers, prTask, prProject).missing, false);
+// the shape: names for the people, the external text AS TYPED - one external
+// reviewer is a name, an email and a company on three lines
+const prReviewersShaped = Context._toReviewers({
+  internal: [{ fullName: 'Sharad S Dhavalikar', name: 'IPLT_User18' },
+             { fullName: '', name: 'IPLT_USER65' }],
+  external: 'MR XYX\nEmail :test@gmail.com\nxyzcompnay', error: '' });
+assert.deepStrictEqual(prReviewersShaped.internal, ['Sharad S Dhavalikar', 'IPLT_USER65'],
+  'a person with no names falls back to the login, not to an empty cell');
+assert.strictEqual(prReviewersShaped.external.split('\n').length, 3, 'line breaks kept');
+assert.deepStrictEqual(Context._toReviewers(undefined),
+  { internal: [], external: '', error: '' }, 'an absent section is empty, not a crash');
 
 // ---- the seven values resolved against the LIVE response -----------------
 const prRows = prSpec.fields.filter(f => !f.hidden)
@@ -3875,11 +3883,11 @@ assert.ok(/RDAREA-REV-Rev\.00 numbers the same items differently/
   'and it says what that costs an AR reader, and what answers it');
 assert.strictEqual(prObs.ref, '1-4');
 
-// ---- NO SERVICE SECTION AND NO BASELINE ROW, so this form - like stage
-// validation - adds no call to the two the page already makes. Seven
-// attributes on one task is still one call
-assert.deepStrictEqual(Context.sectionsFor(prSpec), [],
-  'no service section, so ProjectContextService is never called');
+// ---- ONE SERVICE SECTION AND NO BASELINE ROW. Since 2026-10-22 the
+// Reviewer(s) row asks the JAR for `reviewers` and nothing else - one call
+// beyond the two the page already makes, and only that section
+assert.deepStrictEqual(Context.sectionsFor(prSpec), ['reviewers'],
+  'only the reviewers section, so the call stays one round trip on the JAR side');
 assert.ok(!prSpec.fields.some(f => f.source === 'baseline' && !f.hidden),
   'no baseline row, so BaselineService is never called');
 // the cost form as the contrast, so an empty result cannot pass for a check
