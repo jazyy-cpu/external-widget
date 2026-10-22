@@ -265,6 +265,27 @@ documents only** in the documents panel, no Informed Users.
 Detail: devlog [2026-10-21-01](../../devlog/2026/2026-10-21-01_g17-evaluation-in-task-widget.md),
 worklog `2026-10-21-12`.
 
+### G12 technical publications in the Approvals list (2026-10-22)
+
+The G12 route (Researcher, In-Charge / HOD, Division Head) approves an
+`IRSTechnicalPublication` Document. The STM pattern unchanged (user: "it is
+same like stm"): Approvals list only, paper R&D-PRJ-03-Rev.01 wording, the
+Document itself as the one row of the documents panel.
+
+- `TaskFields.DOCUMENT_TYPES.IRSTechnicalPublication`, `kind: publication`,
+  badge `pub`. Route `publication/:id`, loader `PublicationDocumentService`;
+  the shaped task keeps `kind: document`, so the banner reads "This document".
+- The data comes from `GET /resources/v1/irsproject/publications/{id}` - a root
+  of its own because `StmDocumentService` owns `/documents`. 2 server round
+  trips: one batched `getInfo` (the six G12 attributes, project, routes, files)
+  and one `getRelatedObjects` (authors). The form is
+  `js/data/forms/technical-publication.json`; *Type of Publication* is reach
+  and medium joined, e.g. "International; Conference".
+- The chain, Approve / Reject: unchanged.
+
+Detail: devlog [2026-10-22-01](../../devlog/2026/2026-10-22-01_g12-publication-in-task-widget.md),
+worklog `2026-10-22-12`.
+
 ### The decision bar
 
 Under the chain on the task page, because the approver's question is *"is this
@@ -364,6 +385,7 @@ for `admin_platform` - the assertion that would have caught the 400.
 | O-R8 | **STM Documents (2026-10-19):** live check pending - an STM Document Frozen with its G11 route started, opened from the Approvals list as each of the three approvers |
 | O-R9 | **STM read access** of the In-Charge / HOD and the Division Head to the Document and its project is assumed, not verified (user, 2026-10-19: fix it if it fails) |
 | O-R10 | **G17 evaluations (2026-10-21):** live check pending after the JAR deploy - a new evaluation sent to approval, opened from the Approvals list by Evaluator, Checker and Approver; approvers' read access to the evidence assumed as for STM. Paper-label mapping to be corrected by the user if off |
+| O-R11 | **G12 publications (2026-10-22):** live check pending after the JAR deploy - DOC-0002 (route R-0000128) opened from the Approvals list by Researcher, In-Charge / HOD and Division Head; approvers' read access assumed as for STM |
 
 ## Links
 

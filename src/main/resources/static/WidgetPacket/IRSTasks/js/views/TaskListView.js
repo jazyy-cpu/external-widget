@@ -238,7 +238,8 @@ define('IRSTasks/views/TaskListView', [
              * fallback is there because a formatter is not a contract.
              *
              * `kind` is 'document' when the step approves an STM Document
-             * (G11), 'evaluation' for a G17 evaluation, rather than a task -
+             * (G11), 'evaluation' for a G17 evaluation, 'publication' for a
+             * G12 technical publication Document, rather than a task -
              * the caller opens a different page.
              */
             function openTask(row) {

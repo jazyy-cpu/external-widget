@@ -23,6 +23,8 @@
  *               of the G11 route), read by IRSTasks/services/StmDocumentService
  *   evaluation/:id the same page for a G17 periodic software evaluation,
  *               read by IRSTasks/services/EvaluationService
+ *   publication/:id the same page for a G12 technical publication Document,
+ *               read by IRSTasks/services/PublicationDocumentService
  *
  * Changing the credential reopens the current page: a different security
  * context can see a different set of tasks, and may not see this one at all.
@@ -38,9 +40,10 @@ define('IRSTasks/App', [
     'IRSTasks/views/TaskListView',
     'IRSTasks/views/TaskDetailView',
     'IRSTasks/services/StmDocumentService',
-    'IRSTasks/services/EvaluationService'
+    'IRSTasks/services/EvaluationService',
+    'IRSTasks/services/PublicationDocumentService'
 ], function (Credentials, Router, CredentialBar, TaskListView, TaskDetailView,
-             StmDocumentService, EvaluationService) {
+             StmDocumentService, EvaluationService, PublicationDocumentService) {
     'use strict';
 
     var running = null;
@@ -102,7 +105,8 @@ define('IRSTasks/App', [
                 onOpenTask: function (row) {
                     if (!row.id) { return; }
                     var path = row.kind === 'document' ? 'document/:id'
-                             : row.kind === 'evaluation' ? 'evaluation/:id' : 'task/:id';
+                             : row.kind === 'evaluation' ? 'evaluation/:id'
+                             : row.kind === 'publication' ? 'publication/:id' : 'task/:id';
                     router.go(path, { id: row.id });
                 }
             });
@@ -155,6 +159,21 @@ define('IRSTasks/App', [
                 onBack: function () { router.go('tasks', null, { replace: true }); }
             });
         }, 'Evaluation');
+
+        /**
+         * A G12 technical publication Document (worklog 2026-10-22-12): the
+         * STM page with the publication's loader. Its own path for the same
+         * reason as `document/:id`.
+         */
+        router.add('publication/:id', function (params) {
+            var target = freshPage();
+            view = TaskDetailView.render(target, {
+                id: params.id,
+                loader: PublicationDocumentService,
+                toolbar: slot,
+                onBack: function () { router.go('tasks', null, { replace: true }); }
+            });
+        }, 'Publication');
 
         return router;
     }

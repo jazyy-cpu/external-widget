@@ -99,6 +99,11 @@ define('IRSTasks/config/TaskFields', [], function () {
      * 2026-10-21-12) is not a Document but lives here for the same reasons:
      * approvable, never listed, read through our JAR. Its `kind`,
      * 'evaluation', opens its own page (`EvaluationService`).
+     *
+     * The G12 technical publication (`IRSTechnicalPublication`, worklog
+     * 2026-10-22-12) is a Document like STM, but read by its own JAR path, so
+     * its `kind`, 'publication', opens the page with
+     * `PublicationDocumentService`.
      */
     var DOCUMENT_TYPES = {
         IRSServiceToolMethod: {
@@ -114,6 +119,13 @@ define('IRSTasks/config/TaskFields', [], function () {
             form: null,
             fields: 'pes-evaluation',
             kind: 'evaluation'
+        },
+        IRSTechnicalPublication: {
+            label: 'TECHNICAL PUBLICATION / PRESENTATION',
+            badge: 'pub',
+            form: null,
+            fields: 'technical-publication',
+            kind: 'publication'
         }
     };
 

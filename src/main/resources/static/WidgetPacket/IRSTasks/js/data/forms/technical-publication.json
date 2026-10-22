@@ -1,0 +1,29 @@
+{
+  "_about": "What the approver's page shows for a Technical Publication / Presentation Document (G12). One file per form: change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the IRSTechnicalPublication entry in js/config/TaskFields.js (DOCUMENT_TYPES). The G12 route approves the Document itself (worklog 2026-10-22-10); the page reads it through our REST JAR, `GET resources/v1/irsproject/publications/{id}` (worklog 2026-10-22-12).",
+  "_generated": "Written 2026-10-22 from the paper form R&D-PRJ-03-Rev.01 (documents/as-is-markdown/.../1.R&D/Forms/R&D-PRJ-03.md), labels word for word, rows in the paper's order. Every value verified on DOC-0002 with the JPO twin `exec program IRSPublicationDocumentContext`.",
+  "_source": {
+    "project": "the project the Document hangs under (`to[Reference Document].from`): name, title, EPMProjectNo",
+    "task": "the DOCUMENT's own values, under the keys PublicationDocumentService puts in `attributes`: title, publicationName, publicationType, venue, duration, submitCopyToLibrary",
+    "derived": "a list the service shaped: Author(s), from relationship IRSPublicationAuthor",
+    "none": "not a value: the Researcher / In-Charge / HOD / DH signatures live in the route, drawn by the approval panel below the form"
+  },
+  "_notShown": "The top DATE has no value while the route is running; kept hidden, as on the STM form.",
+  "form": "R&D-PRJ-03-Rev.01",
+  "title": "Approval for Technical Publication / Presentation",
+  "taskType": "IRSTechnicalPublication",
+  "fields": [
+    {"ref": "Header", "label": "Date", "hidden": true, "source": "none", "display": "pending", "note": "No value until the route completes. Not shown, as on the STM form."},
+    {"ref": "Header", "label": "Project No.", "source": "project", "field": "EPMProjectNo", "display": "text"},
+    {"ref": "Header", "label": "Project Name", "source": "project", "field": "name", "fallbackField": "title", "display": "text", "note": "The project's name; its Title is empty on the projects measured."},
+    {"ref": "Body", "label": "Paper Title", "source": "task", "field": "title", "display": "text", "newLine": true, "note": "attribute[Title] of the Document."},
+    {"ref": "Body", "label": "Author(s)", "source": "derived", "from": "task", "field": "authors", "display": "text", "newLine": true, "note": "Persons on IRSPublicationAuthor, chosen on the Document's properties form."},
+    {"ref": "Body", "label": "Name of the Journal / Conference", "source": "task", "field": "publicationName", "display": "text", "newLine": true, "note": "IRSPublicationName."},
+    {"ref": "Body", "label": "Type of Publication", "source": "task", "field": "publicationType", "display": "text", "note": "IRSPublicationReach (National / International) and IRSPublicationMedium (Conference / Journal), e.g. 'International; Conference'."},
+    {"ref": "Body", "label": "Conference Venue", "source": "task", "field": "venue", "display": "text", "newLine": true, "note": "IRSPublicationVenue; empty for a journal."},
+    {"ref": "Body", "label": "Duration", "source": "task", "field": "duration", "display": "text", "note": "IRSPublicationDuration, free text."},
+    {"ref": "Body", "label": "Submit a Copy to Library", "source": "task", "field": "submitCopyToLibrary", "display": "yesno", "newLine": true, "note": "IRSPublicationSubmitCopyToLibrary, a boolean."},
+    {"ref": "Footer", "label": "Researcher", "hidden": true, "source": "none", "display": "approval", "note": "Route level 1 - drawn by the approval panel below the form."},
+    {"ref": "Footer", "label": "In-Charge / HOD", "hidden": true, "source": "none", "display": "approval", "note": "Route level 2, one person - drawn by the approval panel below the form."},
+    {"ref": "Footer", "label": "DH", "hidden": true, "source": "none", "display": "approval", "note": "Route level 3, Division Head - drawn by the approval panel below the form."}
+  ]
+}
