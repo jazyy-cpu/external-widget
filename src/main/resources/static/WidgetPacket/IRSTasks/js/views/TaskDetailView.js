@@ -1821,7 +1821,9 @@ define('IRSTasks/views/TaskDetailView', [
                      *
                      * It is NOT also left in the sidebar: one home for it.
                      */
-                    content.appendChild(ApprovalPanel.render(task));
+                    // the spec goes along: a form whose fields carry `input`
+                    // blocks is filled by the approver in the decision bar (G9)
+                    content.appendChild(ApprovalPanel.render(task, spec));
                     fit();
                 });
             }).catch(function (err) {

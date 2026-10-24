@@ -76,6 +76,15 @@ define('IRSTasks/config/TaskFields', [], function () {
             badge: 'review',
             form: null,
             fields: 'project-review'
+        },
+        // G9 (AR: G8), added 2026-10-24. Its Division Head FILLS the form at
+        // approval - the `input` blocks in verification-report.json, drawn by
+        // the WGT-09 decision bar
+        EPMPROJECT_VERIFICATION: {
+            label: 'VERIFICATION REPORT',
+            badge: 'verification',
+            form: null,
+            fields: 'verification-report'
         }
     };
 

@@ -1468,7 +1468,8 @@ assert.ok(!/Divisional Head|route-field-pm/.test(ApprovalSrc),
 // the sidebar keeps the documents panel only, so nothing is rendered twice
 const detailSrc = fs.readFileSync(
   path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
-assert.ok(/content\.appendChild\(ApprovalPanel\.render\(task\)\)/.test(detailSrc),
+// the spec rides along since 2026-10-24: the approver fills G9 in the bar
+assert.ok(/content\.appendChild\(ApprovalPanel\.render\(task, spec\)\)/.test(detailSrc),
   'the chain goes below the form, full width');
 assert.ok(!/sticky\.appendChild\(ApprovalPanel/.test(detailSrc),
   'and is NOT also left in the sidebar - one home for it');

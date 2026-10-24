@@ -57,8 +57,11 @@ define('IRSTasks/views/TaskApprovalPanel', [
     'IRSTasks/services/SignatureService',
     'IRSTasks/services/ApprovalService',
     'IRSTasks/services/SessionService',
+    'IRSTasks/services/ApproverFormService',
+    'IRSTasks/views/ApproverFormFields',
     'IRSTasks/Log'
-], function (RouteService, SignatureService, ApprovalService, SessionService, Log) {
+], function (RouteService, SignatureService, ApprovalService, SessionService,
+             ApproverFormService, ApproverFormFields, Log) {
     'use strict';
 
     var DASH = '–';
@@ -254,8 +257,28 @@ define('IRSTasks/views/TaskApprovalPanel', [
      * Submitting advances a live route, and neither this widget nor the Routes
      * API can reverse it. So the first click arms the decision and says what
      * will happen; the second sends it. Cancel is always available until then.
+     *
+     * ## When the approver fills the form (G9, 2026-10-24)
+     *
+     * A form whose JSON gives fields an `input` block is FILLED here by the
+     * approver (`ApproverFormService`). Then:
+     *
+     *   - the inputs sit above the comment, holding the task's current answers;
+     *   - **Approve validates first** and does not arm while anything is
+     *     missing; the confirmed approval SAVES the task, and only a
+     *     successful save sends the decision - so the route never advances
+     *     on a report that did not reach the platform;
+     *   - **Reject** saves nothing and needs only its comment;
+     *   - **Save draft** writes the answers without deciding.
+     *
+     * The platform lets the approver write the task only when they are one of
+     * its assignees. When `modifyAccess` on the task says they may not, the
+     * inputs are not drawn, Approve is withheld and the bar says why; Reject
+     * stays, so the Project Manager can assign them and send the route again
+     * (user, 2026-10-24). A save refused for the same reason later - the
+     * assignment changed while the page was open - ends in the same state.
      */
-    function decisionBar(route, step, onDone) {
+    function decisionBar(route, step, onDone, context) {
         /*
          * The bar carries no Bootstrap size utility, and it cannot: `fs-6` and
          * friends are all `rem`, this widget scales its root, and 1rem here
@@ -270,6 +293,37 @@ define('IRSTasks/views/TaskApprovalPanel', [
         if (step.instructions) {
             wrap.appendChild(el('div', 'text-secondary mb-2 text-break',
                                 step.instructions));
+        }
+
+        // ---- the approver's part of the form, when there is one
+        var task = (context && context.task) || null;
+        var fields = ApproverFormService.inputsOf(context && context.spec);
+        var form = null;            // the inputs, once drawn
+        var approveBlocked = false; // true while the approver cannot write the task
+        var formSlot = el('div', '');
+        wrap.appendChild(formSlot);
+
+        /** The not-an-assignee state: no inputs, no Approve, Reject only. */
+        function blockForm(text) {
+            approveBlocked = true;
+            form = null;
+            formSlot.textContent = '';
+            formSlot.appendChild(el('div', 'alert alert-warning py-2 px-3 mb-3', text));
+        }
+
+        if (fields.length && task) {
+            if (!ApproverFormService.canWrite(task.attributes)) {
+                blockForm(ApproverFormService.NOT_ASSIGNEE_TEXT);
+            } else {
+                form = ApproverFormFields.render(fields,
+                    ApproverFormService.currentValues(fields, task.attributes),
+                    function () {
+                        // an edit clears a "saved" or "missing" line that no
+                        // longer describes what is on screen
+                        if (!armed && !busy) { message.textContent = ''; }
+                    });
+                formSlot.appendChild(form.element);
+            }
         }
 
         // full-size, and three rows: a one-line box invites a one-word reason,
@@ -287,11 +341,44 @@ define('IRSTasks/views/TaskApprovalPanel', [
         approve.type = 'button';
         var reject = el('button', 'btn btn-outline-danger px-4', 'Reject');
         reject.type = 'button';
+        // only when there is a form to fill: saves the answers, decides nothing
+        var draft = el('button', 'btn btn-outline-secondary px-4', 'Save draft');
+        draft.type = 'button';
         var message = el('div', 'ms-2');
         buttons.appendChild(approve);
         buttons.appendChild(reject);
+        if (form) { buttons.appendChild(draft); }
         buttons.appendChild(message);
         wrap.appendChild(buttons);
+
+        /** Keep the page's copy of the task in step with what was saved. */
+        function remember(values) {
+            if (!task) { return; }
+            task.attributes = task.attributes || {};
+            Object.keys(values).forEach(function (k) { task.attributes[k] = values[k]; });
+        }
+
+        /** Answers that are complete, or null after marking what is missing. */
+        function checkedAnswers() {
+            var values = form.values();
+            var problems = ApproverFormService.validate(fields, values);
+            form.showProblems(problems);
+            if (problems.length) {
+                message.className = 'ms-2 text-danger';
+                message.textContent = problems.length === 1
+                    ? '1 answer is missing or not allowed - see the form above.'
+                    : problems.length + ' answers are missing or not allowed - see the form above.';
+                return null;
+            }
+            return values;
+        }
+
+        function syncApprove() {
+            approve.disabled = approveBlocked;
+            approve.title = approveBlocked
+                ? 'You cannot fill in this form, so it cannot be approved - reject it instead'
+                : 'Approve this task';
+        }
 
         // a rejection with no reason is unactionable for whoever has to fix it
         function syncReject() {
@@ -315,7 +402,9 @@ define('IRSTasks/views/TaskApprovalPanel', [
             message.textContent = '';
             message.className = 'ms-2';
             comment.disabled = false;
-            approve.disabled = false;
+            draft.disabled = false;
+            if (form) { form.setDisabled(false); }
+            syncApprove();
             syncReject();
         }
 
@@ -329,22 +418,45 @@ define('IRSTasks/views/TaskApprovalPanel', [
             other.textContent = 'Cancel';
             other.className = 'btn btn-outline-secondary px-4';
             other.disabled = false;
+            draft.disabled = true;
+            if (form) { form.setDisabled(true); }
             message.className = 'ms-2 text-danger';
             message.textContent = decision === 'Approve'
-                ? 'This advances the route to the next approver. It cannot be undone.'
+                ? (form ? 'This saves your answers to the task and advances the route. '
+                        : 'This advances the route to the next approver. ') +
+                  'It cannot be undone.'
                 : 'This rejects the task and stops the route. It cannot be undone.';
+        }
+
+        /**
+         * The save that must come first when the approver filled the form.
+         * Resolves with nothing to save when there is no form, or when the
+         * decision is a rejection - a rejected report is not the approver's
+         * finished answer, and the next cycle starts from the task as it was.
+         */
+        function saveFirst(decision) {
+            if (!form || decision !== 'Approve') { return Promise.resolve(); }
+            var values = form.values();
+            message.textContent = 'Saving your answers\u2026';
+            return ApproverFormService.save(task.id, values).then(function () {
+                remember(values);
+                message.textContent = 'Submitting\u2026';
+            });
         }
 
         function submit(decision) {
             busy = true;
             approve.disabled = true;
             reject.disabled = true;
+            draft.disabled = true;
             comment.disabled = true;
+            if (form) { form.setDisabled(true); }
             message.className = 'ms-2 text-secondary';
             message.textContent = 'Submitting\u2026';
 
-            ApprovalService.decide(step.id, decision, comment.value.trim())
-                .then(function () {
+            saveFirst(decision).then(function () {
+                return ApprovalService.decide(step.id, decision, comment.value.trim());
+            }).then(function () {
                     busy = false;
                     message.className = 'ms-2 text-success fw-semibold';
                     message.textContent = decision === 'Approve'
@@ -355,10 +467,20 @@ define('IRSTasks/views/TaskApprovalPanel', [
                     if (onDone) { onDone(); }
                 }, function (err) {
                     busy = false;
+                    // the approver stopped being an assignee while the page
+                    // was open: same state as if it had been so on arrival
+                    if (err && err.code === 'NOT_ASSIGNEE') {
+                        blockForm(ApproverFormService.NOT_ASSIGNEE_TEXT);
+                        if (draft.parentNode) { draft.parentNode.removeChild(draft); }
+                    }
                     reset();
                     message.className = 'ms-2 text-danger';
-                    message.textContent = 'The decision was not accepted: ' +
-                        ((err && err.message) ? err.message : String(err));
+                    // a failed SAVE already explains itself in full; only a
+                    // refused decision needs the prefix
+                    message.textContent = (err && err.code !== undefined)
+                        ? err.message
+                        : 'The decision was not accepted: ' +
+                          ((err && err.message) ? err.message : String(err));
                     Log.warn('approval: ' + message.textContent);
                 });
         }
@@ -369,19 +491,58 @@ define('IRSTasks/views/TaskApprovalPanel', [
                 if (armed === decision) { submit(decision); return; }
                 if (armed) { reset(); return; }   // the other button is Cancel
                 if (decision === 'Reject' && !comment.value.trim()) { return; }
+                if (decision === 'Approve' && approveBlocked) { return; }
+                // nothing is armed while the form is incomplete: the second
+                // click must never be the moment a missing answer is found
+                if (decision === 'Approve' && form && !checkedAnswers()) { return; }
                 arm(decision);
             };
         }
 
+        /** Save draft: the answers only, no decision, no completeness check. */
+        draft.addEventListener('click', function () {
+            if (busy || armed || !form) { return; }
+            var values = form.values();
+            // a value outside the range would be refused anyway - say which
+            var bad = ApproverFormService.validate(fields, values).filter(function (p) {
+                return p.message.indexOf('not one of') === 0;
+            });
+            form.showProblems(bad);
+            if (bad.length) { return; }
+
+            busy = true;
+            draft.disabled = true;
+            approve.disabled = true;
+            message.className = 'ms-2 text-secondary';
+            message.textContent = 'Saving your answers…';
+            ApproverFormService.save(task.id, values).then(function () {
+                busy = false;
+                remember(values);
+                reset();
+                message.className = 'ms-2 text-success';
+                message.textContent = 'Answers saved. Nothing has been approved yet.';
+            }, function (err) {
+                busy = false;
+                if (err && err.code === 'NOT_ASSIGNEE') {
+                    blockForm(ApproverFormService.NOT_ASSIGNEE_TEXT);
+                    if (draft.parentNode) { draft.parentNode.removeChild(draft); }
+                }
+                reset();
+                message.className = 'ms-2 text-danger';
+                message.textContent = (err && err.message) || String(err);
+            });
+        });
+
         approve.addEventListener('click', handle('Approve'));
         reject.addEventListener('click', handle('Reject'));
+        syncApprove();
         syncReject();
 
         return wrap;
     }
 
     /** One route: its status line, then its steps in a scrolling strip. */
-    function routeBlock(route, index, total, onDone) {
+    function routeBlock(route, index, total, onDone, context) {
         var wrap = el('div', 'irs-route' + (index ? ' mt-3 pt-3 border-top' : ''));
 
         var head = el('div', 'd-flex align-items-center gap-2 mb-2');
@@ -458,7 +619,7 @@ define('IRSTasks/views/TaskApprovalPanel', [
                         return null;
                     }
                     step.instructions = step.instructions || verdict.instructions;
-                    wrap.appendChild(decisionBar(route, step, onDone));
+                    wrap.appendChild(decisionBar(route, step, onDone, context));
                     return null;
                 });
             });
@@ -474,9 +635,12 @@ define('IRSTasks/views/TaskApprovalPanel', [
          * that only some tasks make.
          *
          * @param {Object} task as shaped by `TaskDetailService`
+         * @param {Object} [spec] the form definition; its `input` fields are
+         *        what the approver fills in the decision bar
          * @returns {HTMLElement} the section, ready to append
          */
-        render: function (task) {
+        render: function (task, spec) {
+            var context = { task: task, spec: spec || null };
             var panel = el('div', 'card irs-docs irs-approval mt-3');
 
             var header = el('div', 'card-header d-flex align-items-center gap-2 py-2 px-3');
@@ -533,7 +697,7 @@ define('IRSTasks/views/TaskApprovalPanel', [
                         : (list[list.length - 1].status || String(list.length));
 
                     list.forEach(function (route, index) {
-                        body.appendChild(routeBlock(route, index, list.length, reload));
+                        body.appendChild(routeBlock(route, index, list.length, reload, context));
                     });
                 }, function (err) {
                     body.textContent = '';

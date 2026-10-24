@@ -326,6 +326,62 @@ first, then `modifyAccess` as a second guard for a locked object. An identity
 that cannot be read resolves to an empty login, so the controls stay **hidden** -
 showing them on a failed identity check is the one outcome that must not happen.
 
+### G9 Verification Report: the Division Head fills the form (built 2026-10-24)
+
+For `EPMPROJECT_VERIFICATION` the Division Head (the route's only approver) fills
+the task's 14 `EPM*` attributes, then approves. The fields are written with OOTB
+`PUT modeler/tasks/{taskId}`, and only then is the decision `PUT` on the inbox
+task sent. Worklog
+[2026-10-24-07](../../../../worklog/entries/2026/2026-10-24-07_g9-dh-fills-form-at-approval-plan.md).
+
+**Measured as the DH (`IPLT_User4`), 2026-10-24:** the DH can modify the task
+**only when they are its assignee** (`Assigned Tasks`). Holding the route step
+gives them the inbox task, not the task. Their `VPLMProjectLeader` context makes
+no difference.
+
+| | DH is assignee | DH is not assignee |
+|---|---|---|
+| task `modifyAccess` | `TRUE` | `FALSE` |
+| task `PUT` | 200 | **400** `Error: No modify access on the specified object.` |
+| inbox task decision | allowed | allowed |
+
+A bad value is refused by the server with 400 `Error: Invalid attribute range specified.`
+
+**User decision: no new back end. The error is captured and explained.** When
+the DH is not an assignee, the widget says so, and the process repairs it:
+
+1. **Detect it before the DH types anything.** The bar already knows the step
+   is theirs (`isMe`). For a G9 task it also reads the task's `modifyAccess`
+   (one GET, `modeler/tasks/{taskId}`). If that is `FALSE`:
+   - no inputs are rendered;
+   - **Approve is disabled**: approving with an empty report is not allowed;
+   - **Reject stays available**, comment required;
+   - the bar shows: *"You are not an assignee of this Verification Report task,
+     so you cannot fill in the report. Reject this step with a comment asking
+     the Project Manager to add you as an assignee and send the route again."*
+2. **Catch it at save time as well.** The assignment can change between page
+   load and save. A 400 whose message contains `No modify access` is mapped to
+   the same text. The approval is **not** sent, because fields are written
+   first. A 400 with `Invalid attribute range` shows as a value error on the
+   form instead. Any other failure keeps the platform's own words.
+3. **Repair, by the Project Manager:**
+   - add the DH under the task's Assignees;
+   - send the route again with IRS Approval;
+   - the DH then sees the inputs.
+
+Unverified, see **O-R12**: whether IRS Approval offers a new route on a G9 task
+whose previous route was rejected (`Stopped`), and what state the task is left
+in after the rejection.
+
+**Built 2026-10-24** (devlog
+[2026-10-24-01](../../devlog/2026/2026-10-24-01_g9-verification-report-approver-fills.md)).
+`verification-report.json` gives each task field an `input` block, and
+`ApproverFormService` holds the rules and the save. `ApproverFormFields` draws
+the inputs, and `TaskApprovalPanel.render(task, spec)` puts them in the bar.
+`modifyAccess` comes from the task call the page already makes, so detecting
+the not-assignee case costs no call. The user says the route can be restarted
+after a rejection, so the repair path itself needs no widget work.
+
 ## Cost
 
 | | calls |
@@ -386,6 +442,7 @@ for `admin_platform` - the assertion that would have caught the 400.
 | O-R9 | **STM read access** of the In-Charge / HOD and the Division Head to the Document and its project is assumed, not verified (user, 2026-10-19: fix it if it fails) |
 | O-R10 | **G17 evaluations (2026-10-21):** live check pending after the JAR deploy - a new evaluation sent to approval, opened from the Approvals list by Evaluator, Checker and Approver; approvers' read access to the evidence assumed as for STM. Paper-label mapping to be corrected by the user if off |
 | O-R11 | **G12 publications (2026-10-22):** live check pending after the JAR deploy - DOC-0002 (route R-0000128) opened from the Approvals list by Researcher, In-Charge / HOD and Division Head; approvers' read access assumed as for STM |
+| O-R12 | **G9 fill-at-approval (built 2026-10-24):** live run pending; the dashboard serves a cached `IRSTasks.html` until its cache is cleared. Then live test of the repair path on the `not assingee` task. The DH rejects; the PM adds the DH as assignee and sends the route again with IRS Approval. Confirm the command is offered after a `Stopped` route, and record the task's state after the rejection |
 
 ## Links
 

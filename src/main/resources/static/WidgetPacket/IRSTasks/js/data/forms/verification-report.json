@@ -1,0 +1,170 @@
+{
+  "_about": "What the VERIFICATION REPORT task page shows, and what its Division Head fills in at approval. One file per form (user, 2026-10-07): change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the subtype's entry in js/config/TaskFields.js.",
+  "_generated": "Written 2026-10-24 from R&D-VER-Rev.00 (the original PDF, not the Markdown copy, which had detached item 9 from its bullet - worklog 2026-10-24-02). Attribute names, ranges and order verified on this VM the same day: `print type EPMPROJECT_VERIFICATION`, and all 14 values arrive in the task call the page already makes (`modeler/tasks/{id}` dataelements, measured on T-0000110).",
+  "_oneFormTwoAreas": "ONE SUBTYPE SERVES BOTH R&D AND AR. R&D-VER-Rev.00 (gateway G9) and RDAREA-VER-Rev.00 (G8) are identical apart from the signatory label (DH (R&D) / DH (RDAREA)), so there is no AR variant of this file.",
+  "_approverFills": "THE APPROVER FILLS THIS FORM, not the task's author (user, 2026-10-24). Every field with an `input` block is drawn as an input in the WGT-09 decision bar while the route waits on the signed-in user, and written to the TASK with OOTB `PUT modeler/tasks/{taskId}` BEFORE the decision is sent - a failed save never sends the approval. The platform lets the Division Head write the task only when they are one of its ASSIGNEES (measured as IPLT_User4, worklog 2026-10-24-07): otherwise the save is refused with 400 `No modify access on the specified object.`, the bar says so up front from `modifyAccess`, Approve is withheld and Reject stays open, so the Project Manager can add the Division Head as an assignee and send the route again.",
+  "_input": {
+    "choice": "radio buttons, one per value in `values`, NOTHING preselected - an unanswered question must stay visibly unanswered, unlike the platform's own form, which always checks the first radio (worklog 2026-10-24-03). `values` must be the attribute's range minus the blank: the server refuses anything else with 400 `Invalid attribute range specified.`",
+    "textarea": "free text; the attribute is multiline",
+    "required": "must be answered before Approve is offered",
+    "requiredWhen": "required only when another field has the given value: {\"field\": <attribute>, \"equals\": <value>}"
+  },
+  "_noCpdEvidenceRule": "The RSD makes a file mandatory when CPD = Yes. Kept OPTIONAL for now on the user's decision of 2026-10-24 (worklog 2026-10-24-05): the evidence goes on the task's Attachments / Deliverables, and the rule waits for the server-side check.",
+  "_remarksOptional": "Whether the Division Head's remarks are mandatory is an open question to the customer (worklog 2026-10-24-07). Until answered they are optional; making them mandatory is `\"required\": true` on that field.",
+  "_source": {
+    "project": "read from the PROJECT's dataelements - arrives in the project call the page already makes",
+    "task": "read from the TASK's own dataelements, which carry all 14 EPM* attributes",
+    "none": "not a value: it lives in the approval route"
+  },
+  "_display": {
+    "text": "one line",
+    "longtext": "prose - the line breaks are real",
+    "approval": "an approval signature - a route task, not a field"
+  },
+  "form": "R&D-VER-Rev.00",
+  "title": "VERIFICATION REPORT",
+  "taskType": "EPMPROJECT_VERIFICATION",
+  "fields": [
+    {
+      "ref": "Header",
+      "label": "Project Name",
+      "source": "project",
+      "field": "name",
+      "display": "text",
+      "fallbackField": "title",
+      "note": "Not on the printed form; shown beside Project No. as on the other forms."
+    },
+    {
+      "ref": "Header",
+      "label": "Project No.",
+      "source": "project",
+      "field": "EPMProjectNo",
+      "display": "text"
+    },
+    {
+      "ref": "1",
+      "label": "Completion of the work scope",
+      "source": "task",
+      "field": "EPMWorkScopeCompleted",
+      "display": "text",
+      "newLine": true,
+      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+    },
+    {
+      "ref": "2",
+      "label": "All review stages are performed",
+      "source": "task",
+      "field": "EPMAllReviewsPerformed",
+      "display": "text",
+      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+    },
+    {
+      "ref": "3",
+      "label": "Stage-validation is performed",
+      "source": "task",
+      "field": "EPMStageValidationDone",
+      "display": "text",
+      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+    },
+    {
+      "ref": "4",
+      "label": "Technical report prepared",
+      "source": "task",
+      "field": "EPMTechnicalReportPrepared",
+      "display": "text",
+      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+    },
+    {
+      "ref": "5",
+      "label": "All data stored in the project drive",
+      "source": "task",
+      "field": "EPMDataStoredInDrive",
+      "display": "text",
+      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+    },
+    {
+      "ref": "6",
+      "label": "Key learnings identified and recorded",
+      "source": "task",
+      "field": "EPMKeyLearningsRecorded",
+      "display": "text",
+      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+    },
+    {
+      "ref": "7",
+      "label": "Details of the outcome of the project",
+      "source": "task",
+      "field": "EPMProjectOutcomeDetailed",
+      "display": "text",
+      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+    },
+    {
+      "ref": "8",
+      "label": "Communication to client on completion of scope of work",
+      "source": "task",
+      "field": "EPMClientCommunicated",
+      "display": "text",
+      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+    },
+    {
+      "ref": "9",
+      "label": "Issuance of invoices (if applicable)",
+      "source": "task",
+      "field": "EPMInvoiceIssued",
+      "display": "text",
+      "note": "The only question with NA in its range.",
+      "input": { "type": "choice", "values": ["Yes", "No", "NA"], "required": true }
+    },
+    {
+      "ref": "10",
+      "label": "Applicability of legal or any other requirements",
+      "source": "task",
+      "field": "EPMLegalRequirementApplicable",
+      "display": "text",
+      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+    },
+    {
+      "ref": "10a",
+      "label": "If yes, details of legal or other requirements",
+      "source": "task",
+      "field": "EPMLegalRequirementDetails",
+      "display": "longtext",
+      "input": { "type": "textarea",
+                 "requiredWhen": { "field": "EPMLegalRequirementApplicable", "equals": "Yes" } }
+    },
+    {
+      "ref": "11",
+      "label": "CPD details entered in ORS",
+      "source": "task",
+      "field": "EPMCPDEnteredInORS",
+      "display": "text",
+      "note": "The proof is a file attached to the task, not an attribute - see _noCpdEvidenceRule.",
+      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+    },
+    {
+      "ref": "12",
+      "label": "Any other details",
+      "source": "task",
+      "field": "EPMAnyOtherDetails",
+      "display": "longtext",
+      "input": { "type": "textarea" }
+    },
+    {
+      "ref": "13",
+      "label": "Verification remarks by Verifying Authority",
+      "source": "task",
+      "field": "EPMVerificationRemarks",
+      "display": "longtext",
+      "input": { "type": "textarea" }
+    },
+    {
+      "ref": "Footer",
+      "label": "Verified by: Division Head",
+      "hidden": true,
+      "source": "none",
+      "display": "approval",
+      "note": "The route's only level (worklog 2026-10-24-04). Drawn by the WGT-09 panel, which reads the live route."
+    }
+  ],
+  "_layout": "Short fields pair off two to a line in the order they appear here; `newLine` on question 1 starts the checklist on its own line below the header. The three text blocks take the full width."
+}

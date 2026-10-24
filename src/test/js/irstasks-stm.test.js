@@ -33,7 +33,8 @@ assert.strictEqual(Fields.fieldSet('IRSServiceToolMethod'), 'stm-archive');
 assert.strictEqual(Fields.typeBadge('IRSServiceToolMethod'), 'irs-type irs-type-stm');
 assert.ok(fs.readFileSync(path.join(base, 'css/IRSTasks.css'), 'utf8').indexOf('.irs-type-stm') > 0,
   'the badge has its colour');
-assert.deepStrictEqual(Object.keys(Fields.TASK_TYPES).length, 4, 'the task allow-list is unchanged');
+// 5 since G9 joined on 2026-10-24; STM still lives in DOCUMENT_TYPES, not here
+assert.deepStrictEqual(Object.keys(Fields.TASK_TYPES).length, 5, 'STM did not enter the task allow-list');
 
 // ---- 2. the inbox list keeps the STM steps --------------------------------
 

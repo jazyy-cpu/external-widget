@@ -46,10 +46,11 @@ const columns = load(COLUMNS, [Fields, { badge: () => ({}), date: (v) => v, empt
 // Filled with the four gateway subtypes on 2026-10-07, so the allow-list is a
 // real one now: the resource returns every task the user can see, and only
 // ours belong on this page (user: "we will show only our custom task").
+// G9 VERIFICATION REPORT joined on 2026-10-24 (irstasks-verification.test.js)
 assert.deepStrictEqual(Object.keys(Fields.TASK_TYPES).sort(), [
   'EPMPROJECT_PERSONNEL_COST', 'EPMPROJECT_PROPOSAL',
-  'EPMPROJECT_REVIEW', 'EPMPROJECT_STAGE_VALIDATION'
-], 'the four gateway subtypes, and nothing else');
+  'EPMPROJECT_REVIEW', 'EPMPROJECT_STAGE_VALIDATION', 'EPMPROJECT_VERIFICATION'
+], 'the five gateway subtypes, and nothing else');
 
 assert.strictEqual(Fields.isListed('EPMPROJECT_REVIEW'), true);
 assert.strictEqual(Fields.isListed('Task'), false, 'an OOTB task is not listed');

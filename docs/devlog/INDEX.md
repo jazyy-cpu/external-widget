@@ -4,6 +4,7 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-10-24-01](2026/2026-10-24-01_g9-verification-report-approver-fills.md) | G9 VERIFICATION REPORT in IRSTasks: form + the Division Head fills its 14 fields in the decision bar (validate, save the task, then approve); not an assignee -> explained, Approve withheld, Reject open. Worklog 2026-10-24-07 | WGT-09, WGT-07 | built and unit-tested; live run waits on the dashboard cache |
 | [2026-10-23-01](2026/2026-10-23-01_xii-lessons-learnt-from-failures.md) | Proposal XII now lists the project's own Lessons Learnt from Failures (`IRSLessonLearnt`, JAR section `lessons`), two columns as on the PDF, no From project. Key Learnings are no longer shown there. Worklog 2026-10-23-04 | WGT-07 | built and unit-tested; JAR deploy and live check pending |
 | [2026-10-22-03](2026/2026-10-22-03_project-review-reviewers.md) | Project Review: Reviewer(s) is now the project's internal + external reviewers (JAR `reviewers` section, two header pairs, external line breaks kept), not the task's assignees. Worklog 2026-10-22-17 | WGT-07 | built and unit-tested; JAR deploy and widget rebuild pending |
 | [2026-10-22-02](2026/2026-10-22-02_stage-validation-no-checked-by.md) | Stage Validation: the hidden "Checked by" approval row removed from `stage-validation.json` (customer: not required); test section 24 and WGT-07 README follow. Route level removed on the platform side, worklog 2026-10-22-16 | WGT-07, WGT-09 | done; widget rebuild pending |
