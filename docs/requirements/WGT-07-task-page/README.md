@@ -420,6 +420,13 @@ two the JAR unlocked on 2026-10-08. XII had been marked `pending` against
 object replaced it (WP02 doc 08) - the row had been waiting for something that
 was never going to exist.
 
+**2026-10-23:** XII no longer shows the reused Key Learnings. It lists the
+**Lessons Learnt from Failures** (`IRSLessonLearnt`) created in this project,
+every state, in two columns - Lesson / Lessons Learnt from Failures - with no
+From project column, the same as the PDF. The data comes from the new JAR
+section `$include=lessons`, which is one round trip. Devlog
+[2026-10-23-01](../../devlog/2026/2026-10-23-01_xii-lessons-learnt-from-failures.md).
+
 Full row-by-row map: devlog [2026-10-08-01](../../devlog/2026/2026-10-08-01_proposal-form-sections-and-bootstrap-only.md).
 
 Detail: devlog [2026-10-07-02](../../devlog/2026/2026-10-07-02_task-page-proposal-form.md).

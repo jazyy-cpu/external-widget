@@ -19,6 +19,11 @@
  * opportunities) have exactly one source, and this is it. Verified live through
  * the browser on 2026-10-08 against `Solize XYZ`.
  *
+ * Since 2026-10-23 XII is the `lessons` section - the `IRSLessonLearnt`
+ * objects this project produced (worklog 2026-10-23-03/-04), the same list the
+ * R&D-PRJ-01 PDF prints. The `learnings` sections (Key Learnings) stay for
+ * any form that asks for them.
+ *
  * ## One call, three sections
  *
  * The JAR reads all of it in four round trips server-side and returns it in one
@@ -106,6 +111,22 @@ define('IRSTasks/services/ProjectContextService', [
             originLabel: label,
             originId: text(origin.physicalId),
             originNo: originNo
+        };
+    }
+
+    /**
+     * One Lessons Learnt from Failures row (`IRSLessonLearnt`, worklog
+     * 2026-10-23-03). Section XII lists the lessons THIS project produced, as
+     * the R&D-PRJ-01 PDF does (worklog 2026-10-23-02), so there is no origin.
+     */
+    function toLesson(item) {
+        item = item || {};
+        return {
+            id: text(item.physicalId) || text(item.id),
+            no: text(item.no),
+            title: text(item.title),
+            lesson: text(item.text),
+            state: text(item.state)
         };
     }
 
@@ -303,12 +324,14 @@ define('IRSTasks/services/ProjectContextService', [
             learnings: here.concat(elsewhere),
             learningsHere: here,
             learningsElsewhere: elsewhere,
+            lessons: list(body.lessons).map(toLesson),
             customer: toCustomer(body.customer),
             department: toDepartment(body.department),
             members: sortMembers(list(body.members).map(toMember)),
             reviewers: toReviewers(body.reviewers),
             riskError: text(body.riskError),
             learningError: text(learnings.error),
+            lessonError: text(body.lessonError),
             memberError: text(body.memberError),
             counts: body.counts || {}
         };
@@ -342,6 +365,8 @@ define('IRSTasks/services/ProjectContextService', [
                 add('members');
             } else if (field.display === 'reviewers') {
                 add('reviewers');
+            } else if (field.display === 'lessons') {
+                add('lessons');
             } else if (field.display === 'learnings') {
                 var scope = field.learningScope || 'all';
                 if (scope === 'created') { add('learnings.created'); }
@@ -383,9 +408,11 @@ define('IRSTasks/services/ProjectContextService', [
                 Log.info('project context: ' + out.risks.length + ' risk(s), ' +
                          out.opportunities.length + ' opportunity(ies), ' +
                          out.learningsHere.length + ' learning(s) from this project, ' +
-                         out.learningsElsewhere.length + ' reused.');
+                         out.learningsElsewhere.length + ' reused, ' +
+                         out.lessons.length + ' lesson(s) learnt from failures.');
                 if (out.riskError) { Log.warn('risk section failed: ' + out.riskError); }
                 if (out.learningError) { Log.warn('learning section failed: ' + out.learningError); }
+                if (out.lessonError) { Log.warn('lesson section failed: ' + out.lessonError); }
                 if (out.memberError) { Log.warn('member section failed: ' + out.memberError); }
                 return out;
             });
@@ -394,6 +421,7 @@ define('IRSTasks/services/ProjectContextService', [
         /** for tests only */
         _shape: shape,
         _toLearning: toLearning,
+        _toLesson: toLesson,
         _toCustomer: toCustomer,
         _toDepartment: toDepartment,
         _toReviewers: toReviewers

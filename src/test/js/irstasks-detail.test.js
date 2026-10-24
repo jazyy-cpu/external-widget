@@ -70,7 +70,7 @@ assert.strictEqual(Fields.fieldSet('EPMPROJECT_PROPOSAL'), 'project-proposal');
 // a field name whenever a value is expected
 const SOURCES = ['project', 'task', 'derived', 'service', 'none'];
 const DISPLAYS = ['text', 'longtext', 'pending', 'elsewhere', 'approval', 'type',
-                  'risks', 'learnings', 'customer', 'department'];
+                  'risks', 'learnings', 'lessons', 'customer', 'department'];
 // a source that reads ONE value must name the field it reads; a source that
 // renders a list or nothing at all must instead explain itself in a note,
 // because the page prints that note where a value would have gone
@@ -93,7 +93,7 @@ const service = spec.fields.filter(f => f.source === 'service');
 assert.strictEqual(service.length, 4, 'four service-backed sections');
 assert.deepStrictEqual(service.map(f => f.ref), ['Header', 'II', 'XII', 'XIII']);
 assert.deepStrictEqual(service.map(f => f.display).sort(),
-  ['customer', 'department', 'learnings', 'risks']);
+  ['customer', 'department', 'lessons', 'risks']);
 
 // EPMLessonsLearnt was CANCELLED when the IRSLearning object replaced it
 // (WP02 doc 08). No row may go looking for it again.
@@ -550,12 +550,16 @@ assert.deepStrictEqual(
 assert.deepStrictEqual(Context.sectionsFor({ fields: [{ source: 'project', field: 'x' }] }), []);
 assert.deepStrictEqual(Context.sectionsFor(null), []);
 
-// the real proposal form: risks, opportunities, and the REUSED learnings only
+// the real proposal form: risks, opportunities, and - since 2026-10-23 - the
+// Lessons Learnt from Failures this project produced (worklog 2026-10-23-04)
 assert.deepStrictEqual(Context.sectionsFor(spec),
   // the order follows the FORM - XII comes before XIII - which is
   // incidental to the server but makes the parameter readable in a log
-  ['department', 'customer', 'learnings.reused', 'risks', 'opportunities'],
-  'R&D-PRJ-01 XII cites earlier projects, so it must not fetch this one\'s own');
+  ['department', 'customer', 'lessons', 'risks', 'opportunities'],
+  'R&D-PRJ-01 XII lists the project\'s own lessons learnt, not the Key Learnings');
+assert.deepStrictEqual(
+  Context.sectionsFor({ fields: [{ source: 'service', display: 'lessons' }] }),
+  ['lessons']);
 
 // a duplicate section is asked for once
 assert.deepStrictEqual(
@@ -868,6 +872,60 @@ hidden.forEach(f => {
   assert.ok(f.note, 'a hidden row keeps its note - that is the point of parking it');
 });
 assert.strictEqual(spec.fields.length, 23, 'nothing was removed from the file');
+
+// ---- 8b. XII: Lessons Learnt from Failures (worklog 2026-10-23-04) ------
+//
+// The JPO twin's output on R&D-26002-HY (OSCP -Project), 2026-10-23.
+const LIVE_LESSONS = {
+  included: ['lessons'],
+  lessons: [
+    { id: '39261.35329.54110.60383', physicalId: '2937BDD700002CF46ADB8D440000119A',
+      no: 'LLF-0000001', title: 'FIRST LESSON',
+      text: '1. good lesson learned form fiaue \n2. this lesson was learned from here',
+      state: 'Active' },
+    { id: '39261.35329.54110.60620', physicalId: '2937BDD700002CF46ADB8D68000011B4',
+      no: 'LLF-0000002', title: 'Secsond Lesson learned',
+      text: 'this is second lesson learneder form fiaure', state: 'Active' }
+  ],
+  lessonError: '',
+  counts: { lessons: '2' }
+};
+const lessonsShaped = Context._shape(LIVE_LESSONS);
+assert.strictEqual(lessonsShaped.lessons.length, 2);
+assert.strictEqual(lessonsShaped.lessons[0].id, '2937BDD700002CF46ADB8D440000119A');
+assert.strictEqual(lessonsShaped.lessons[0].title, 'FIRST LESSON');
+assert.ok(/\n2\. this lesson/.test(lessonsShaped.lessons[0].lesson),
+  'the lesson text keeps its line breaks');
+assert.strictEqual(lessonsShaped.lessonError, '');
+assert.strictEqual(Context._shape({ lessonError: 'no such type' }).lessonError, 'no such type');
+assert.deepStrictEqual(Context._shape({}).lessons, [], 'an absent section is empty');
+
+const xiiRow = spec.fields.filter(f => f.ref === 'XII')[0];
+assert.strictEqual(xiiRow.display, 'lessons');
+assert.strictEqual(xiiRow.learningScope, undefined, 'no Key Learnings scope left on XII');
+
+const xiiBox = View._blockBody(xiiRow, lessonsShaped, null, null, null);
+const xiiHeads = [];
+const xiiCells = [];
+walk(xiiBox, n => {
+  if (n.tagName === 'TH') { xiiHeads.push(n.textContent); }
+  if (n.tagName === 'TD') { xiiCells.push(n); }
+});
+assert.deepStrictEqual(xiiHeads, ['Lesson', 'Lessons Learnt from Failures'],
+  'the PDF\'s two columns - no From project, no No., no State');
+assert.strictEqual(xiiCells.length, 4);
+assert.strictEqual(xiiCells[0].textContent, 'FIRST LESSON');
+assert.ok(/irs-lines/.test(xiiCells[1].className), 'the text cell renders its newlines');
+assert.ok(/No lessons learnt recorded in this project\./.test(
+  allText(View._blockBody(xiiRow, Context._shape({}), null, null, null))));
+assert.ok(/could not be read: boom/.test(
+  allText(View._blockBody(xiiRow, Context._shape({ lessonError: 'boom' }), null, null, null))));
+
+const viewSrcXii = fs.readFileSync(path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
+const fallbackXii = viewSrcXii.match(/return \{\s*\n\s*risks: \[\][\s\S]*?\n\s*\};/)[0];
+assert.ok(/\blessons: \[\]/.test(fallbackXii) && /\blessonError: reason/.test(fallbackXii),
+  'the whole-call failure fallback carries the lessons section and its reason');
+console.log('irstasks-lessons: all assertions passed');
 
 delete global.document;
 
@@ -3164,11 +3222,11 @@ assert.ok(/SEL_IS_PERSON/.test(readMembersBody),
 // reads the screen. This was missed when the members section was added.
 const fallback = memberViewSrc.match(
   /return \{\s*\n\s*risks: \[\][\s\S]*?\n\s*\};/)[0];
-['risks', 'opportunities', 'learnings', 'learningsHere', 'learningsElsewhere',
+['risks', 'opportunities', 'learnings', 'learningsHere', 'learningsElsewhere', 'lessons',
  'members'].forEach(key => assert.ok(
   new RegExp('\\b' + key + ':').test(fallback),
   'the failure fallback carries ' + key));
-['riskError', 'learningError', 'memberError'].forEach(key => assert.ok(
+['riskError', 'learningError', 'lessonError', 'memberError'].forEach(key => assert.ok(
   new RegExp('\\b' + key + ': reason').test(fallback),
   'the failure fallback sets ' + key + ' to the reason'));
 

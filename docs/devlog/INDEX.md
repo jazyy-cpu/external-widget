@@ -4,6 +4,7 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-10-23-01](2026/2026-10-23-01_xii-lessons-learnt-from-failures.md) | Proposal XII now lists the project's own Lessons Learnt from Failures (`IRSLessonLearnt`, JAR section `lessons`), two columns as on the PDF, no From project. Key Learnings are no longer shown there. Worklog 2026-10-23-04 | WGT-07 | built and unit-tested; JAR deploy and live check pending |
 | [2026-10-22-03](2026/2026-10-22-03_project-review-reviewers.md) | Project Review: Reviewer(s) is now the project's internal + external reviewers (JAR `reviewers` section, two header pairs, external line breaks kept), not the task's assignees. Worklog 2026-10-22-17 | WGT-07 | built and unit-tested; JAR deploy and widget rebuild pending |
 | [2026-10-22-02](2026/2026-10-22-02_stage-validation-no-checked-by.md) | Stage Validation: the hidden "Checked by" approval row removed from `stage-validation.json` (customer: not required); test section 24 and WGT-07 README follow. Route level removed on the platform side, worklog 2026-10-22-16 | WGT-07, WGT-09 | done; widget rebuild pending |
 | [2026-10-22-01](2026/2026-10-22-01_g12-publication-in-task-widget.md) | G12 technical publication approvals in the task widget: the publication type is kept in the Approvals list only and opened on the same task page through a new loader and a new JAR read (`publications/{id}`), R&D-PRJ-03 labels from the paper, the Document as the one panel row - the STM pattern | WGT-09, WGT-07 | built and unit-tested; JAR deploy and live check pending |

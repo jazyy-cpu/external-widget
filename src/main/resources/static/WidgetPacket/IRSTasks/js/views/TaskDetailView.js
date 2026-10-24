@@ -612,7 +612,7 @@ define('IRSTasks/views/TaskDetailView', [
      * Prose, tables and the customer's own block of pairs cannot share a line
      * with anything; every other field is a short value and pairs off.
      */
-    var BLOCKS = ['longtext', 'learnings', 'risks', 'customer', 'members',
+    var BLOCKS = ['longtext', 'learnings', 'lessons', 'risks', 'customer', 'members',
                   'costs', 'mandays', 'schedule', 'observations'];
 
     function isBlock(row) {
@@ -712,6 +712,35 @@ define('IRSTasks/views/TaskDetailView', [
                        className: 'text-nowrap', width: '9rem' });
 
         wrap.appendChild(table(columns, rows));
+        return wrap;
+    }
+
+    /**
+     * Section XII since 2026-10-23: the Lessons Learnt from Failures this
+     * project produced (`IRSLessonLearnt`), every state, with the PDF's two
+     * columns (worklog 2026-10-23-02). No From project column - every row is
+     * this project's own. The text keeps its line breaks (`irs-lines`).
+     */
+    function lessonsBlock(context) {
+        var wrap = el('div');
+        if (!context) {
+            wrap.appendChild(el('div', 'text-danger',
+                'The lessons learnt could not be read.'));
+            return wrap;
+        }
+        if (context.lessonError) {
+            wrap.appendChild(el('div', 'text-danger',
+                'The lessons learnt could not be read: ' + context.lessonError));
+            return wrap;
+        }
+        if (!context.lessons || !context.lessons.length) {
+            wrap.appendChild(emptyNote('No lessons learnt recorded in this project.'));
+            return wrap;
+        }
+        wrap.appendChild(table([
+            { label: 'Lesson', key: 'title', width: '30%' },
+            { label: 'Lessons Learnt from Failures', key: 'lesson', className: 'irs-lines' }
+        ], context.lessons));
         return wrap;
     }
 
@@ -1426,6 +1455,7 @@ define('IRSTasks/views/TaskDetailView', [
             if (row.display === 'learnings') {
                 return learningsBlock(context, row.learningScope);
             }
+            if (row.display === 'lessons') { return lessonsBlock(context); }
             if (row.display === 'customer') { return customerBlock(context); }
             if (row.display === 'members') { return membersBlock(context); }
             if (row.display === 'risks') { return risksBlock(context); }
@@ -1671,10 +1701,10 @@ define('IRSTasks/views/TaskDetailView', [
                             return {
                                 risks: [], opportunities: [], learnings: [],
                                 learningsHere: [], learningsElsewhere: [],
-                                members: [],
+                                lessons: [], members: [],
                                 reviewers: { internal: [], external: '', error: reason },
                                 riskError: reason, learningError: reason,
-                                memberError: reason, counts: {}
+                                lessonError: reason, memberError: reason, counts: {}
                             };
                         });
                 }
