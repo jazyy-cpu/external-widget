@@ -1,0 +1,90 @@
+/*
+ * The widget's ONLY custom CSS (rule R1), every rule under .irs-learnings.
+ *
+ * What is here is what neither Bootstrap nor Tabulator can do:
+ *
+ *   .irs-toolbar   the visible top band, copied from IRSProjects so every IRS
+ *                  widget has the same head
+ *   grid density   font size, padding and the ENOVIA-blue header, copied from
+ *                  IRSProjects (WGT-01 design.md section 6) - "same look and
+ *                  feel" (user, 2026-10-25). Tabulator exposes none of these
+ *   .irs-lines     keeps the line breaks of a learning ("1. ... 2. ...") and
+ *                  lets long text wrap; Tabulator cells are nowrap
+ *
+ * Reasoning recorded in docs/requirements/WGT-11-key-learnings-register/design.md.
+ */
+
+.irs-learnings .irs-toolbar {
+    background: #f5f5f5;
+    border: 1px solid #dcdcdc;
+    border-radius: 3px;
+    padding: 0.4rem 0.6rem;
+}
+
+.irs-learnings .tabulator {
+    border: 1px solid #dcdcdc;
+    font-size: 13px;
+}
+
+.irs-learnings .tabulator-header {
+    background-color: #e8f0f7;
+    border-bottom: 2px solid #a9c5db;
+    color: #12395c;
+}
+
+.irs-learnings .tabulator-col-title {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.irs-learnings .tabulator-col {
+    border-right: 1px solid #e6e6e6;
+}
+
+.irs-learnings .tabulator-col-content {
+    padding: 6px 8px;
+}
+
+.irs-learnings .tabulator-cell {
+    border-right: 1px solid #f0f0f0;
+    padding: 4px 8px;
+    vertical-align: top;
+}
+
+.irs-learnings .tabulator-row {
+    border-bottom: 1px solid #f0f0f0;
+    min-height: 28px;
+}
+
+.irs-learnings .tabulator-row.tabulator-row-even {
+    background: #fafafa !important;
+}
+
+.irs-learnings .tabulator-row:hover {
+    background: #eef4fb !important;
+}
+
+.irs-learnings .tabulator-footer {
+    background: #f5f5f5;
+    border-top: 1px solid #dcdcdc;
+    font-size: 12px;
+    padding: 2px 6px;
+}
+
+.irs-learnings .tabulator-cell .irs-lines {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* a Bootstrap badge is sized for a 16px body; in a 13px grid it sets the row
+   height on its own - same rule as IRSProjects */
+.irs-learnings .tabulator-cell .badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 0 8px;
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1;
+    border-radius: 2px;
+}
