@@ -373,7 +373,8 @@ define('IRSTasks/services/ProjectContextService', [
         spec.fields.forEach(function (field) {
             // a row shown by department profile needs the department, even
             // on a form that does not print it
-            if (field.profileField || field.columnProfileFields) { add('department'); }
+            if (field.profileField || field.columnProfileFields ||
+                field.labelByProfile) { add('department'); }
             // ... or an item inside a box of rows (G7 observations)
             if (Array.isArray(field.rows) && field.rows.some(function (r) {
                 return r && r.profileField;
@@ -404,6 +405,9 @@ define('IRSTasks/services/ProjectContextService', [
 
     return {
         sectionsFor: sectionsFor,
+        // also for the evaluation page, whose JAR answer carries a department
+        // section of this same shape (worklog 2026-10-28-09)
+        toDepartment: toDepartment,
 
         /**
          * @param {string} projectId physical id or legacy id - the JAR resolves

@@ -10,6 +10,8 @@
   "_notShown": "The top DATE has no value while the route is running; kept hidden, as on the STM form.",
   "form": "R&D-PRJ-03-Rev.01",
   "title": "Approval for Technical Publication / Presentation",
+  "_formByProfile": "RDAREA has its own paper, RDAREA-PRJ-02-Rev.00 (documents/as-is-markdown/.../3.AR/Forms/RDAREA-PRJ-02.md): the same rows, its own code (and effective date, printed on the PDF only). Chosen by the project's department profile, as the PDF (pdfByProfile.AR in IRSPublicationApprovalRouteConfig), worklog 2026-10-28-08.",
+  "formByProfile": {"AR": "RDAREA-PRJ-02-Rev.00"},
   "taskType": "IRSTechnicalPublication",
   "fields": [
     {"ref": "Header", "label": "Date", "hidden": true, "source": "none", "display": "pending", "note": "No value until the route completes. Not shown, as on the STM form."},
@@ -23,7 +25,7 @@
     {"ref": "Body", "label": "Duration", "source": "task", "field": "duration", "display": "text", "note": "IRSPublicationDuration, free text."},
     {"ref": "Body", "label": "Submit a Copy to Library", "source": "task", "field": "submitCopyToLibrary", "display": "yesno", "newLine": true, "note": "IRSPublicationSubmitCopyToLibrary, a boolean."},
     {"ref": "Footer", "label": "Researcher", "hidden": true, "source": "none", "display": "approval", "note": "Route level 1 - drawn by the approval panel below the form."},
-    {"ref": "Footer", "label": "In-Charge / HOD", "hidden": true, "source": "none", "display": "approval", "note": "Route level 2, one person - drawn by the approval panel below the form."},
+    {"ref": "Footer", "label": "In-Charge / HOD", "hidden": true, "source": "none", "display": "approval", "note": "Route level 2, one person (In-Charge or HOD) - drawn by the approval panel below the form. The RDAREA paper prints this column as 'In-Charge/HOD'; the R&D paper has In-Charge and HOD apart."},
     {"ref": "Footer", "label": "DH", "hidden": true, "source": "none", "display": "approval", "note": "Route level 3, Division Head - drawn by the approval panel below the form."}
   ]
 }

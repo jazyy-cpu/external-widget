@@ -1640,6 +1640,17 @@ define('IRSTasks/views/TaskDetailView', [
                 changed = true;
                 return;
             }
+            // a row whose LABEL differs by area (STM: RDAREA's paper says
+            // "Tool Number" where R&D's says "STM Number")
+            var label = byProfile(f.labelByProfile, f.label);
+            if (label !== f.label) {
+                var relabelled = {};
+                Object.keys(f).forEach(function (key) { relabelled[key] = f[key]; });
+                relabelled.label = label;
+                kept.push(relabelled);
+                changed = true;
+                return;
+            }
             kept.push(f);
         });
 
@@ -1801,7 +1812,9 @@ define('IRSTasks/views/TaskDetailView', [
                 function loadContext(spec) {
                     var sections = ProjectContextService.sectionsFor(spec);
                     if (!sections.length) { return Promise.resolve(null); }
-                    if (!project || !project.id) { return Promise.resolve(null); }
+                    // no project (a G17 evaluation): the loader's own context,
+                    // its department, when it brought one
+                    if (!project || !project.id) { return Promise.resolve(result.context || null); }
 
                     return ProjectContextService.get(project.id, sections)
                         .catch(function (err) {

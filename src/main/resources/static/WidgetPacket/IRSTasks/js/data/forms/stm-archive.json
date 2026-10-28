@@ -10,19 +10,22 @@
   "_notShown": "Two things are deliberately absent (user, 2026-10-19): the CATEGORY (IRSSTMCategory - Service / Computational Tool / Method), which the paper form does not print either, and the top DATE, which is the day the Document reaches RELEASED and so has no value while the route is still running. The Date row is kept hidden rather than deleted, as on the other forms.",
   "form": "R&D-STM Rev.00",
   "title": "Form for the Archiving New Service / New Computational Tool / New Method in R&D Division",
+  "_formByProfile": "RDAREA (AR G12) has its own paper, RDAREA-STM Rev.00 (documents/as-is-markdown/.../3.AR/Forms/RDAREA-STM.md): its own code and title, and three labels of its own (`labelByProfile`). Chosen by the project's department profile (page IRSProjectFormProfiles), the same page the PDF reads (pdfByProfile.AR in IRSSTMApprovalRouteConfig), worklog 2026-10-28-07.",
+  "formByProfile": {"AR": "RDAREA-STM Rev.00"},
+  "titleByProfile": {"AR": "Form for the archiving New Computational Tool developed in RDAREA"},
   "taskType": "IRSServiceToolMethod",
   "fields": [
     {"ref": "Header", "label": "Date", "hidden": true, "source": "none", "display": "pending", "note": "state[RELEASED].start on the PDF - empty until the route releases the Document. Not shown (user, 2026-10-19)."},
     {"ref": "Header", "label": "Project Number", "source": "project", "field": "EPMProjectNo", "display": "text"},
-    {"ref": "Header", "label": "STM Number", "source": "task", "field": "stmNumber", "display": "text", "note": "The Document's name and revision, the PDF's own spelling: '2026-002  Rev 0'."},
+    {"ref": "Header", "label": "STM Number", "labelByProfile": {"AR": "Tool Number"}, "source": "task", "field": "stmNumber", "display": "text", "note": "The Document's name and revision, the PDF's own spelling: '2026-002  Rev 0'."},
     {"ref": "Header", "label": "Project Name", "source": "project", "field": "name", "fallbackField": "title", "display": "text", "note": "The project's name, as the PDF prints it; its Title is empty on every project measured."},
-    {"ref": "Header", "label": "Service / Tool / Method Name", "source": "task", "field": "title", "display": "text", "note": "attribute[Title] of the Document."},
+    {"ref": "Header", "label": "Service / Tool / Method Name", "labelByProfile": {"AR": "Tool Name"}, "source": "task", "field": "title", "display": "text", "note": "attribute[Title] of the Document."},
     {"ref": "Header", "label": "Involved Researcher(s)", "source": "derived", "from": "task", "field": "researchers", "display": "text", "newLine": true, "note": "Persons on IRSSTMInvolvedResearcher, chosen on the Document's properties form."},
-    {"ref": "Body", "label": "Purpose and Application of Service / Tool / Method", "source": "task", "field": "purposeAndApplication", "display": "longtext"},
+    {"ref": "Body", "label": "Purpose and Application of Service / Tool / Method", "labelByProfile": {"AR": "Purpose and Application of Tool"}, "source": "task", "field": "purposeAndApplication", "display": "longtext"},
     {"ref": "Provided", "label": "Provided: 1) Source Code", "source": "task", "field": "sourceCode", "display": "text", "newLine": true, "note": "IRSSTMSourceCode, Yes / No."},
     {"ref": "Provided", "label": "Provided: 2) Installation", "source": "task", "field": "installation", "display": "text", "note": "IRSSTMInstallation, Yes / No."},
     {"ref": "Footer", "label": "Project Manager", "hidden": true, "source": "none", "display": "approval", "note": "Route level 1 - drawn by the approval panel below the form."},
-    {"ref": "Footer", "label": "In-Charge / HOD", "hidden": true, "source": "none", "display": "approval", "note": "Route level 2 - drawn by the approval panel below the form."},
+    {"ref": "Footer", "label": "In-Charge / HOD", "hidden": true, "source": "none", "display": "approval", "note": "Route level 2 - drawn by the approval panel below the form. The RDAREA paper has In-Charge and HOD as two columns; they are one level as per the requirement (user, 2026-10-28)."},
     {"ref": "Footer", "label": "Divisional Head", "hidden": true, "source": "none", "display": "approval", "note": "Route level 3 - drawn by the approval panel below the form."}
   ]
 }

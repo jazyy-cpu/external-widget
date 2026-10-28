@@ -104,7 +104,8 @@ const Req = {
     return Req._body instanceof Error ? Promise.reject(Req._body) : Promise.resolve(Req._body);
   }
 };
-const Eval = load(path.join(base, 'js/services/EvaluationService.js'), [Req, Fields, Log]);
+const Context = load(path.join(base, 'js/services/ProjectContextService.js'), [Req, Log]);
+const Eval = load(path.join(base, 'js/services/EvaluationService.js'), [Req, Fields, Context, Log]);
 
 const shaped = Eval._shape(payload);
 const t = shaped.task;
@@ -180,6 +181,44 @@ assert.ok(fs.readFileSync(path.join(base, 'IRSTasks.html'), 'utf8')
 const app = fs.readFileSync(path.join(base, 'js/App.js'), 'utf8');
 assert.ok(app.indexOf("router.add('evaluation/:id'") > 0);
 assert.ok(app.indexOf('loader: EvaluationService') > 0);
+
+// ---- 4b. RDAREA-PES by the evaluation's Department (worklog 2026-10-28-09) -
+
+assert.strictEqual(shaped.context, null, 'an older JAR sends no department: no context');
+
+// the `department` section `exec program IRSPeriodicEvaluationContext` printed
+// for PES-0000015 (organization 0000000006, Strategic Research), 2026-10-28
+const FIELDS = { BenchmarkChanged: ['RND'], Validation: ['RND'], Remark: ['AR'] };
+const arShaped = Eval._shape(Object.assign({}, payload, { department: {
+  linked: 'true', name: '0000000006', profiles: ['AR'], profileFields: FIELDS, profileError: '' } }));
+assert.strictEqual(arShaped.project, null);
+assert.deepStrictEqual(arShaped.context.department.profiles, ['AR']);
+assert.strictEqual(arShaped.context.department.linked, true);
+assert.strictEqual(arShaped.context.department.code, '0000000006');
+
+assert.ok(Context.sectionsFor(spec).indexOf('department') >= 0,
+  'the form asks for the department, so the page passes the loader context on');
+const view = fs.readFileSync(path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
+assert.ok(view.indexOf('Promise.resolve(result.context || null)') > 0,
+  'with no project, the loader context is used');
+
+const before = JSON.stringify(spec);
+const ar = View._forProfile(spec, arShaped.context);
+assert.strictEqual(ar.form, 'RDAREA-PES-Rev.00');
+assert.strictEqual(ar.title, 'RDAREA - Periodical Evaluation of Software Report');
+const arLabels = ar.fields.filter(f => !f.hidden).map(f => f.label);
+assert.ok(arLabels.indexOf('Any change in benchmark example') < 0, 'RDAREA-PES has no benchmark row');
+assert.ok(arLabels.indexOf('Please specify') >= 0, 'RDAREA says "Any other / Please specify"');
+assert.ok(arLabels.indexOf('Any other, please specify') < 0);
+assert.strictEqual(arLabels.length, shown.length - 1, 'every other row stays');
+assert.strictEqual(JSON.stringify(spec), before, 'the spec is not mutated');
+
+const rnd = View._forProfile(spec, { department: { linked: true, profiles: ['RND'], profileFields: FIELDS } });
+assert.strictEqual(rnd.form, 'R&D-PES-Rev.01');
+assert.strictEqual(rnd.title, spec.title);
+assert.deepStrictEqual(rnd.fields.filter(f => !f.hidden).map(f => f.label), shown.map(f => f.label),
+  'R&D unchanged');
+assert.strictEqual(View._forProfile(spec, null).form, 'R&D-PES-Rev.01', 'no department: R&D as before');
 
 // ---- 5. the call itself ----------------------------------------------------
 

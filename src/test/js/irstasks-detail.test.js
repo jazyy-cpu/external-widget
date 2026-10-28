@@ -4135,6 +4135,37 @@ assert.strictEqual(View._forProfile(verSpec, g7(['AR'])).form, 'RDAREA-VER-Rev.0
 assert.strictEqual(View._forProfile(verSpec, g7(['RND'])).form, 'R&D-VER-Rev.00');
 assert.strictEqual(View._forProfile(verSpec, g7(['AR'])).fields.length, verSpec.fields.length);
 assert.ok(Context.sectionsFor(verSpec).indexOf('department') >= 0);
+
+// ---- G11 / AR G12 STM archive by profile (worklog 2026-10-28-07) ----------
+// RDAREA's paper has its own code, title and three labels; the rows are the same
+const stmSpec = JSON.parse(fs.readFileSync(
+  path.join(base, 'js/data/forms/stm-archive.json'), 'utf8'));
+const stmLabels = (s) => s.fields.filter(f => !f.hidden).map(f => f.label);
+const stmAr = View._forProfile(stmSpec, g7(['AR']));
+assert.strictEqual(stmAr.form, 'RDAREA-STM Rev.00');
+assert.strictEqual(stmAr.title, 'Form for the archiving New Computational Tool developed in RDAREA');
+assert.deepStrictEqual(stmLabels(stmAr), ['Project Number', 'Tool Number', 'Project Name',
+  'Tool Name', 'Involved Researcher(s)', 'Purpose and Application of Tool',
+  'Provided: 1) Source Code', 'Provided: 2) Installation'], 'AR: the RDAREA paper labels');
+const stmRnd = View._forProfile(stmSpec, g7(['RND']));
+assert.strictEqual(stmRnd.form, 'R&D-STM Rev.00');
+assert.strictEqual(stmRnd.title, stmSpec.title);
+assert.deepStrictEqual(stmLabels(stmRnd), stmLabels(stmSpec), 'R&D: labels unchanged');
+assert.strictEqual(stmSpec.fields.find(f => f.field === 'stmNumber').label, 'STM Number',
+  'the original spec is not mutated');
+assert.ok(Context.sectionsFor(stmSpec).indexOf('department') >= 0);
+assert.ok(Context.sectionsFor({ fields: [{ label: 'A', labelByProfile: { AR: 'B' } }] })
+  .indexOf('department') >= 0, 'a relabelled row alone needs the department');
+
+// ---- G12 technical publication by profile (worklog 2026-10-28-08) ---------
+// RDAREA-PRJ-02 has the same rows as R&D-PRJ-03; only the code differs
+const tppSpec = JSON.parse(fs.readFileSync(
+  path.join(base, 'js/data/forms/technical-publication.json'), 'utf8'));
+const tppAr = View._forProfile(tppSpec, g7(['AR']));
+assert.strictEqual(tppAr.form, 'RDAREA-PRJ-02-Rev.00');
+assert.deepStrictEqual(stmLabels(tppAr), stmLabels(tppSpec), 'AR: the same rows');
+assert.strictEqual(View._forProfile(tppSpec, g7(['RND'])).form, 'R&D-PRJ-03-Rev.01');
+assert.ok(Context.sectionsFor(tppSpec).indexOf('department') >= 0);
 assert.ok(!prSpec.fields.some(f => f.source === 'baseline' && !f.hidden),
   'no baseline row, so BaselineService is never called');
 // the cost form as the contrast, so an empty result cannot pass for a check

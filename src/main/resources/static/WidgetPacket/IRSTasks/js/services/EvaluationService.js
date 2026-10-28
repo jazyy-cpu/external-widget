@@ -27,8 +27,9 @@
 define('IRSTasks/services/EvaluationService', [
     'JazzySole/Request',
     'IRSTasks/config/TaskFields',
+    'IRSTasks/services/ProjectContextService',
     'IRSTasks/Log'
-], function (Request, Fields, Log) {
+], function (Request, Fields, ProjectContext, Log) {
     'use strict';
 
     var PATH = 'resources/v1/irsproject/evaluations/';
@@ -188,7 +189,13 @@ define('IRSTasks/services/EvaluationService', [
             raw: body
         };
 
-        return { task: task, project: null };
+        // the evaluation's Department and its area profiles, so the page
+        // prints RDAREA-PES for an AR evaluation (worklog 2026-10-28-09). An
+        // older JAR sends none: no context, and the R&D form shows as before
+        var context = body.department
+            ? { department: ProjectContext.toDepartment(body.department) } : null;
+
+        return { task: task, project: null, context: context };
     }
 
     /** The JAR's own error shape, `{error: {status, code, message}}`, as a message. */
@@ -203,7 +210,8 @@ define('IRSTasks/services/EvaluationService', [
         /**
          * @param {string} id the evaluation's physical id - `contents[0].id` of
          *        the inbox task
-         * @returns {Promise<{task: Object, project: null, note: string}>}
+         * @returns {Promise<{task: Object, project: null, context: ?Object, note: string}>}
+         *          `context` is `{department}` when the JAR sends one
          */
         get: function (id) {
             if (!id) { return Promise.reject(new Error('No evaluation id was given.')); }
