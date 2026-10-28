@@ -60,8 +60,8 @@ const spec = JSON.parse(fs.readFileSync(
 
 assert.strictEqual(spec.taskType, 'EPMPROJECT_PROPOSAL');
 assert.strictEqual(spec.form, 'R&D-PRJ-01-Rev.06');
-assert.ok(Array.isArray(spec.fields) && spec.fields.length === 23,
-  'the whole printed form: 3 header + 16 sections + 4 footer');
+assert.ok(Array.isArray(spec.fields) && spec.fields.length === 25,
+  'the whole printed form: 3 header + 16 sections + 4 footer, plus RDAREA VII and VIII');
 
 // the registry and the file must agree, or the page loads the wrong definition
 assert.strictEqual(Fields.fieldSet('EPMPROJECT_PROPOSAL'), 'project-proposal');
@@ -70,7 +70,7 @@ assert.strictEqual(Fields.fieldSet('EPMPROJECT_PROPOSAL'), 'project-proposal');
 // a field name whenever a value is expected
 const SOURCES = ['project', 'task', 'derived', 'service', 'none'];
 const DISPLAYS = ['text', 'longtext', 'pending', 'elsewhere', 'approval', 'type',
-                  'risks', 'learnings', 'lessons', 'customer', 'department'];
+                  'risks', 'learnings', 'lessons', 'customer', 'department', 'choice'];
 // a source that reads ONE value must name the field it reads; a source that
 // renders a list or nothing at all must instead explain itself in a note,
 // because the page prints that note where a value would have gone
@@ -105,8 +105,9 @@ const fromProject = spec.fields.filter(f => f.source === 'project').length;
 const fromTask = spec.fields.filter(f => f.source === 'task').length;
 assert.strictEqual(fromTask, 0,
   'EPMPROJECT_PROPOSAL carries no custom attribute of its own (measured 2026-10-07)');
-assert.strictEqual(fromProject, 14,
-  'fourteen rows are project attributes; XII and XIII moved to the service');
+assert.strictEqual(fromProject, 16,
+  'sixteen rows are project attributes (XII and XIII moved to the service; ' +
+  'Resources and Competence added 2026-10-27)');
 
 // ---- 2. the field resolver --------------------------------------------
 
@@ -739,6 +740,81 @@ assert.deepStrictEqual(
 assert.ok(Context.sectionsFor(spec).indexOf('department') >= 0,
   'the form header needs the department');
 
+// ---- 10b. rows by department profile (worklog 2026-10-27-03) ----------
+//
+// The department section as the JPO twin returned it on 2026-10-27, map
+// trimmed to the proposal's keys. P-0000104 = RDAREA-26001-SR (AR),
+// R&D-26002-HY (RND), TEST1 (no department).
+const PROFILE_FIELDS = {
+  Complexity: ['RND'], Feedback: ['RND'], IdentifiedStandards: ['RND'],
+  LessonsLearnt: ['RND'], PotentialConsequencesOfFailure: ['RND'],
+  RequiredCompetenceSkill: ['AR'], Resources: ['AR'], RisksAndOpportunities: ['RND']
+};
+const ctxFor = (raw) => ({ department: Context._toDepartment(raw) });
+const ar = ctxFor({ linked: 'true', name: '0000000006', displayName: 'Strategic Research',
+  profiles: ['AR'], profileFields: PROFILE_FIELDS, profileError: '', error: '' });
+const rnd = ctxFor({ linked: 'true', name: '0000000001',
+  profiles: ['RND'], profileFields: PROFILE_FIELDS, profileError: '', error: '' });
+const noDeptCtx = ctxFor({ linked: 'false', profiles: [], profileFields: PROFILE_FIELDS,
+  profileError: '', error: '' });
+const ruleDev = ctxFor({ linked: 'true', name: '0000000005',
+  profiles: [], profileFields: PROFILE_FIELDS, profileError: '', error: '' });
+const oldJar = ctxFor({ linked: 'true', name: '0000000001', error: '' });
+
+assert.deepStrictEqual(ar.department.profiles, ['AR']);
+assert.deepStrictEqual(ar.department.profileFields.Resources, ['AR']);
+assert.strictEqual(oldJar.department.profileFields, null,
+  'a service without the map must read as "no map", not as "nothing listed"');
+
+const keysOf = (s) => s.fields.filter(f => f.profileField).map(f => f.profileField);
+const GATED = ['Resources', 'RequiredCompetenceSkill', 'Complexity', 'IdentifiedStandards',
+  'Feedback', 'PotentialConsequencesOfFailure', 'LessonsLearnt', 'RisksAndOpportunities'];
+assert.deepStrictEqual(keysOf(spec), GATED, 'eight gated rows, in paper order');
+// every key the form names is a key the page has - a typo would hide a row forever
+keysOf(spec).forEach(k => assert.ok(PROFILE_FIELDS[k], k + ' is on the page'));
+
+assert.deepStrictEqual(keysOf(View._forProfile(spec, ar)),
+  ['Resources', 'RequiredCompetenceSkill'], 'AR: VII and VIII only');
+assert.deepStrictEqual(keysOf(View._forProfile(spec, rnd)), GATED.slice(2),
+  'R&D: VIII to XIII, not the RDAREA two');
+assert.deepStrictEqual(keysOf(View._forProfile(spec, noDeptCtx)), [], 'no department: none');
+assert.deepStrictEqual(keysOf(View._forProfile(spec, ruleDev)), [],
+  'a department in no profile: none');
+assert.deepStrictEqual(keysOf(View._forProfile(spec, null)), [],
+  'a failed context read: none, as the platform form answers');
+assert.deepStrictEqual(keysOf(View._forProfile(spec, oldJar)), GATED,
+  'the JAR before 2026-10-27 sends no map: every row, as before');
+assert.deepStrictEqual(keysOf(View._forProfile(spec,
+  ctxFor({ linked: 'true', profiles: ['RND'], profileFields: PROFILE_FIELDS,
+           profileError: 'page not found', error: '' }))), [],
+  'an unreadable page hides the area-only rows');
+
+// the common rows are untouched, and the order is the paper's
+const arRows = View._forProfile(spec, ar).fields.map(f => f.label);
+assert.strictEqual(arRows.length, spec.fields.length - 6);
+assert.ok(arRows.indexOf('Required competence / skill') ===
+  arRows.indexOf('Resources (hardware, software, any other technology)') + 1);
+assert.ok(arRows.indexOf('Methodology') ===
+  arRows.indexOf('Required competence / skill') + 1,
+  'RDAREA VII and VIII come before Methodology (RDAREA-PRJ-01-Rev.01)');
+
+// the printed form code follows the profile
+assert.strictEqual(View._forProfile(spec, ar).form, 'RDAREA-PRJ-01-Rev.01');
+assert.strictEqual(View._forProfile(spec, rnd).form, 'R&D-PRJ-01-Rev.06');
+assert.strictEqual(View._forProfile(spec, noDeptCtx).form, 'R&D-PRJ-01-Rev.06');
+
+// a form with gated rows asks for the department even when it does not print it
+assert.deepStrictEqual(Context.sectionsFor({ fields: [{ source: 'project',
+  field: 'EPMResources', profileField: 'Resources' }] }), ['department']);
+
+// the screening row is back, and prints the range token in words
+const screening = spec.fields.find(f => f.field === 'EPMScreeningApprovalObtained');
+assert.ok(screening && !screening.hidden && screening.display === 'choice');
+assert.ok(!screening.profileField, 'both areas print it');
+assert.strictEqual(View._format({ display: 'choice', value: 'Not_Applicable' }), 'Not Applicable');
+assert.strictEqual(View._format({ display: 'choice', value: 'Yes' }), 'Yes');
+assert.strictEqual(View._format({ display: 'choice', value: 'NotRequired' }), 'Not Required');
+
 // ---- 11. the Summary Report layout ------------------------------------
 //
 // The layout the user asked for on 2026-10-08 is a DOM decision, and until now
@@ -865,13 +941,14 @@ assert.strictEqual(widths(t1)[0], '10rem',
 // the parked rows: hidden, not deleted. Every one of them is a row with no
 // value to show yet, and the file still carries its field name and its note
 const hidden = spec.fields.filter(f => f.hidden);
-assert.strictEqual(hidden.length, 5);
+// four since 2026-10-27: the screening row came back when DMC created its attribute
+assert.strictEqual(hidden.length, 4);
 hidden.forEach(f => {
   assert.ok(f.source === 'none' || f.display === 'pending',
     '"' + f.label + '" is hidden, so it must be a row that has no value yet');
   assert.ok(f.note, 'a hidden row keeps its note - that is the point of parking it');
 });
-assert.strictEqual(spec.fields.length, 23, 'nothing was removed from the file');
+assert.strictEqual(spec.fields.length, 25, 'nothing was removed from the file');
 
 // ---- 8b. XII: Lessons Learnt from Failures (worklog 2026-10-23-04) ------
 //
@@ -920,6 +997,19 @@ assert.ok(/No lessons learnt recorded in this project\./.test(
   allText(View._blockBody(xiiRow, Context._shape({}), null, null, null))));
 assert.ok(/could not be read: boom/.test(
   allText(View._blockBody(xiiRow, Context._shape({ lessonError: 'boom' }), null, null, null))));
+
+// ---- G4 members table as DRAWN per area (worklog 2026-10-27-06): R&D keeps
+// the five columns, AR loses Drive access and says "Competence / skill"
+const g4Members = Context._shape({ members: [{ isPerson: 'true', fullName: 'A Person',
+  designation: 'Surveyor', skills: ['CFD'], responsibility: 'Project Manager',
+  driveAccess: 'Yes' }] });
+const headersOf = (row) => findAll(View._blockBody(row, g4Members, null, null, null),
+  'irs-sum-table')[0].children[0].children[0].children.map(th => allText(th).trim());
+assert.deepStrictEqual(headersOf({ source: 'service', display: 'members' }),
+  ['Name', 'Responsibility', 'Designation', 'Skill as per records', 'Drive access']);
+assert.deepStrictEqual(headersOf({ source: 'service', display: 'members',
+  hiddenColumns: ['driveAccess'], columnLabels: { skills: 'Competence / skill' } }),
+  ['Name', 'Responsibility', 'Designation', 'Competence / skill']);
 
 const viewSrcXii = fs.readFileSync(path.join(base, 'js/views/TaskDetailView.js'), 'utf8');
 const fallbackXii = viewSrcXii.match(/return \{\s*\n\s*risks: \[\][\s\S]*?\n\s*\};/)[0];
@@ -2231,12 +2321,56 @@ assert.ok(/ReadOnly/.test(costSpec._calculated),
 // Checked against the whole IRS*/EPM* attribute inventory on 2026-10-09.
 // Reason for revision was a third until 2026-10-10, when the attribute was
 // created - which is what a recorded gap is for
-['Software Resource required', 'Reviewer Name'].forEach(label => {
+['Software Resource required'].forEach(label => {
   assert.strictEqual(costBy[label].hidden, true, label + ' has no attribute yet');
   assert.strictEqual(costBy[label].display, 'pending');
   assert.ok(costBy[label].note.length > 20,
     label + ' says what is missing, so the gap is a decision not an omission');
 });
+// Reviewer Name was the second until 2026-10-27: it is the project's
+// reviewers since 2026-10-22, the pair the Project Review form prints
+assert.ok(!costBy['Reviewer Name'].hidden);
+assert.strictEqual(costBy['Reviewer Name'].display, 'reviewers');
+assert.ok(Context.sectionsFor(costSpec).indexOf('reviewers') >= 0);
+
+// ---- G4 by department profile (worklog 2026-10-27-06, WP02 doc 15) -----
+const G4_FIELDS = Object.assign({}, PROFILE_FIELDS, {
+  ChangeOfScope: ['RND'], ReasonForRevision: ['RND'], DriveAccess: ['RND'], Remark: ['AR'] });
+const g4 = (profiles, linked) => ({ department: Context._toDepartment({
+  linked: linked === false ? 'false' : 'true', profiles: profiles,
+  profileFields: G4_FIELDS, profileError: '', error: '' }) });
+const labelsOf = (s) => s.fields.map(f => f.label);
+const membersOf = (s) => s.fields.find(f => f.display === 'members');
+
+const g4Ar = View._forProfile(costSpec, g4(['AR']));
+assert.strictEqual(g4Ar.form, 'RDAREA-PRJ-01-Rev.01');
+assert.strictEqual(g4Ar.title, 'PROJECT PERSONNEL / COST ESTIMATION');
+assert.ok(labelsOf(g4Ar).indexOf('Change of Scope') < 0, 'AR: no Change of Scope');
+assert.ok(labelsOf(g4Ar).indexOf('Reason for revision of this form') < 0, 'AR: no Reason');
+assert.ok(labelsOf(g4Ar).indexOf('Remarks (if any, including risk and opportunities assessment)') ===
+  labelsOf(g4Ar).indexOf('Cost Estimation') + 1, 'AR: Remarks right under the cost table');
+assert.deepStrictEqual(membersOf(g4Ar).hiddenColumns, ['driveAccess']);
+assert.deepStrictEqual(membersOf(g4Ar).columnLabels, { skills: 'Competence / skill' });
+
+const g4Rnd = View._forProfile(costSpec, g4(['RND']));
+assert.strictEqual(g4Rnd.form, 'R&D-PRJ-02-Rev.00');
+assert.strictEqual(g4Rnd.title, costSpec.title);
+assert.ok(labelsOf(g4Rnd).indexOf('Change of Scope') >= 0);
+assert.ok(labelsOf(g4Rnd).indexOf('Reason for revision of this form') >= 0);
+assert.ok(labelsOf(g4Rnd).indexOf('Remarks (if any, including risk and opportunities assessment)') < 0);
+assert.deepStrictEqual(membersOf(g4Rnd).hiddenColumns, []);
+assert.deepStrictEqual(membersOf(g4Rnd).columnLabels, {});
+// the members row of the ORIGINAL spec is never mutated
+assert.strictEqual(membersOf(costSpec).hiddenColumns, undefined);
+
+// no department: none of the area-only rows, and no Drive access column
+const g4None = View._forProfile(costSpec, g4([], false));
+assert.ok(labelsOf(g4None).indexOf('Change of Scope') < 0);
+assert.deepStrictEqual(membersOf(g4None).hiddenColumns, ['driveAccess']);
+
+assert.ok(Context.sectionsFor({ fields: [{ source: 'service', display: 'members',
+  columnProfileFields: { driveAccess: 'DriveAccess' } }] }).indexOf('department') >= 0,
+  'a column gate needs the department too');
 
 
 
@@ -3107,6 +3241,7 @@ const memberChecks = MemberContext.get('PRJ1', ['members']).then(ctx => {
   // ones, and between themselves by name - IRCLASS before PLM User 1
   assert.deepStrictEqual(ctx.members.map(m => m.login),
     ['admin_platform', 'PlmUser2', 'PlmUser1', 'IRCLASS', 'PLMUser_1']);
+
 }).then(() => {
   // a section that failed server-side must SAY so, not look like an empty team
   MemberRequest._calls.length = 0;
@@ -3202,9 +3337,11 @@ assert.strictEqual((linksBody.match(/mqlCommand/g) || []).length, 1,
 assert.ok(/ATTR_DRIVE_ACCESS/.test(linksBody) && /ATTR_RESPONSIBILITY/.test(linksBody),
   'and it reads BOTH attributes, so the second column is free');
 
-// the JAR's section, for the same reason on the widget side
-const readerSrc = fs.readFileSync(path.join(repoRoot, 'external-widget',
-  'rest-jar/irs-project-rest/src/main/java/com/irclass/platform/rest/project/ProjectContextReader.java'),
+// the JAR's section, for the same reason on the widget side. The source moved
+// from external-widget/rest-jar to the delivery repository on 2026-10-19
+// (INT-020); the path is updated here 2026-10-27
+const readerSrc = fs.readFileSync(path.join(repoRoot, 'PLM_PRD_CUSTOMIZATION',
+  'jar-development/irs-project-rest/src/main/java/com/irclass/platform/rest/project/ProjectContextReader.java'),
   'utf8');
 assert.ok(/S_MEMBERS = "members"/.test(readerSrc));
 const readMembersBody = readerSrc.match(/private static List<Map<String, Object>> readMembers[\s\S]*?\n    \}/)[0];
@@ -3574,8 +3711,20 @@ assert.ok(/never revised/i.test(svSpec._whyNoRevNo));
 // is skipped; no `baseline` row means the baseline call is skipped. This is
 // the claim in _whyThisFormIsSmall, and it is the one that would rot silently
 // if somebody added a row without noticing what it costs
-assert.deepStrictEqual(Context.sectionsFor(svSpec), [],
-  'no service section, so ProjectContextService is never called');
+// CHANGED 2026-10-27 (worklog 2026-10-27-07): the AR paper prints its own
+// code, RDAREA-VAL-Rev.00, so the page asks for the department and nothing
+// else - one JAR call, the price of the right code on an AR project
+assert.deepStrictEqual(Context.sectionsFor(svSpec), ['department'],
+  'only the department, for the printed form code');
+assert.strictEqual(View._forProfile(svSpec, { department: Context._toDepartment({
+  linked: 'true', profiles: ['AR'], profileFields: {}, profileError: '', error: '' }) }).form,
+  'RDAREA-VAL-Rev.00');
+assert.strictEqual(View._forProfile(svSpec, { department: Context._toDepartment({
+  linked: 'true', profiles: ['RND'], profileFields: {}, profileError: '', error: '' }) }).form,
+  'R&D-VAL-Rev.00');
+assert.strictEqual(View._forProfile(svSpec, null).form, 'R&D-VAL-Rev.00',
+  'a failed context read prints the default code, and the rows are untouched');
+assert.strictEqual(View._forProfile(svSpec, null).fields.length, svSpec.fields.length);
 assert.ok(!svSpec.fields.some(f => f.source === 'baseline' && !f.hidden),
   'no baseline row, so BaselineService is never called');
 // for contrast, the cost form needs both - so the check above is measuring
@@ -3686,11 +3835,11 @@ prObs.rows.forEach(r => { prObsBy[r.label] = r; });
 assert.strictEqual(prObsBy['Adhesion to the Schedule'].format, 'yesno');
 assert.strictEqual(prObsBy['Status of completion to the relevant task'].format,
   undefined, 'multiline FALSE on the platform, so plain one-line text');
-assert.strictEqual(prObsBy['Validation (R&D form only)'].format, 'choice');
+assert.strictEqual(prObsBy['Validation'].format, 'choice');
 assert.strictEqual(prObsBy['Technical finding / Observations'].format,
   'longtext');
-assert.strictEqual(prBy['Follow-up Action Recommended'].display, 'longtext');
-assert.strictEqual(prBy['Data copied to the project common drive (R&D form only)']
+assert.strictEqual(prBy['Follow-up Action Recommended (relevant to completed task)'].display, 'longtext');
+assert.strictEqual(prBy['Data related to relevant task copied in the project common drive']
   .display, 'choice');
 assert.strictEqual(prBy['Next Review Date'].display, 'date');
 
@@ -3701,8 +3850,8 @@ assert.deepStrictEqual(prSpec.fields.filter(f => !f.hidden).map(f => f.label), [
   'Review No.',
   'Reviewer(s)',
   'Review Observations',
-  'Follow-up Action Recommended',
-  'Data copied to the project common drive (R&D form only)',
+  'Follow-up Action Recommended (relevant to completed task)',
+  'Data related to relevant task copied in the project common drive',
   'Next Review Date'
 ]);
 // the box sits where the paper draws it - after the header pairs and before
@@ -3710,7 +3859,7 @@ assert.deepStrictEqual(prSpec.fields.filter(f => !f.hidden).map(f => f.label), [
 assert.deepStrictEqual(prObs.rows.map(r => r.label), [
   'Adhesion to the Schedule',
   'Status of completion to the relevant task',
-  'Validation (R&D form only)',
+  'Validation',
   'Technical finding / Observations'
 ], 'the four items in the order the paper numbers them');
 
@@ -3736,14 +3885,15 @@ assert.ok(/no attribute anywhere/.test(prSpec._theTwoDates),
 // RDAREA-REV-Rev.00 does not; the user chose to draw both on both areas,
 // labelled, rather than hide them on an Analysis project
 assert.ok(/RDAREA-REV-Rev\.00/.test(prSpec._twoFormsOneSubtype));
-[prObsBy['Validation (R&D form only)'],
- prBy['Data copied to the project common drive (R&D form only)']]
+[prObsBy['Validation'],
+ prBy['Data related to relevant task copied in the project common drive']]
   .forEach(item => {
     assert.ok(item, 'the row is drawn');
     assert.ok(!item.hidden, 'it is visible on BOTH areas');
-    assert.ok(/R&D form only/.test(item.label),
-      'and the label itself carries the difference - the only place a short ' +
-      'row can say it, because notes render on table blocks only');
+    // the "(R&D form only)" suffix of 2026-10-10 was dropped on 2026-10-25
+    // (devlog 2026-10-25-02): the label is the paper's own wording
+    assert.ok(!/R&D form only/.test(item.label),
+      'the label is R&D-REV-Rev.02 wording, with no suffix since 2026-10-25');
   });
 // the stage-validation file says the same difference belongs to THIS form, so
 // the two files cannot drift apart on it
@@ -3859,7 +4009,7 @@ prRows.forEach(r => assert.strictEqual(r.missing, false,
 assert.strictEqual(prValues['Project Name'].value, 'Copy of TEMPLATE TEST');
 assert.strictEqual(prValues['Project Name'].usedFallback, false);
 assert.strictEqual(prValues['Project No.'].value, 'R&D-26013-HY');
-assert.strictEqual(prValues['Follow-up Action Recommended'].value,
+assert.strictEqual(prValues['Follow-up Action Recommended (relevant to completed task)'].value,
   'follow up recomendation');
 
 // the date resolves from the task and prints without a clock on it - the
@@ -3926,7 +4076,7 @@ assert.strictEqual(
 // the one short row left outside the box starts a line of its own, so it does
 // not pair off with the prose block above it
 assert.strictEqual(
-  prBy['Data copied to the project common drive (R&D form only)'].newLine,
+  prBy['Data related to relevant task copied in the project common drive'].newLine,
   true);
 
 // ---- the section numbers are NOT printed, and on this form that is not just
@@ -3945,8 +4095,46 @@ assert.strictEqual(prObs.ref, '1-4');
 // ---- ONE SERVICE SECTION AND NO BASELINE ROW. Since 2026-10-22 the
 // Reviewer(s) row asks the JAR for `reviewers` and nothing else - one call
 // beyond the two the page already makes, and only that section
-assert.deepStrictEqual(Context.sectionsFor(prSpec), ['reviewers'],
-  'only the reviewers section, so the call stays one round trip on the JAR side');
+// Since 2026-10-28 also `department` (RDAREA variant) - two sections of the
+// SAME JAR call, so it is still one round trip
+assert.deepStrictEqual(Context.sectionsFor(prSpec), ['department', 'reviewers'],
+  'reviewers and department, both in the one JAR call');
+assert.ok(Context.sectionsFor({ fields: [{ source: 'task', display: 'observations',
+  rows: [{ field: 'X', profileField: 'Validation' }] }] }).indexOf('department') >= 0,
+  'an item gated inside a box needs the department too');
+
+// ---- G7 by department profile (user, 2026-10-28; WP02 doc 17) ------------
+// RDAREA-REV-Rev.00 has no Validation item and no common-drive row, so its
+// Technical finding is item 3
+const G7_FIELDS = { Validation: ['RND'], DataDrive: ['RND'] };
+const g7 = (profiles, linked) => ({ department: Context._toDepartment({
+  linked: linked === false ? 'false' : 'true', profiles: profiles,
+  profileFields: G7_FIELDS, profileError: '', error: '' }) });
+const obsOf = (s) => s.fields.find(f => f.display === 'observations').rows.map(r => r.field);
+const g7Ar = View._forProfile(prSpec, g7(['AR']));
+assert.strictEqual(g7Ar.form, 'RDAREA-REV-Rev.00');
+assert.deepStrictEqual(obsOf(g7Ar), ['EPMAdhesionToSchedule', 'EPMStatusOfCompletion',
+  'EPMTechnicalFindingObservations'], 'AR: three items, no Validation');
+assert.ok(!g7Ar.fields.some(f => f.field === 'EPMDataDrive'), 'AR: no common-drive row');
+const g7Rnd = View._forProfile(prSpec, g7(['RND']));
+assert.strictEqual(g7Rnd.form, 'R&D-REV-Rev.02');
+assert.strictEqual(obsOf(g7Rnd).length, 4);
+assert.ok(g7Rnd.fields.some(f => f.field === 'EPMDataDrive'));
+assert.strictEqual(obsOf(prSpec).length, 4, 'the original spec is not mutated');
+Object.keys(G7_FIELDS).forEach(k => assert.ok(
+  JSON.stringify(prSpec).indexOf('"profileField":"' + k + '"') >= 0 ||
+  JSON.stringify(prSpec).indexOf('"profileField": "' + k + '"') >= 0, k + ' is used by the form'));
+// the reviewer fills: level 2 only, every field but the next review date required
+assert.strictEqual(prSpec.inputAtStep, 2);
+
+// ---- G9 / AR G8 verification report by profile (worklog 2026-10-28-02) ----
+// the papers differ only in the code: nothing hidden, the code follows the area
+const verSpec = JSON.parse(fs.readFileSync(
+  path.join(base, 'js/data/forms/verification-report.json'), 'utf8'));
+assert.strictEqual(View._forProfile(verSpec, g7(['AR'])).form, 'RDAREA-VER-Rev.00');
+assert.strictEqual(View._forProfile(verSpec, g7(['RND'])).form, 'R&D-VER-Rev.00');
+assert.strictEqual(View._forProfile(verSpec, g7(['AR'])).fields.length, verSpec.fields.length);
+assert.ok(Context.sectionsFor(verSpec).indexOf('department') >= 0);
 assert.ok(!prSpec.fields.some(f => f.source === 'baseline' && !f.hidden),
   'no baseline row, so BaselineService is never called');
 // the cost form as the contrast, so an empty result cannot pass for a check

@@ -22,6 +22,10 @@
     "approval": "an approval signature - a route task, not a field"
   },
   "form": "R&D-VER-Rev.00",
+  "_formByProfile": "SINCE 2026-10-28 an AR department (page IRSProjectFormProfiles, profile AR) shows RDAREA-VER-Rev.00 - the AR gateway G8. The two papers are otherwise identical (diff of the transcripts: the form code and the signatory line 'DH (R&D) -' / 'DH -'), so nothing is hidden and nothing is added. Worklog 2026-10-28-02.",
+  "formByProfile": {
+    "AR": "RDAREA-VER-Rev.00"
+  },
   "title": "VERIFICATION REPORT",
   "taskType": "EPMPROJECT_VERIFICATION",
   "fields": [
@@ -48,7 +52,14 @@
       "field": "EPMWorkScopeCompleted",
       "display": "text",
       "newLine": true,
-      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "2",
@@ -56,7 +67,14 @@
       "source": "task",
       "field": "EPMAllReviewsPerformed",
       "display": "text",
-      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "3",
@@ -64,7 +82,14 @@
       "source": "task",
       "field": "EPMStageValidationDone",
       "display": "text",
-      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "4",
@@ -72,7 +97,14 @@
       "source": "task",
       "field": "EPMTechnicalReportPrepared",
       "display": "text",
-      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "5",
@@ -80,7 +112,14 @@
       "source": "task",
       "field": "EPMDataStoredInDrive",
       "display": "text",
-      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "6",
@@ -88,7 +127,14 @@
       "source": "task",
       "field": "EPMKeyLearningsRecorded",
       "display": "text",
-      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "7",
@@ -96,7 +142,14 @@
       "source": "task",
       "field": "EPMProjectOutcomeDetailed",
       "display": "text",
-      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "8",
@@ -104,7 +157,14 @@
       "source": "task",
       "field": "EPMClientCommunicated",
       "display": "text",
-      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "9",
@@ -113,7 +173,15 @@
       "field": "EPMInvoiceIssued",
       "display": "text",
       "note": "The only question with NA in its range.",
-      "input": { "type": "choice", "values": ["Yes", "No", "NA"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No",
+          "NA"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "10",
@@ -121,7 +189,14 @@
       "source": "task",
       "field": "EPMLegalRequirementApplicable",
       "display": "text",
-      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "10a",
@@ -129,8 +204,13 @@
       "source": "task",
       "field": "EPMLegalRequirementDetails",
       "display": "longtext",
-      "input": { "type": "textarea",
-                 "requiredWhen": { "field": "EPMLegalRequirementApplicable", "equals": "Yes" } }
+      "input": {
+        "type": "textarea",
+        "requiredWhen": {
+          "field": "EPMLegalRequirementApplicable",
+          "equals": "Yes"
+        }
+      }
     },
     {
       "ref": "11",
@@ -139,7 +219,14 @@
       "field": "EPMCPDEnteredInORS",
       "display": "text",
       "note": "The proof is a file attached to the task, not an attribute - see _noCpdEvidenceRule.",
-      "input": { "type": "choice", "values": ["Yes", "No"], "required": true }
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "12",
@@ -147,7 +234,9 @@
       "source": "task",
       "field": "EPMAnyOtherDetails",
       "display": "longtext",
-      "input": { "type": "textarea" }
+      "input": {
+        "type": "textarea"
+      }
     },
     {
       "ref": "13",
@@ -155,7 +244,9 @@
       "source": "task",
       "field": "EPMVerificationRemarks",
       "display": "longtext",
-      "input": { "type": "textarea" }
+      "input": {
+        "type": "textarea"
+      }
     },
     {
       "ref": "Footer",

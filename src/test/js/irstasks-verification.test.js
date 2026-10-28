@@ -308,6 +308,84 @@ function answerAll(bar, value) {
     assert.strictEqual(button(bar, 'Save draft'), undefined);
   }
 
+  // ---- 5. G7 PROJECT REVIEW: the reviewer fills it at level 2 (user, 2026-10-28)
+  const pr = JSON.parse(fs.readFileSync(
+    path.join(base, 'js/data/forms/project-review.json'), 'utf8'));
+  // the AR spec as forProfile leaves it: no Validation item, no common-drive row
+  const prAr = JSON.parse(JSON.stringify(pr));
+  prAr.fields = prAr.fields.filter(f => f.field !== 'EPMDataDrive');
+  prAr.fields.forEach(f => { if (f.rows) { f.rows = f.rows.filter(r => r.field !== 'EPMValidation'); } });
+
+  const prIn = Form.inputsOf(pr);
+  assert.deepStrictEqual(prIn.map(f => f.field), ['EPMAdhesionToSchedule',
+    'EPMStatusOfCompletion', 'EPMValidation', 'EPMTechnicalFindingObservations',
+    'EPMFollow_upActionRecommended', 'EPMDataDrive', 'EPMNextReviewDate'],
+    'all seven attributes, observations box items included');
+  assert.strictEqual(prIn[2].label, '3) Validation', 'box items carry their number');
+  assert.strictEqual(Form.inputsOf(prAr)[2].label, '3) Technical finding / Observations',
+    'AR numbers Technical finding 3, as its paper');
+  assert.deepStrictEqual(prIn.filter(f => !f.input.required).map(f => f.field),
+    ['EPMNextReviewDate'], 'only the next review date is optional');
+  assert.strictEqual(Form.inputsFor(pr, { order: 1 }).length, 0, 'level 1 (Project Member) fills nothing');
+  assert.strictEqual(Form.inputsFor(pr, { order: 2 }).length, 7);
+  assert.strictEqual(Form.inputsFor(spec, { order: 1 }).length, 14, 'G9: no inputAtStep, every step');
+
+  const prBlank = {};
+  prIn.forEach(f => { prBlank[f.field] = ''; });
+  assert.strictEqual(Form.validate(prIn, prBlank).length, 6);
+  assert.strictEqual(Form.validate(Form.inputsOf(prAr), prBlank).length, 4, 'AR: 4 required');
+  assert.strictEqual(Form.validate(prIn, Object.assign({}, prBlank, { EPMValidation: 'Not Required' }))
+    .find(p => p.field === 'EPMValidation').message,
+    'not one of Stage / Final / Not Required / Not Applicable', 'labels, not stored values, in the message');
+
+  const prStep1 = { id: 'IT-1', role: 'Project Member', order: 1 };
+  const prStep2 = { id: 'IT-2', role: 'Project Reviewer', order: 2 };
+  const prTask = (modify) => ({ id: 'G7-TASK', attributes: Object.assign({ modifyAccess: modify }, prBlank) });
+
+  // 5a. level 1: no inputs, and not being an assignee does not matter
+  {
+    const bar = Panel._decisionBar(route, prStep1, () => {}, { task: prTask('FALSE'), spec: pr });
+    assert.strictEqual(radios(bar).length, 0);
+    assert.strictEqual(button(bar, 'Approve').disabled, false);
+    assert.strictEqual(button(bar, 'Save draft'), undefined);
+  }
+
+  // 5b. level 2, reviewer not an assignee: the G9 message, Reject only
+  {
+    const bar = Panel._decisionBar(route, prStep2, () => {}, { task: prTask('FALSE'), spec: pr });
+    assert.ok(bar.textContent.indexOf(Form.NOT_ASSIGNEE_TEXT) >= 0);
+    assert.strictEqual(button(bar, 'Approve').disabled, true);
+  }
+
+  // 5c. level 2, assignee: fill, then save BEFORE the decision, stored values sent
+  order.length = 0; Request.calls.length = 0; Request.next = null; Approval.decided.length = 0;
+  {
+    const bar = Panel._decisionBar(route, prStep2, () => {}, { task: prTask('TRUE'), spec: pr });
+    assert.strictEqual(radios(bar).length, 9, 'Yes/No + 4 validation + Yes/No/NA');
+    const lines = all(bar, n => n.tagName === 'INPUT' && (n.type === 'text' || n.type === 'date'));
+    assert.deepStrictEqual(lines.map(n => n.type), ['text', 'date']);
+    assert.strictEqual(areas(bar).length, 3, 'technical finding, follow-up, comment');
+    const pick = (value) => { const r = radios(bar).find(x => x.value === value);
+      radios(bar).filter(x => x.name === r.name).forEach(x => { x.checked = x === r; }); r.fire('change'); };
+    pick('TRUE'); pick('NotRequired'); pick('NA');
+    lines[0].value = 'All planned tasks complete'; lines[0].fire('input');
+    lines[1].value = '2026-11-15'; lines[1].fire('change');
+    areas(bar)[0].value = 'Reports checked'; areas(bar)[0].fire('input');
+    areas(bar)[1].value = 'None'; areas(bar)[1].fire('input');
+    button(bar, 'Approve').fire('click');
+    button(bar, 'Confirm approve').fire('click');
+    await flush();
+    assert.deepStrictEqual(order, ['save', 'decide'], 'saved first, then decided');
+    const sent = Request.calls[0].opts.data.data[0].dataelements;
+    assert.strictEqual(sent.EPMAdhesionToSchedule, 'TRUE', 'the boolean is written as TRUE');
+    assert.strictEqual(sent.EPMValidation, 'NotRequired', 'the range value, not its label');
+    assert.strictEqual(sent.EPMDataDrive, 'NA');
+    const day = new Date(sent.EPMNextReviewDate);
+    assert.deepStrictEqual([day.getFullYear(), day.getMonth() + 1, day.getDate(), day.getHours()],
+      [2026, 11, 15, 12], 'the picked day, at local noon');
+    assert.strictEqual(Approval.decided[0].id, 'IT-2');
+  }
+
   delete global.document;
   console.log('irstasks-verification: all assertions passed');
 })().catch(err => { console.error(err); process.exit(1); });

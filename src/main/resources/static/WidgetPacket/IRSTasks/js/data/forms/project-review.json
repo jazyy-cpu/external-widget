@@ -1,7 +1,7 @@
 {
   "_about": "What the PROJECT REVIEW task page shows. One file per form (user, 2026-10-07): change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the subtype's entry in js/config/TaskFields.js. The LAST of the four gateway forms.",
   "_generated": "Written 2026-10-10 from R&D-REV-Rev.02 and RDAREA-REV-Rev.00, with every field verified on this VM the same day: the type's attribute list and each attribute's data type and range in MQL, and all seven values in the live task response for T-85756263-0000155 (299036CE0000A4346AC9CFF1000000EA).",
-  "_twoFormsOneSubtype": "THE TWO AREAS GENUINELY DIFFER HERE - unlike Stage Validation, where the two printed forms were identical. R&D-REV-Rev.02 carries two numbered items that RDAREA-REV-Rev.00 does not: 'Validation: Stage/Final/Not Required/Not Applicable' and 'Data related to relevant task copied in the project common drive: Yes/No/NA'. They are additive, so AR is simply an older revision of the same form, and ONE subtype carries both attributes (route config, 2026-10-07). The user chose 2026-10-10 to DRAW BOTH ROWS ON BOTH AREAS, labelled '(R&D form only)' in the label itself, rather than hiding them on an Analysis project: the project subtype would have answered the area for free (EPMAnalysisProject = AR), but a visible labelled row tells the reader what the difference IS, where a hidden row tells them nothing. This is the R06 note in the to-be document, and this form is where it was true.",
+  "_twoFormsOneSubtype": "THE TWO AREAS GENUINELY DIFFER HERE - unlike Stage Validation, where the two printed forms were identical. R&D-REV-Rev.02 carries two numbered items that RDAREA-REV-Rev.00 does not: 'Validation: Stage/Final/Not Required/Not Applicable' and 'Data related to relevant task copied in the project common drive: Yes/No/NA'. They are additive, so AR is simply an older revision of the same form, and ONE subtype carries both attributes (route config, 2026-10-07). The user chose 2026-10-10 to DRAW BOTH ROWS ON BOTH AREAS, labelled '(R&D form only)' in the label itself, rather than hiding them on an Analysis project: the project subtype would have answered the area for free (EPMAnalysisProject = AR), but a visible labelled row tells the reader what the difference IS, where a hidden row tells them nothing. This is the R06 note in the to-be document, and this form is where it was true. REVERSED 2026-10-25 (user): the '(R&D form only)' suffix is gone from both labels, which now read exactly as R&D-REV-Rev.02 writes them. The 2026-10-10 decision below is kept as history because its reasoning was sound and the CONSEQUENCE it avoided is now live: an Analysis (AR) project's review still draws both rows, and nothing on the page says they are not on RDAREA-REV-Rev.00. The footer already carries the same unresolved question (WP05 B25). The rows are still drawn on both areas; only the labels changed.",
   "_source": {
     "project": "read from the PROJECT's dataelements - arrives in the project call the page already makes. Note that only TYPE attributes arrive there: `IRSProjectReviewDocumentId` is an INTERFACE attribute and is absent from the response, measured 2026-10-10 - see the Review No. row",
     "task": "read from the TASK's own dataelements. This form has SEVEN, the most of any subtype, and all seven arrived populated on the live task measured 2026-10-10",
@@ -21,8 +21,14 @@
     "observations": "the printed form's boxed, numbered list of review observations - several attributes of the task under ONE heading, each with its own format"
   },
   "form": "R&D-REV-Rev.02",
+  "_formByProfile": "SINCE 2026-10-28 an AR department (page IRSProjectFormProfiles, profile AR) shows RDAREA-REV-Rev.00, and the two R&D-only rows - Validation and the common-drive row - carry a profileField and are left out for it, so its Technical finding is item 3 as on its paper. This supersedes the 'draw both rows on both areas' arrangement of 2026-10-10 / 2026-10-25 described in _twoFormsOneSubtype, which is kept as history.",
+  "formByProfile": {
+    "AR": "RDAREA-REV-Rev.00"
+  },
   "title": "PROJECT REVIEW",
   "taskType": "EPMPROJECT_REVIEW",
+  "_reviewerFills": "THE REVIEWER FILLS THIS FORM AT APPROVAL (user, 2026-10-28), the same mechanism as the G9 Verification Report: every row with an `input` block is drawn as an input in the WGT-09 decision bar, validated, written to the TASK with OOTB PUT modeler/tasks/{taskId}, and only then is the decision sent. `inputAtStep: 2` limits that to route level 2 - the Project Reviewer, or the In-Charge / HOD on an external project - because the route order is NOT changed: the Project Member approves first at level 1, without inputs. The reviewer must be one of the task's ASSIGNEES to write it (worklog 2026-10-24-07): the Project Manager adds them; when they are not, the bar says so and offers Reject only. External reviewers never approve - level 2 on an external project is the In-Charge / HOD. Every input is required except Next Review Date. Adhesion is a BOOLEAN with default FALSE, so a fresh task already shows 'No' checked - the one input here that cannot start unanswered.",
+  "inputAtStep": 2,
   "fields": [
     {
       "ref": "Header",
@@ -76,49 +82,102 @@
       "source": "task",
       "display": "observations",
       "note": "THE PRINTED FORM DRAWS THESE FOUR AS ONE BOX under one heading, numbered 1) to 4), and the page now does the same (user, 2026-10-10). As four separate rows they paired off two to a line with whatever preceded them, which is exactly what the box on the paper exists to prevent: they are one thought - the reviewer's observations - and not four unrelated fields. The items are DATA in `rows` below, so a fifth observation is a JSON edit, and each says its own `format` because the four are four different shapes.",
-      "_numbering": "The numbers ARE printed here, unlike the section numbers everywhere else on these forms, because inside this box they are the content: a reviewer reads item 3 off R&D-REV-Rev.02 - which the page header names - and looks for item 3 on screen. RDAREA-REV-Rev.00 numbers the same items differently, having no Validation row, and the label on that row carries (R&D form only), which is what tells an AR reader why their paper stops at 3.",
+      "_numbering": "The numbers ARE printed here, unlike the section numbers everywhere else on these forms, because inside this box they are the content: a reviewer reads item 3 off R&D-REV-Rev.02 - which the page header names - and looks for item 3 on screen. RDAREA-REV-Rev.00 numbers the same items differently, having no Validation row. Until 2026-10-25 that row's label carried (R&D form only), which was what told an AR reader why their paper stops at 3; the user removed it so the line reads as the R&D paper writes it, and nothing says it now.",
       "rows": [
         {
           "label": "Adhesion to the Schedule",
           "field": "EPMAdhesionToSchedule",
           "format": "yesno",
-          "note": "The printed form's item 1, a yes / no. The only BOOLEAN attribute on this subtype - ENOVIA answers the string \"TRUE\", which prints as Yes. Measured live: TRUE."
+          "note": "The printed form's item 1, a yes / no. The only BOOLEAN attribute on this subtype - ENOVIA answers the string \"TRUE\", which prints as Yes. Measured live: TRUE.",
+          "input": {
+            "type": "choice",
+            "values": [
+              {
+                "value": "TRUE",
+                "label": "Yes"
+              },
+              {
+                "value": "FALSE",
+                "label": "No"
+              }
+            ],
+            "required": true
+          }
         },
         {
           "label": "Status of completion to the relevant task",
           "field": "EPMStatusOfCompletion",
-          "note": "Item 2. A single-line `string` on the platform (multiline FALSE), so it is drawn as one line rather than as prose - the attribute's own shape, not a guess. Measured live: 'status is ok for the completed task'."
+          "note": "Item 2. A single-line `string` on the platform (multiline FALSE), so it is drawn as one line rather than as prose - the attribute's own shape, not a guess. Measured live: 'status is ok for the completed task'.",
+          "input": {
+            "type": "text",
+            "required": true
+          }
         },
         {
-          "label": "Validation (R&D form only)",
+          "label": "Validation",
           "field": "EPMValidation",
           "format": "choice",
-          "note": "Item 3 of R&D-REV-Rev.02, and NOT on RDAREA-REV-Rev.00 - which is why the label says so (user, 2026-10-10). A range of four: Stage, Final, NotRequired, NotApplicable, printed with the spaces the paper form uses. Measured live: Final. This row and the common-drive row below are the whole difference between the two areas' forms."
+          "note": "Item 3 of R&D-REV-Rev.02, which writes it as plain 'Validation:' - so that is what the label says since 2026-10-25 (user). It is NOT on RDAREA-REV-Rev.00, and until 2026-10-25 the label said '(R&D form only)' to tell an AR reader why their paper stops at 3; see _twoFormsOneSubtype. A range of four: Stage, Final, NotRequired, NotApplicable, printed with the spaces the paper form uses. Measured live: Final. This row and the common-drive row below are the whole difference between the two areas' forms.",
+          "profileField": "Validation",
+          "input": {
+            "type": "choice",
+            "values": [
+              "Stage",
+              "Final",
+              {
+                "value": "NotRequired",
+                "label": "Not Required"
+              },
+              {
+                "value": "NotApplicable",
+                "label": "Not Applicable"
+              }
+            ],
+            "required": true
+          }
         },
         {
           "label": "Technical finding / Observations",
           "field": "EPMTechnicalFindingObservations",
           "format": "longtext",
-          "note": "Item 4 on the R&D form, item 3 on the AR one - the numbering shifts because AR has no Validation row, which is why the section numbers are not printed on screen. A `string` with `multiline TRUE`, so prose with its line breaks kept. The printed form adds '(reviewed reports/documents are to be attached)': those attachments are the task's own documents and the documents panel below the form lists them, so the instruction needs no row of its own."
+          "note": "Item 4 on the R&D form, item 3 on the AR one - the numbering shifts because AR has no Validation row, which is why the section numbers are not printed on screen. A `string` with `multiline TRUE`, so prose with its line breaks kept. The printed form adds '(reviewed reports/documents are to be attached)': those attachments are the task's own documents and the documents panel below the form lists them, so the instruction needs no row of its own.",
+          "input": {
+            "type": "textarea",
+            "required": true
+          }
         }
       ]
     },
     {
       "ref": "5",
-      "label": "Follow-up Action Recommended",
+      "label": "Follow-up Action Recommended (relevant to completed task)",
       "source": "task",
       "field": "EPMFollow_upActionRecommended",
       "display": "longtext",
-      "note": "'Follow-up Action Recommended (relevant to completed task)' - prose, multiline TRUE. Note the underscore in the attribute name, which is the platform's spelling and not a typo here. The printed form's note beneath it, 'Refer to the planning document for carrying out the review', is an instruction to the reviewer rather than a value, so it is not a row."
+      "note": "The label is the paper's own line, parenthetical included, since 2026-10-25 (user) - the same rule applied to the Validation and common-drive rows the same day. Prose, multiline TRUE. Note the underscore in the attribute name, which is the platform's spelling and not a typo here. The printed form's note beneath it, 'Refer to the planning document for carrying out the review', is an instruction to the reviewer rather than a value, so it is not a row.",
+      "input": {
+        "type": "textarea",
+        "required": true
+      }
     },
     {
       "ref": "6",
-      "label": "Data copied to the project common drive (R&D form only)",
+      "label": "Data related to relevant task copied in the project common drive",
       "source": "task",
       "field": "EPMDataDrive",
       "display": "choice",
       "newLine": true,
-      "note": "'Data related to relevant task copied in the project common drive: Yes/No/NA' - the second of the two rows that exist on R&D-REV-Rev.02 and not on RDAREA-REV-Rev.00, labelled as such for the same reason. A range of three, Yes / No / NA, not a boolean, because NA is a real answer here. Measured live: No. The label is shortened from the printed sentence so it fits a label column; the full wording is in this note."
+      "note": "'Data related to relevant task copied in the project common drive: Yes/No/NA' - the second of the two rows that exist on R&D-REV-Rev.02 and not on RDAREA-REV-Rev.00. A range of three, Yes / No / NA, not a boolean, because NA is a real answer here. Measured live: No. SINCE 2026-10-25 THE LABEL IS THE PRINTED SENTENCE IN FULL (user: the content should read as it does on the R&D form). It was shortened before that to fit a label column, and it is long - if it ever wraps badly in the widget, shorten the COLUMN, not the sentence. The 3DSpace task form already uses this same full wording.",
+      "profileField": "DataDrive",
+      "input": {
+        "type": "choice",
+        "values": [
+          "Yes",
+          "No",
+          "NA"
+        ],
+        "required": true
+      }
     },
     {
       "ref": "Footer",
@@ -126,7 +185,10 @@
       "source": "task",
       "field": "EPMNextReviewDate",
       "display": "date",
-      "note": "DRAWN SINCE 2026-10-10 (user: it is an attribute on the task, so add it). It was parked for half a day with the Review Date at the top of the paper, and the two were never the same question: this one has EPMNextReviewDate, a `timestamp` on the subtype, and the live task carried 2026-10-21T06:30:00.000Z - it was the only parked row on any of the four forms whose attribute existed AND held data. The Review Date above stays parked because the platform has no field for it at all. Printed as `21 Oct 2026`: no clock, because nobody recorded a time. The reviewer sets it when approving, and the route's level-2 instruction already tells them to."
+      "note": "DRAWN SINCE 2026-10-10 (user: it is an attribute on the task, so add it). It was parked for half a day with the Review Date at the top of the paper, and the two were never the same question: this one has EPMNextReviewDate, a `timestamp` on the subtype, and the live task carried 2026-10-21T06:30:00.000Z - it was the only parked row on any of the four forms whose attribute existed AND held data. The Review Date above stays parked because the platform has no field for it at all. Printed as `21 Oct 2026`: no clock, because nobody recorded a time. The reviewer sets it when approving, and the route's level-2 instruction already tells them to.",
+      "input": {
+        "type": "date"
+      }
     },
     {
       "ref": "Footer",

@@ -19,6 +19,8 @@
   "_whyNoStageRow": "There is deliberately no field naming WHICH stage this report validates (user, 2026-10-06): the stage is the task's POSITION IN THE WBS, and an attribute would duplicate it and be free to disagree with it. The task name carries the stage - into the document title, the route name, and the page header this form is drawn under - so the stage is already on screen without a row of its own.",
   "_whyNoRevNo": "This form carries no Rev. No., unlike the other two, because its document is never revised. Each stage validation record validates a DIFFERENT stage, so a revision would assert that it supersedes the previous stage's validation, which is false (user, 2026-10-06: \"we need to create new document each time\"). Every task gets its own SVR-nnnnnnn and they all stay current side by side. The report number is therefore the thing that identifies the record - not shown yet, see the open item in the requirement.",
   "form": "R&D-VAL-Rev.00",
+  "_formByProfile": "The only difference between the two papers is the code (checked line by line 2026-10-27, worklog 2026-10-27-07): an AR project prints RDAREA-VAL-Rev.00. Asking for it makes the page load the department section (one JAR call it did not make before).",
+  "formByProfile": { "AR": "RDAREA-VAL-Rev.00" },
   "title": "STAGE-VALIDATION REPORT",
   "taskType": "EPMPROJECT_STAGE_VALIDATION",
   "fields": [

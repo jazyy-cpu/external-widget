@@ -33,15 +33,19 @@ define('IRSTasks/views/ApproverFormFields', [
         var group = el('div', '');
         var radios = [];
         (field.input.values || []).forEach(function (option, i) {
+            // a stored value that is not what the paper says - a boolean's
+            // TRUE, a range's NotRequired - comes as {value, label}
+            var stored = (option && typeof option === 'object') ? option.value : option;
+            var shown = (option && typeof option === 'object') ? (option.label || stored) : option;
             var wrap = el('div', 'form-check form-check-inline');
             var radio = el('input', 'form-check-input');
             radio.type = 'radio';
             radio.name = name;
-            radio.value = option;
+            radio.value = stored;
             radio.id = name + '-' + i;
-            radio.checked = value === option;
+            radio.checked = value === stored;
             radio.addEventListener('change', onChange);
-            var label = el('label', 'form-check-label', option);
+            var label = el('label', 'form-check-label', shown);
             label.htmlFor = radio.id;
             wrap.appendChild(radio);
             wrap.appendChild(label);
@@ -84,6 +88,49 @@ define('IRSTasks/views/ApproverFormFields', [
         };
     }
 
+    /**
+     * A `date` answer: the task holds a timestamp (`2026-10-21T06:30:00.000Z`),
+     * the picker a calendar day. The day is read in local time and written
+     * back at local noon, so it cannot slip to the next or previous day in any
+     * time zone - the way the platform's own date fields store a day.
+     */
+    function toDay(iso) {
+        var d = iso ? new Date(iso) : null;
+        if (!d || isNaN(d.getTime())) { return ''; }
+        function two(n) { return (n < 10 ? '0' : '') + n; }
+        return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate());
+    }
+
+    function fromDay(day) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day || '');
+        if (!m) { return ''; }
+        return new Date(+m[1], +m[2] - 1, +m[3], 12, 0, 0).toISOString();
+    }
+
+    /** One one-line text or date question: its label, then the input. */
+    function lineRow(field, value, name, onChange) {
+        var isDate = field.input.type === 'date';
+        var row = el('div', 'mb-2');
+        var label = el('label', 'form-label fw-semibold mb-1', field.label);
+        label.htmlFor = name;
+        row.appendChild(label);
+        var box = el('input', 'form-control' + (isDate ? ' w-auto' : ''));
+        box.id = name;
+        box.type = isDate ? 'date' : 'text';
+        box.value = isDate ? toDay(value) : (value || '');
+        box.addEventListener('input', onChange);
+        box.addEventListener('change', onChange);
+        row.appendChild(box);
+        var feedback = el('div', 'invalid-feedback');
+        row.appendChild(feedback);
+        return {
+            row: row,
+            feedback: feedback,
+            controls: [box],
+            read: function () { return isDate ? fromDay(box.value) : box.value; }
+        };
+    }
+
     return {
         /**
          * @param {Object[]} fields from `ApproverFormService.inputsOf`
@@ -105,9 +152,12 @@ define('IRSTasks/views/ApproverFormFields', [
 
             fields.forEach(function (field, i) {
                 var name = prefix + '-' + i;
-                var made = field.input.type === 'choice'
+                var type = field.input.type;
+                var made = type === 'choice'
                     ? choiceRow(field, values[field.field], name, changed)
-                    : textRow(field, values[field.field], name, changed);
+                    : (type === 'text' || type === 'date')
+                        ? lineRow(field, values[field.field], name, changed)
+                        : textRow(field, values[field.field], name, changed);
                 made.title = made.row.querySelector('.fw-semibold');
                 made.field = field;
                 rows[field.field] = made;

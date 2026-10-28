@@ -204,7 +204,9 @@ define('IRSTasks/views/TaskDetailView', [
          * unchanged, so a range edited on the platform later cannot break it.
          */
         choice: function (value) {
-            var text = toText(value);
+            // `Not_Applicable` is the other spelling a range token takes
+            // (EPMScreeningApprovalObtained, created in DMC 2026-10-27)
+            var text = toText(value).replace(/_/g, ' ');
             if (!text || text.indexOf(' ') >= 0) { return text; }
             return text.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
         }
@@ -312,6 +314,9 @@ define('IRSTasks/views/TaskDetailView', [
             newLine: spec.newLine === true,
             // the two labels the Reviewer(s) row draws its pairs under
             pairLabels: spec.pairLabels || null,
+            // a table's columns by area profile - set by forProfile
+            hiddenColumns: spec.hiddenColumns || [],
+            columnLabels: spec.columnLabels || {},
             showNote: spec.showNote === true,
             value: '',
             missing: false,
@@ -776,7 +781,9 @@ define('IRSTasks/views/TaskDetailView', [
      * PMCProjectPeople. This widget shows what the team recorded there, so there
      * is deliberately no edit control on this block.
      */
-    function membersBlock(context) {
+    function membersBlock(context, row) {
+        var hidden = (row && row.hiddenColumns) || [];
+        var labels = (row && row.columnLabels) || {};
         var wrap = el('div');
         if (!context) {
             wrap.appendChild(el('div', 'text-danger',
@@ -819,7 +826,10 @@ define('IRSTasks/views/TaskDetailView', [
             };
         });
 
-        wrap.appendChild(table([
+        // R&D-PRJ-02 has a Drive access column and calls the skill column
+        // "Skill as per records"; RDAREA-PRJ-01 has neither (worklog
+        // 2026-10-27-06) - forProfile says which, per department
+        var columns = [
             { label: 'Name', key: 'name', width: '24%' },
             { label: 'Responsibility', key: 'responsibility',
               className: 'text-nowrap', width: '16rem' },
@@ -827,7 +837,13 @@ define('IRSTasks/views/TaskDetailView', [
             { label: 'Skill as per records', key: 'skills', className: 'irs-lines' },
             { label: 'Drive access', key: 'driveAccess',
               className: 'text-nowrap', width: '11rem' }
-        ], view));
+        ].filter(function (column) {
+            return hidden.indexOf(column.key) < 0;
+        }).map(function (column) {
+            if (labels[column.key]) { column.label = labels[column.key]; }
+            return column;
+        });
+        wrap.appendChild(table(columns, view));
         return wrap;
     }
 
@@ -1457,7 +1473,7 @@ define('IRSTasks/views/TaskDetailView', [
             }
             if (row.display === 'lessons') { return lessonsBlock(context); }
             if (row.display === 'customer') { return customerBlock(context); }
-            if (row.display === 'members') { return membersBlock(context); }
+            if (row.display === 'members') { return membersBlock(context, row); }
             if (row.display === 'risks') { return risksBlock(context); }
             // a service section whose table is not built yet shows what it is
             // waiting for. This used to fall through to risksBlock, which drew
@@ -1543,6 +1559,102 @@ define('IRSTasks/views/TaskDetailView', [
         return card;
     }
 
+    /**
+     * Whether a row that only one area's paper form has is shown, by the
+     * project's department profile (worklog 2026-10-27-03).
+     *
+     * The row names its key with `profileField`, the same key the AEF project
+     * form names with its `IRS Profile Field` setting; the department section
+     * carries the profiles and the key-to-profile map, both read by the
+     * service from page IRSProjectFormProfiles. Same answers as
+     * IRSProjectUI:showForProfile on the platform form:
+     *   - no `profileField`, or a key the page does not list: shown (common);
+     *   - no department, or one that could not be read: hidden;
+     *   - otherwise shown when the department is in one of the key's profiles.
+     * One addition: a service that predates the map sends none, and then
+     * every row is shown, as before this existed.
+     */
+    function profileShows(field, context) {
+        if (!field.profileField) { return true; }
+        var department = context && context.department;
+        if (!department || department.error) { return false; }
+        if (!department.profileFields) { return true; }
+        if (department.profileError) { return false; }
+        var wanted = department.profileFields[field.profileField];
+        if (!wanted) { return true; }
+        if (!department.linked) { return false; }
+        return wanted.some(function (profile) {
+            return department.profiles.indexOf(profile) >= 0;
+        });
+    }
+
+    /**
+     * The spec with the rows the department's profile does not show left out,
+     * and its printed form code taken from `formByProfile` when the
+     * department's profile has one (RDAREA prints its own code).
+     */
+    function forProfile(spec, context) {
+        if (!spec || !Array.isArray(spec.fields)) { return spec; }
+        var department = context && context.department;
+        var profiles = (department && department.linked &&
+                        Array.isArray(department.profiles)) ? department.profiles : [];
+
+        // the value of a `<key>ByProfile` map for this department, or `fallback`
+        function byProfile(map, fallback) {
+            var value = fallback;
+            profiles.forEach(function (profile) {
+                if (map && map[profile] !== undefined) { value = map[profile]; }
+            });
+            return value;
+        }
+
+        var changed = false;
+        var kept = [];
+        spec.fields.forEach(function (f) {
+            if (!profileShows(f, context)) { changed = true; return; }
+            // a table whose COLUMNS differ by area (G4 members: Drive access
+            // is R&D only, and AR calls Skill "Competence / skill") - the
+            // row is kept and told which columns to leave out and relabel
+            if (f.columnProfileFields || f.columnLabelsByProfile) {
+                var copy = {};
+                Object.keys(f).forEach(function (key) { copy[key] = f[key]; });
+                copy.hiddenColumns = Object.keys(f.columnProfileFields || {})
+                    .filter(function (column) {
+                        return !profileShows(
+                            { profileField: f.columnProfileFields[column] }, context);
+                    });
+                copy.columnLabels = byProfile(f.columnLabelsByProfile, {});
+                kept.push(copy);
+                changed = true;
+                return;
+            }
+            // a box of numbered items whose ITEMS differ by area (G7: RDAREA
+            // has no Validation item, so its Technical finding is item 3) -
+            // the box is kept with the items the profile shows, and the
+            // numbers follow from what is left
+            if (Array.isArray(f.rows) && f.rows.some(function (r) { return r && r.profileField; })) {
+                var box = {};
+                Object.keys(f).forEach(function (key) { box[key] = f[key]; });
+                box.rows = f.rows.filter(function (r) { return profileShows(r || {}, context); });
+                kept.push(box);
+                changed = true;
+                return;
+            }
+            kept.push(f);
+        });
+
+        var form = byProfile(spec.formByProfile, spec.form);
+        var title = byProfile(spec.titleByProfile, spec.title);
+        if (!changed && form === spec.form && title === spec.title) { return spec; }
+
+        var out = {};
+        Object.keys(spec).forEach(function (key) { out[key] = spec[key]; });
+        out.fields = kept;
+        out.form = form;
+        out.title = title;
+        return out;
+    }
+
     function banner(parent, text, level) {
         var box = el('div', 'alert alert-' + level + ' small py-2', text);
         box.setAttribute('role', 'alert');
@@ -1552,6 +1664,7 @@ define('IRSTasks/views/TaskDetailView', [
     return {
         /** for tests only */
         _resolve: resolve,
+        _forProfile: forProfile,
         // the value as the form PRINTS it - the half of a row that resolve()
         // does not decide. Worth a seam of its own because the platform's
         // spelling is not the form's in four different ways now (money, days,
@@ -1752,8 +1865,9 @@ define('IRSTasks/views/TaskDetailView', [
                     });
                 }).then(function (loaded) {
                     if (destroyed || !loaded) { return; }
-                    var spec = loaded.spec;
                     var context = loaded.context;
+                    // area-only rows go only once the department is known
+                    var spec = forProfile(loaded.spec, context);
                     var baseline = loaded.baseline;
                     clear(content);
 

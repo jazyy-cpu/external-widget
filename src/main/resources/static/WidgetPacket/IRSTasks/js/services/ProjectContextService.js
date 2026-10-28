@@ -209,7 +209,22 @@ define('IRSTasks/services/ProjectContextService', [
     function toDepartment(raw) {
         raw = raw || {};
         var unit = raw.businessUnit || {};
+        // the area profiles (R&D, AR) this department is in, and which
+        // `profileField` keys each profile sees - the service reads both from
+        // page IRSProjectFormProfiles, the one the AEF project form reads
+        // (worklog 2026-10-27-03). `profileFields` stays null when the service
+        // predates them, so the page can tell "no map" from "not listed"
+        var profileFields = null;
+        if (raw.profileFields && typeof raw.profileFields === 'object') {
+            profileFields = {};
+            Object.keys(raw.profileFields).forEach(function (key) {
+                profileFields[key] = list(raw.profileFields[key]).map(text).filter(Boolean);
+            });
+        }
         return {
+            profiles: list(raw.profiles).map(text).filter(Boolean),
+            profileFields: profileFields,
+            profileError: text(raw.profileError),
             linked: text(raw.linked) === 'true',
             id: text(raw.physicalId) || text(raw.id),
             name: meaningful(raw.displayName) || text(raw.name),
@@ -352,7 +367,17 @@ define('IRSTasks/services/ProjectContextService', [
         function add(name) { if (out.indexOf(name) < 0) { out.push(name); } }
 
         if (!spec || !Array.isArray(spec.fields)) { return out; }
+        // a form whose printed code or title differs by area needs the
+        // department even when no row does (stage validation, 2026-10-27)
+        if (spec.formByProfile || spec.titleByProfile) { add('department'); }
         spec.fields.forEach(function (field) {
+            // a row shown by department profile needs the department, even
+            // on a form that does not print it
+            if (field.profileField || field.columnProfileFields) { add('department'); }
+            // ... or an item inside a box of rows (G7 observations)
+            if (Array.isArray(field.rows) && field.rows.some(function (r) {
+                return r && r.profileField;
+            })) { add('department'); }
             if (field.source !== 'service') { return; }
             if (field.display === 'risks') {
                 add('risks');

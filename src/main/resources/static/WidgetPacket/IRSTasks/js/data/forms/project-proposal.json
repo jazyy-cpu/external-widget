@@ -6,7 +6,8 @@
     "task": "read from the TASK's own dataelements (this form has none - EPMPROJECT_PROPOSAL carries no custom attribute, measured 2026-10-07)",
     "none": "not a value: it lives in a relationship, in its own objects, in the WBS or in the approval route. The page shows the note instead of an empty box, because an empty box reads as 'nothing was entered'."
   },
-  "_hidden": "A field with \"hidden\": true is not drawn at all - not resolved, not counted, and its $include section is not fetched. This is how a row is commented out (user, 2026-10-08: 'as of now remove these column just comment the code later when required we will show them'). The five currently hidden are the ones that have no value to show yet: XVI lives in the WBS, the screening-approval attribute is not created on the platform, and the three signatures are collected by the approval route. Delete the one line to bring a row back.",
+  "_hidden": "A field with \"hidden\": true is not drawn at all - not resolved, not counted, and its $include section is not fetched. This is how a row is commented out (user, 2026-10-08: 'as of now remove these column just comment the code later when required we will show them'). The four currently hidden are the ones that have no value to show yet: XVI lives in the WBS, and the three signatures are collected by the approval route. Delete the one line to bring a row back. The screening-approval row was the fifth until 2026-10-27, when DMC created EPMScreeningApprovalObtained.",
+  "_profiles": "A field with \"profileField\": \"<key>\" is printed on one area's paper form only, and is shown only when the project's Department is in one of that key's profiles. The departments and the key-to-profile map are in page IRSProjectFormProfiles, read by the REST service with the department section - the same page and the same keys the AEF project form uses through its IRS Profile Field setting, so the two cannot disagree. No department yet: none of these rows. R&D (RND) sees VIII-XIII; RDAREA (AR) sees Resources and Required competence / skill instead, in RDAREA-PRJ-01-Rev.01's order (VII, VIII before Methodology). Worklog 2026-10-27-02 / -03, WP02 doc 14.",
   "_display": {
     "text": "one line",
     "longtext": "prose - the form asks for paragraphs here",
@@ -16,6 +17,7 @@
     "type": "carried by the project's type itself"
   },
   "form": "R&D-PRJ-01-Rev.06",
+  "formByProfile": { "AR": "RDAREA-PRJ-01-Rev.01" },
   "title": "PROJECT PROPOSAL / PROFILE",
   "taskType": "EPMPROJECT_PROPOSAL",
   "fields": [
@@ -87,6 +89,24 @@
       "display": "longtext"
     },
     {
+      "ref": "VII (RDAREA)",
+      "label": "Resources (hardware, software, any other technology)",
+      "source": "project",
+      "field": "EPMResources",
+      "display": "longtext",
+      "profileField": "Resources",
+      "note": "RDAREA-PRJ-01-Rev.01 section VII only"
+    },
+    {
+      "ref": "VIII (RDAREA)",
+      "label": "Required competence / skill",
+      "source": "project",
+      "field": "EPMRequiredCompetenceSkill",
+      "display": "longtext",
+      "profileField": "RequiredCompetenceSkill",
+      "note": "RDAREA-PRJ-01-Rev.01 section VIII only"
+    },
+    {
       "ref": "VII",
       "label": "Methodology",
       "source": "project",
@@ -99,6 +119,7 @@
       "source": "project",
       "field": "EPMComplexity",
       "display": "longtext",
+      "profileField": "Complexity",
       "onlyForDesignAndDevelopment": true
     },
     {
@@ -107,6 +128,7 @@
       "source": "project",
       "field": "EPMIdentifiedStandards",
       "display": "longtext",
+      "profileField": "IdentifiedStandards",
       "note": "with version or year, as applicable"
     },
     {
@@ -115,6 +137,7 @@
       "source": "project",
       "field": "EPMFeedback",
       "display": "longtext",
+      "profileField": "Feedback",
       "onlyForDesignAndDevelopment": true
     },
     {
@@ -123,6 +146,7 @@
       "source": "project",
       "field": "EPMPotentialConsequencesOfFailure",
       "display": "longtext",
+      "profileField": "PotentialConsequencesOfFailure",
       "onlyForDesignAndDevelopment": true
     },
     {
@@ -130,6 +154,7 @@
       "label": "Lessons learnt from failures (applicable only for design and development of new product/service)",
       "source": "service",
       "display": "lessons",
+      "profileField": "LessonsLearnt",
       "note": "The Lessons Learnt from Failures (IRSLessonLearnt) created in this project, every state, two columns as on the PDF - no From project column (user, 2026-10-23; worklog 2026-10-23-02/-04). Key Learnings (IRSLearning) are no longer shown here",
       "onlyForDesignAndDevelopment": true
     },
@@ -138,6 +163,7 @@
       "label": "Risks and opportunities (Please specify if other than identified in Chap 8: III R&D)",
       "source": "service",
       "display": "risks",
+      "profileField": "RisksAndOpportunities",
       "note": "The OOTB Risk and Opportunity objects linked by the Risk relationship. Read through our own REST service: the OOTB risk list returns empty for these, and Opportunity has no OOTB route at all (worklog 2026-10-07-03)"
     },
     {
@@ -165,11 +191,11 @@
     {
       "ref": "Footer",
       "label": "Approval from Screening Committee is obtained",
-      "hidden": true,
       "source": "project",
       "field": "EPMScreeningApprovalObtained",
-      "display": "pending",
-      "note": "YES / NO / Not Applicable - a range attribute, not yet created"
+      "display": "choice",
+      "newLine": true,
+      "note": "Yes / No / Not_Applicable - a range attribute, created in DMC 2026-10-27; on both areas' forms"
     },
     {
       "ref": "Footer",

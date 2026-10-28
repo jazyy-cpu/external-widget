@@ -382,6 +382,33 @@ the inputs, and `TaskApprovalPanel.render(task, spec)` puts them in the bar.
 the not-assignee case costs no call. The user says the route can be restarted
 after a rejection, so the repair path itself needs no widget work.
 
+### G7 Project Review: the reviewer fills the form at level 2 (built 2026-10-28)
+
+User, 2026-10-28: the route order stays as it is. The Project Member approves
+first. Then the reviewer fills the values and approves. The reviewer is the
+Project Reviewer, or the In-Charge / HOD on an external project, so an external
+reviewer never approves. The Project Manager adds the reviewer as an assignee.
+Every field is required except Next Review Date. The work reuses the G9
+mechanism unchanged and adds four things:
+
+- **`inputAtStep`** in the form JSON. With `2`, `ApproverFormService.inputsFor`
+  gives inputs only to the step whose route order is 2. Level 1 sees a plain
+  bar. A form without the key keeps the G9 behaviour: every step fills.
+- **Box items.** `inputsOf` also reads `input` on the items of a `rows` box (the
+  four Review Observations) and labels each with its number as drawn.
+- **Labelled options.** A choice value may be `{value, label}`. The boolean
+  stores `TRUE` and shows Yes; the range stores `NotRequired` and shows
+  Not Required. The stored value is what is written.
+- **`text` and `date` inputs.** A date is shown as a calendar day and written
+  as local noon in ISO form, the shape the task GET returns. A boolean
+  defaults to FALSE, so Adhesion shows "No" on a fresh task, the one input
+  that cannot start unanswered.
+
+By department profile, `forProfile` now also filters a box's items. An AR
+department loses Validation and the common-drive row on screen, and with them
+their inputs and their required checks. Technical finding becomes item 3.
+Devlog [2026-10-28-01](../../devlog/2026/2026-10-28-01_g7-reviewer-fills-and-rdarea.md).
+
 ## Cost
 
 | | calls |

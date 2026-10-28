@@ -9,7 +9,7 @@
     "none": "not a value: it lives in a relationship, in its own objects, in the WBS or in the approval route",
     "derived": "not an attribute: a property TaskDetailService computed from the response. `from` names the object - `project` (the default) or `task`"
   },
-  "_hidden": "A field with \"hidden\": true is not drawn at all. The two pending rows here are the ones with NO attribute anywhere on the platform (checked against the whole IRS*/EPM* attribute inventory, 2026-10-09): Software Resource and Reviewer Name. Reason for revision was the third until 2026-10-10, when EPMReasonForRevision was created - which is what a recorded gap is for. They are kept in the file, with the note that says what is missing, so the gap is a recorded decision and not a silent omission. Delete the one line to bring a row back once the attribute exists.",
+  "_hidden": "A field with \"hidden\": true is not drawn at all. The pending row here is the one with NO attribute anywhere on the platform (checked against the whole IRS*/EPM* attribute inventory, 2026-10-09): Software Resource. Reviewer Name was the second until 2026-10-27, when it was shown from the project reviewers. Reason for revision was the third until 2026-10-10, when EPMReasonForRevision was created - which is what a recorded gap is for. They are kept in the file, with the note that says what is missing, so the gap is a recorded decision and not a silent omission. Delete the one line to bring a row back once the attribute exists.",
   "_display": {
     "text": "one line",
     "longtext": "prose - the form asks for paragraphs here",
@@ -29,6 +29,9 @@
   "form": "R&D-PRJ-02-Rev.00",
   "_titleRenamed": "Was \"PROJECT PERSONNEL / COST ESTIMATION\" until 2026-10-11, when the user renamed the form - first to \"PROJECT RESOURCE AND SCHEDULE PLANNING AND COST\" and then, the same day, to the wording here. Changed HERE rather than in the PDF config because this file is the one source both the screen and the printed page are generated from - renaming it in one of them would be the drift this arrangement exists to prevent.",
   "title": "PROJECT RESOURCE/COST ESTIMATION AND SCHEDULE PLANNING",
+  "_profiles": "Rows and columns with \"profileField\" (rows) or \"columnProfileFields\" (columns) are printed on one area's paper only and are shown only when the project's Department is in that key's profile - page IRSProjectFormProfiles, read by the REST department section; see project-proposal.json _profiles. R&D-PRJ-02 only: Change of Scope, Reason for revision, the Drive access column. RDAREA-PRJ-01 page 4 only: Remarks. Everything else is on both papers. WP02 doc 15, worklog 2026-10-27-06.",
+  "formByProfile": { "AR": "RDAREA-PRJ-01-Rev.01" },
+  "titleByProfile": { "AR": "PROJECT PERSONNEL / COST ESTIMATION" },
   "taskType": "EPMPROJECT_PERSONNEL_COST",
   "fields": [
     {
@@ -70,6 +73,8 @@
       "label": "Project Members",
       "source": "service",
       "display": "members",
+      "columnProfileFields": { "driveAccess": "DriveAccess" },
+      "columnLabelsByProfile": { "AR": { "skills": "Competence / skill" } },
       "note": "The people on the project, over the Member relationship - all five columns now have a live source. Name and Designation come from the Person (IRSDesignation, a range of the ten IRS designations); Skill from hasBusinessSkill -> Business Skill; Drive access from the Member relationship's own IRSDriveAccess (Yes / No / Not Applicable); and Responsibility - the Project Manager / Dy. Project Manager / Member line the printed form puts someone on - from IRSProjectResponsibility, added to the Member relationship on 2026-10-09 to close the one gap that remained. The team sets Responsibility and Drive access on the platform's own Members page, where both are editable drop-downs; this form only shows them. Responsibility is a RECORD and not an access rule - the platform's own Project Owner / Project Member is the OOTB Project Access attribute, and the two must not be confused. The whole table arrives in ONE round trip from our JAR's $include=members, because the OOTB resource returns member names only"
     },
     {
@@ -86,6 +91,7 @@
       "source": "task",
       "field": "EPMChangeOfScope",
       "display": "yesno",
+      "profileField": "ChangeOfScope",
       "note": "The one custom attribute the task itself carries - boolean, default FALSE, and in use: TRUE on two live tasks (Solize XYZ T-85756263-0000134 and TEST PROJECT T-85756263-0000139) as at 2026-10-09"
     },
     {
@@ -94,15 +100,17 @@
       "source": "task",
       "field": "EPMReasonForRevision",
       "display": "longtext",
+      "profileField": "ReasonForRevision",
       "note": "The second custom attribute the TASK itself carries, created on the platform 2026-10-10 - until then this row was a recorded gap. `EPMReasonForRevision` is a string with `multiline TRUE` and no maximum length, so it is drawn as prose and keeps its line breaks: measured on PROJEC PERSONAAL (39261.35329.24627.54655), whose value is two lines. It sits under Change of Scope at the user's request, not where the paper form prints it (the footer, beside the Rev. No.) - a reviser fills the two together, and the footer of this page is the approval block."
     },
     {
       "ref": "IV",
       "label": "Reviewer Name",
-      "hidden": true,
-      "source": "none",
-      "display": "pending",
-      "note": "No attribute exists. It is NOT the same as an approver - the three signatures at the foot of this form are the approval, and the printed form asks for the reviewer separately. One DMC string attribute is needed"
+      "source": "service",
+      "display": "reviewers",
+      "pairLabels": { "internal": "Reviewer Name - internal", "external": "Reviewer Name - external" },
+      "newLine": true,
+      "note": "On both papers. Hidden as 'no attribute' until 2026-10-27; the project's reviewers have existed since 2026-10-22 (internal Persons on IRSProjectReviewer, external names in EPMExternalReviewers, JAR section reviewers) and are the same pair the Project Review form prints. NOT an approver - the three signatures are the approval"
     },
     {
       "ref": "V",
@@ -177,6 +185,15 @@
         { "label": "IRS", "attribute": "EPMManpowerRatePerManday" },
         { "label": "Outside agency", "attribute": "EPMManpowerRatePerMandayOutsideAgency" }
       ]
+    },
+    {
+      "ref": "Remarks (RDAREA)",
+      "label": "Remarks (if any, including risk and opportunities assessment)",
+      "source": "project",
+      "field": "EPMRemark",
+      "display": "longtext",
+      "profileField": "Remark",
+      "note": "RDAREA-PRJ-01 page 4 only, under the cost table. EPMRemark on the project, on the project form since 2026-10-02 (WP02 doc 10 S3)"
     },
     {
       "ref": "X",

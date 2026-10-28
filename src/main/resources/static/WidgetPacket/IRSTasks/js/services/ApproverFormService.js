@@ -50,11 +50,49 @@ define('IRSTasks/services/ApproverFormService', [
         return v === undefined || v === null || String(v).trim() === '';
     }
 
-    /** The fields of a spec that the approver fills, in form order. */
+    /**
+     * The fields of a spec that the approver fills, in form order.
+     *
+     * A box of numbered items (G7's Review Observations, `rows`) contributes
+     * each item with an `input`, labelled with its number in the box as drawn,
+     * so the reviewer reads "3) Technical finding" in both places.
+     */
     function inputsOf(spec) {
         if (!spec || !Array.isArray(spec.fields)) { return []; }
-        return spec.fields.filter(function (f) {
-            return f && f.input && f.source === 'task' && f.field;
+        var out = [];
+        spec.fields.forEach(function (f) {
+            if (!f || f.source !== 'task') { return; }
+            if (Array.isArray(f.rows)) {
+                f.rows.forEach(function (row, i) {
+                    if (!row || !row.input || !row.field) { return; }
+                    var copy = {};
+                    Object.keys(row).forEach(function (k) { copy[k] = row[k]; });
+                    copy.label = (i + 1) + ') ' + (row.label || row.field);
+                    out.push(copy);
+                });
+                return;
+            }
+            if (f.input && f.field) { out.push(f); }
+        });
+        return out;
+    }
+
+    /**
+     * The inputs for one route step. `inputAtStep` in the spec names the
+     * route order that fills the form - G7: 2, the Project Reviewer, after
+     * the Project Member has approved (user, 2026-10-28). Without it every
+     * step fills (G9 has one level).
+     */
+    function inputsFor(spec, step) {
+        var at = spec && spec.inputAtStep;
+        if (at && (!step || Number(step.order) !== Number(at))) { return []; }
+        return inputsOf(spec);
+    }
+
+    /** A choice's stored values: `values` holds strings or `{value, label}`. */
+    function optionValues(input) {
+        return (input.values || []).map(function (o) {
+            return (o && typeof o === 'object') ? o.value : o;
         });
     }
 
@@ -90,9 +128,11 @@ define('IRSTasks/services/ApproverFormService', [
             // a value the attribute's range does not hold would be refused by
             // the server anyway; saying so here names the field
             if (input.type === 'choice' && !blank(v) &&
-                    (input.values || []).indexOf(v) < 0) {
+                    optionValues(input).indexOf(v) < 0) {
                 problems.push({ field: f.field, label: f.label,
-                    message: 'not one of ' + (input.values || []).join(' / ') });
+                    message: 'not one of ' + (input.values || []).map(function (o) {
+                        return (o && typeof o === 'object') ? (o.label || o.value) : o;
+                    }).join(' / ') });
             }
         });
         return problems;
@@ -131,6 +171,7 @@ define('IRSTasks/services/ApproverFormService', [
     return {
         NOT_ASSIGNEE_TEXT: NOT_ASSIGNEE_TEXT,
         inputsOf: inputsOf,
+        inputsFor: inputsFor,
         isRequired: isRequired,
         validate: validate,
         classify: classify,

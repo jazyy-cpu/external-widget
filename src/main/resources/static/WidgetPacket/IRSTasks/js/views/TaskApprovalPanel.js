@@ -297,7 +297,7 @@ define('IRSTasks/views/TaskApprovalPanel', [
 
         // ---- the approver's part of the form, when there is one
         var task = (context && context.task) || null;
-        var fields = ApproverFormService.inputsOf(context && context.spec);
+        var fields = ApproverFormService.inputsFor(context && context.spec, step);
         var form = null;            // the inputs, once drawn
         var approveBlocked = false; // true while the approver cannot write the task
         var formSlot = el('div', '');
