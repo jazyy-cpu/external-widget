@@ -1,0 +1,41 @@
+{
+  "_about": "What the approver's page shows for a Project Completion Document (R&D G10 / AR G9). One file per form: change this file to change what the page shows - no code change. Read by IRSTasks through the `fields` key of the IRSProjectCompletion entry in js/config/TaskFields.js (DOCUMENT_TYPES). The route approves the Document itself (worklog 2026-11-03-04); the page reads it through our REST JAR, `GET resources/v1/irsproject/completions/{id}` (worklog 2026-11-03-08).",
+  "_generated": "Written 2026-11-03 from the paper form R&D-COM-Rev.00 (As-Is Understanding/.../1.R&D/Forms/R&D-COM.pdf, read as an image), labels word for word, rows in the paper's order. Every value verified on COM-0000002 with the JPO twin `exec program IRSCompletionDocumentContext`.",
+  "_source": {
+    "project": "the project the Document hangs under (`to[Reference Document].from`): name, EPMProjectNo, category (its type), projectManager (its Project Owner member), customer, and the three dates",
+    "task": "the DOCUMENT's own values, under the keys CompletionDocumentService puts in `attributes`",
+    "service": "Key learning features: the project's own learnings, from ProjectContextService (learnings.created), as the PDF prints them",
+    "none": "not a value: the Project Manager / In-Charge/HOD / Divisional Head signatures live in the route, drawn by the approval panel below the form"
+  },
+  "_notShown": "The top Date has no value while the route is running; kept hidden, as on the STM and publication forms. The paper's four paper counts are one table there; here they are four rows.",
+  "form": "R&D-COM-Rev.00",
+  "title": "Project Completion",
+  "_formByProfile": "RDAREA has its own paper, RDAREA-COM-Rev.00: the same rows, its own code. Chosen by the project's department profile, as the PDF (pdfByProfile.AR in IRSProjectCompletionApprovalRouteConfig), worklog 2026-11-03-05.",
+  "formByProfile": {"AR": "RDAREA-COM-Rev.00"},
+  "taskType": "IRSProjectCompletion",
+  "fields": [
+    {"ref": "Header", "label": "Date", "hidden": true, "source": "none", "display": "pending", "note": "No value until the route completes. Not shown, as on the STM form."},
+    {"ref": "Header", "label": "Project No.", "source": "project", "field": "EPMProjectNo", "display": "text"},
+    {"ref": "Header", "label": "Rev. No.", "source": "task", "field": "revision", "display": "text", "note": "The Document's revision."},
+    {"ref": "Header", "label": "Project Name", "source": "project", "field": "name", "fallbackField": "title", "display": "text", "newLine": true, "note": "The project's name; its Title is empty on the projects measured."},
+    {"ref": "Header", "label": "Project Category", "source": "project", "field": "category", "display": "text", "newLine": true, "note": "Research / Analysis, from the project's type."},
+    {"ref": "Header", "label": "Project Manager", "source": "project", "field": "projectManager", "display": "text", "newLine": true, "note": "The project's Project Owner member, the route's level 1."},
+    {"ref": "Header", "label": "Customer Name", "source": "project", "field": "customer", "display": "text", "newLine": true, "note": "Title of the organization on IRSProjectCustomer."},
+    {"ref": "Header", "label": "Invoice No. & Date", "source": "task", "field": "invoice", "display": "text", "newLine": true, "note": "IRSCompletionInvoiceNo and IRSCompletionInvoiceDate."},
+    {"ref": "Body", "label": "Project Start Date", "source": "project", "field": "startDate", "display": "date", "newLine": true, "note": "The project's Task Actual Start Date."},
+    {"ref": "Body", "label": "Planned Completion Date", "source": "project", "field": "plannedFinishDate", "display": "date", "note": "The project's Task Estimated Finish Date, as the PDF."},
+    {"ref": "Body", "label": "Actual Completion Date", "source": "project", "field": "actualFinishDate", "display": "date", "note": "Written by the platform when the project enters In Approval."},
+    {"ref": "Body", "label": "No. of papers - Journal, National", "source": "task", "field": "journalNational", "display": "days", "newLine": true},
+    {"ref": "Body", "label": "No. of papers - Journal, International", "source": "task", "field": "journalInternational", "display": "days"},
+    {"ref": "Body", "label": "No. of papers - Conference, National", "source": "task", "field": "conferenceNational", "display": "days", "newLine": true},
+    {"ref": "Body", "label": "No. of papers - Conference, International", "source": "task", "field": "conferenceInternational", "display": "days"},
+    {"ref": "Body", "label": "New Service / New Computational Tool / New Methods : Developed", "source": "task", "field": "newServiceDeveloped", "display": "text", "newLine": true},
+    {"ref": "Body", "label": "Key learning features", "source": "service", "display": "learnings", "learningScope": "created", "note": "The project's own learnings, every state, with their state shown; the PDF leaves out Obsolete ones."},
+    {"ref": "Body", "label": "Usefulness of the outcome", "source": "task", "field": "usefulness", "display": "longtext"},
+    {"ref": "Body", "label": "Customer Feedback: Sent", "source": "task", "field": "customerFeedbackSent", "display": "text", "newLine": true},
+    {"ref": "Body", "label": "Project access shall be extended for six months", "source": "task", "field": "accessExtended", "display": "text", "newLine": true},
+    {"ref": "Footer", "label": "Project Manager", "hidden": true, "source": "none", "display": "approval", "note": "Route level 1 - drawn by the approval panel below the form."},
+    {"ref": "Footer", "label": "In-Charge/HOD", "hidden": true, "source": "none", "display": "approval", "note": "Route level 2, one person - drawn by the approval panel below the form."},
+    {"ref": "Footer", "label": "Divisional Head", "hidden": true, "source": "none", "display": "approval", "note": "Route level 3 - drawn by the approval panel below the form."}
+  ]
+}

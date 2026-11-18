@@ -286,6 +286,28 @@ Document itself as the one row of the documents panel.
 Detail: devlog [2026-10-22-01](../../devlog/2026/2026-10-22-01_g12-publication-in-task-widget.md),
 worklog `2026-10-22-12`.
 
+### Project Completion in the Approvals list (2026-11-03)
+
+The R&D G10 / AR G9 route (Project Manager, In-Charge / HOD, Division Head)
+approves an `IRSProjectCompletion` Document. The publication pattern
+unchanged: Approvals list only, paper R&D-COM-Rev.00 wording, RDAREA-COM-Rev.00
+by department profile, the Document itself as the one row of the documents
+panel.
+
+- `TaskFields.DOCUMENT_TYPES.IRSProjectCompletion`, `kind: completion`,
+  badge `com`. Route `completion/:id`, loader `CompletionDocumentService`.
+- The data comes from `GET /resources/v1/irsproject/completions/{id}`, 2
+  server round trips: one batched `getInfo` (the ten completion attributes,
+  the project with its customer and three dates, routes, files) and one
+  `getRelatedObjects` (the project's Project Owner). The form is
+  `js/data/forms/project-completion.json`.
+- **Key learning features** reuse `learningsBlock` with scope `created`,
+  read by `ProjectContextService` from the project; no new code.
+- The chain, Approve / Reject: unchanged.
+
+Detail: devlog [2026-11-03-01](../../devlog/2026/2026-11-03-01_project-completion-in-task-widget.md),
+worklog `2026-11-03-08`.
+
 ### The decision bar
 
 Under the chain on the task page, because the approver's question is *"is this
@@ -469,6 +491,7 @@ for `admin_platform` - the assertion that would have caught the 400.
 | O-R9 | **STM read access** of the In-Charge / HOD and the Division Head to the Document and its project is assumed, not verified (user, 2026-10-19: fix it if it fails) |
 | O-R10 | **G17 evaluations (2026-10-21):** live check pending after the JAR deploy - a new evaluation sent to approval, opened from the Approvals list by Evaluator, Checker and Approver; approvers' read access to the evidence assumed as for STM. Paper-label mapping to be corrected by the user if off |
 | O-R11 | **G12 publications (2026-10-22):** live check pending after the JAR deploy - DOC-0002 (route R-0000128) opened from the Approvals list by Researcher, In-Charge / HOD and Division Head; approvers' read access assumed as for STM |
+| O-R13 | **Project Completion (2026-11-03):** live check pending after the JAR deploy - a completion step opened from the Approvals list by Project Manager, In-Charge / HOD and Division Head; one RDAREA project to see `RDAREA-COM-Rev.00` |
 | O-R12 | **G9 fill-at-approval (built 2026-10-24):** live run pending; the dashboard serves a cached `IRSTasks.html` until its cache is cleared. Then live test of the repair path on the `not assingee` task. The DH rejects; the PM adds the DH as assignee and sends the route again with IRS Approval. Confirm the command is offered after a `Stopped` route, and record the task's state after the rejection |
 
 ## Links

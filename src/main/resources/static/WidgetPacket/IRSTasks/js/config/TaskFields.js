@@ -113,6 +113,10 @@ define('IRSTasks/config/TaskFields', [], function () {
      * 2026-10-22-12) is a Document like STM, but read by its own JAR path, so
      * its `kind`, 'publication', opens the page with
      * `PublicationDocumentService`.
+     *
+     * The R&D G10 / AR G9 project completion (`IRSProjectCompletion`, worklog
+     * 2026-11-03-08) is the same again: its `kind`, 'completion', opens the
+     * page with `CompletionDocumentService`.
      */
     var DOCUMENT_TYPES = {
         IRSServiceToolMethod: {
@@ -135,6 +139,13 @@ define('IRSTasks/config/TaskFields', [], function () {
             form: null,
             fields: 'technical-publication',
             kind: 'publication'
+        },
+        IRSProjectCompletion: {
+            label: 'PROJECT COMPLETION',
+            badge: 'com',
+            form: null,
+            fields: 'project-completion',
+            kind: 'completion'
         }
     };
 

@@ -25,6 +25,8 @@
  *               read by IRSTasks/services/EvaluationService
  *   publication/:id the same page for a G12 technical publication Document,
  *               read by IRSTasks/services/PublicationDocumentService
+ *   completion/:id the same page for an R&D G10 / AR G9 project completion
+ *               Document, read by IRSTasks/services/CompletionDocumentService
  *
  * Changing the credential reopens the current page: a different security
  * context can see a different set of tasks, and may not see this one at all.
@@ -41,9 +43,11 @@ define('IRSTasks/App', [
     'IRSTasks/views/TaskDetailView',
     'IRSTasks/services/StmDocumentService',
     'IRSTasks/services/EvaluationService',
-    'IRSTasks/services/PublicationDocumentService'
+    'IRSTasks/services/PublicationDocumentService',
+    'IRSTasks/services/CompletionDocumentService'
 ], function (Credentials, Router, CredentialBar, TaskListView, TaskDetailView,
-             StmDocumentService, EvaluationService, PublicationDocumentService) {
+             StmDocumentService, EvaluationService, PublicationDocumentService,
+             CompletionDocumentService) {
     'use strict';
 
     var running = null;
@@ -106,7 +110,8 @@ define('IRSTasks/App', [
                     if (!row.id) { return; }
                     var path = row.kind === 'document' ? 'document/:id'
                              : row.kind === 'evaluation' ? 'evaluation/:id'
-                             : row.kind === 'publication' ? 'publication/:id' : 'task/:id';
+                             : row.kind === 'publication' ? 'publication/:id'
+                             : row.kind === 'completion' ? 'completion/:id' : 'task/:id';
                     router.go(path, { id: row.id });
                 }
             });
@@ -174,6 +179,21 @@ define('IRSTasks/App', [
                 onBack: function () { router.go('tasks', null, { replace: true }); }
             });
         }, 'Publication');
+
+        /**
+         * An R&D G10 / AR G9 project completion Document (worklog
+         * 2026-11-03-08): the publication page with the completion's loader.
+         * Its own path for the same reason as `document/:id`.
+         */
+        router.add('completion/:id', function (params) {
+            var target = freshPage();
+            view = TaskDetailView.render(target, {
+                id: params.id,
+                loader: CompletionDocumentService,
+                toolbar: slot,
+                onBack: function () { router.go('tasks', null, { replace: true }); }
+            });
+        }, 'Completion');
 
         return router;
     }

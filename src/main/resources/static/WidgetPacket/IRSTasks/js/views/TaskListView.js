@@ -239,7 +239,8 @@ define('IRSTasks/views/TaskListView', [
              *
              * `kind` is 'document' when the step approves an STM Document
              * (G11), 'evaluation' for a G17 evaluation, 'publication' for a
-             * G12 technical publication Document, rather than a task -
+             * G12 technical publication Document, 'completion' for a project
+             * completion Document (R&D G10 / AR G9), rather than a task -
              * the caller opens a different page.
              */
             function openTask(row) {

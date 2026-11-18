@@ -4,6 +4,7 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-11-03-01](2026/2026-11-03-01_project-completion-in-task-widget.md) | Project Completion (R&D G10 / AR G9) in the Approvals list: `completion/:id` page, R&D-COM / RDAREA-COM form, key learnings from the project context; JAR `/completions`. Worklog 2026-11-03-08 | WGT-09 | built and unit-tested; needs the JAR deployed |
 | [2026-10-28-03](2026/2026-10-28-03_pes-evaluation-rdarea.md) | Periodic evaluation page by department profile: RDAREA-PES code and title, no benchmark row for AR; department from the evaluation REST call | WGT-07 | built and unit-tested; needs the JAR deployed |
 | [2026-10-28-02](2026/2026-10-28-02_stm-archive-rdarea-labels.md) | STM archive page by department profile: RDAREA-STM code and title, `labelByProfile` for Tool Number / Tool Name / Purpose and Application of Tool | WGT-07 | done on development |
 | [2026-10-28-01](2026/2026-10-28-01_g7-reviewer-fills-and-rdarea.md) | Project Review: the reviewer fills all seven fields at route level 2 (`inputAtStep`), box items as inputs, Yes/No boolean and labelled range options, text and date inputs; AR hides Validation + common drive (box items filtered by profile), RDAREA-REV-Rev.00. Worklog 2026-10-28-01 | WGT-09, WGT-07 | built and unit-tested; live reviewer save pending |
