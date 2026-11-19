@@ -2321,12 +2321,44 @@ assert.ok(/ReadOnly/.test(costSpec._calculated),
 // Checked against the whole IRS*/EPM* attribute inventory on 2026-10-09.
 // Reason for revision was a third until 2026-10-10, when the attribute was
 // created - which is what a recorded gap is for
-['Software Resource required'].forEach(label => {
-  assert.strictEqual(costBy[label].hidden, true, label + ' has no attribute yet');
-  assert.strictEqual(costBy[label].display, 'pending');
-  assert.ok(costBy[label].note.length > 20,
-    label + ' says what is missing, so the gap is a decision not an omission');
-});
+// Software Resource was the last until 2026-11-19, when the project's
+// Software & Tools tab (IRSProjectSoftware) gave it a source (worklog 2026-11-19-06)
+const swRow = costBy['Software Resource required'];
+assert.ok(!swRow.hidden, 'Software Resource is drawn now');
+assert.strictEqual(swRow.source, 'service');
+assert.strictEqual(swRow.display, 'software');
+assert.strictEqual(swRow.profileField, 'SoftwareResource', 'R&D only, by the profile page');
+assert.ok(Context.sectionsFor(costSpec).indexOf('software') >= 0);
+assert.deepStrictEqual(
+  Context.sectionsFor({ fields: [{ source: 'service', display: 'software' }] }), ['software']);
+
+// the section as the service sends it, shaped
+const swShaped = Context._shape({
+  software: [
+    { id: '1.2.3.4', physicalId: 'PID1', name: 'SW-0000002', revision: '0',
+      type: 'DMPSoftware', title: 'CATIA', version: '2024x.HF05',
+      evaluated: 'Not Applicable', remark: 'Remarks\nsecond line' },
+    { id: '1.2.3.5', name: '2026-007', revision: '0', type: 'IRSServiceToolMethod',
+      title: '', version: '', evaluated: 'Yes', remark: '' }],
+  softwareError: '' });
+assert.strictEqual(swShaped.software.length, 2);
+assert.strictEqual(swShaped.software[0].id, 'PID1', 'physical id first');
+assert.strictEqual(swShaped.software[0].label, 'CATIA', 'the title is what the paper calls it');
+assert.strictEqual(swShaped.software[1].label, '2026-007', 'no title: the number');
+assert.strictEqual(swShaped.software[1].id, '1.2.3.5');
+assert.strictEqual(swShaped.softwareError, '');
+assert.deepStrictEqual(Context._shape({}).software, [], 'an older JAR sends none');
+
+// drawn: the paper's three columns only (user, 2026-11-19)
+const swBox = View._blockBody(swRow, swShaped, null, null, null);
+assert.deepStrictEqual(findAll(swBox, 'irs-sum-table')[0].children[0].children[0].children
+  .map(th => allText(th).trim()), ['Software Resource', 'Software evaluated', 'Remark (if any)']);
+assert.ok(/CATIA/.test(allText(swBox)) && /Not Applicable/.test(allText(swBox)));
+assert.ok(/No software or tool added/.test(
+  allText(View._blockBody(swRow, Context._shape({}), null, null, null))));
+assert.ok(/could not be read: boom/.test(
+  allText(View._blockBody(swRow, Context._shape({ softwareError: 'boom' }), null, null, null))));
+assert.ok(/could not be read/.test(allText(View._blockBody(swRow, null, null, null, null))));
 // Reviewer Name was the second until 2026-10-27: it is the project's
 // reviewers since 2026-10-22, the pair the Project Review form prints
 assert.ok(!costBy['Reviewer Name'].hidden);
@@ -2335,7 +2367,8 @@ assert.ok(Context.sectionsFor(costSpec).indexOf('reviewers') >= 0);
 
 // ---- G4 by department profile (worklog 2026-10-27-06, WP02 doc 15) -----
 const G4_FIELDS = Object.assign({}, PROFILE_FIELDS, {
-  ChangeOfScope: ['RND'], ReasonForRevision: ['RND'], DriveAccess: ['RND'], Remark: ['AR'] });
+  ChangeOfScope: ['RND'], ReasonForRevision: ['RND'], DriveAccess: ['RND'], Remark: ['AR'],
+  SoftwareResource: ['RND'] });
 const g4 = (profiles, linked) => ({ department: Context._toDepartment({
   linked: linked === false ? 'false' : 'true', profiles: profiles,
   profileFields: G4_FIELDS, profileError: '', error: '' }) });
@@ -2346,6 +2379,8 @@ const g4Ar = View._forProfile(costSpec, g4(['AR']));
 assert.strictEqual(g4Ar.form, 'RDAREA-PRJ-01-Rev.01');
 assert.strictEqual(g4Ar.title, 'PROJECT PERSONNEL / COST ESTIMATION');
 assert.ok(labelsOf(g4Ar).indexOf('Change of Scope') < 0, 'AR: no Change of Scope');
+assert.ok(labelsOf(g4Ar).indexOf('Software Resource required') < 0,
+  'AR: RDAREA-PRJ-01 has no software row');
 assert.ok(labelsOf(g4Ar).indexOf('Reason for revision of this form') < 0, 'AR: no Reason');
 assert.ok(labelsOf(g4Ar).indexOf('Remarks (if any, including risk and opportunities assessment)') ===
   labelsOf(g4Ar).indexOf('Cost Estimation') + 1, 'AR: Remarks right under the cost table');
@@ -2356,6 +2391,8 @@ const g4Rnd = View._forProfile(costSpec, g4(['RND']));
 assert.strictEqual(g4Rnd.form, 'R&D-PRJ-02-Rev.00');
 assert.strictEqual(g4Rnd.title, costSpec.title);
 assert.ok(labelsOf(g4Rnd).indexOf('Change of Scope') >= 0);
+assert.strictEqual(labelsOf(g4Rnd).indexOf('Software Resource required'),
+  labelsOf(g4Rnd).indexOf('Project Members') + 1, 'R&D: Software Resource right under the members');
 assert.ok(labelsOf(g4Rnd).indexOf('Reason for revision of this form') >= 0);
 assert.ok(labelsOf(g4Rnd).indexOf('Remarks (if any, including risk and opportunities assessment)') < 0);
 assert.deepStrictEqual(membersOf(g4Rnd).hiddenColumns, []);
@@ -2366,6 +2403,7 @@ assert.strictEqual(membersOf(costSpec).hiddenColumns, undefined);
 // no department: none of the area-only rows, and no Drive access column
 const g4None = View._forProfile(costSpec, g4([], false));
 assert.ok(labelsOf(g4None).indexOf('Change of Scope') < 0);
+assert.ok(labelsOf(g4None).indexOf('Software Resource required') < 0);
 assert.deepStrictEqual(membersOf(g4None).hiddenColumns, ['driveAccess']);
 
 assert.ok(Context.sectionsFor({ fields: [{ source: 'service', display: 'members',

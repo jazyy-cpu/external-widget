@@ -222,6 +222,12 @@ and Reviewer Name. **Reason for revision was a third until 2026-10-10**, when
 `EPMReasonForRevision` was created: the row was already written, so bringing
 it in cost one JSON entry. That is what the recorded gaps are for.
 
+**2026-11-19:** Software Resource required is drawn: the project's Software &
+Tools tab (`IRSProjectSoftware`), three paper columns (Software Resource /
+Software evaluated / Remark), JAR section `$include=software`, R&D only
+(profile key `SoftwareResource`; RDAREA-PRJ-01 has no such row). Devlog
+[2026-11-19-01](../../devlog/2026/2026-11-19-01_software-resource-row.md).
+
 Full detail, including the three links tried beside the plan and why two were
 rejected: devlog
 [2026-10-10-01](../../devlog/2026/2026-10-10-01_personnel-cost-form-and-baseline-plan.md).

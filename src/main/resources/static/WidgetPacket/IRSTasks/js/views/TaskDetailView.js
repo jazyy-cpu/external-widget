@@ -618,7 +618,7 @@ define('IRSTasks/views/TaskDetailView', [
      * with anything; every other field is a short value and pairs off.
      */
     var BLOCKS = ['longtext', 'learnings', 'lessons', 'risks', 'customer', 'members',
-                  'costs', 'mandays', 'schedule', 'observations'];
+                  'software', 'costs', 'mandays', 'schedule', 'observations'];
 
     function isBlock(row) {
         return BLOCKS.indexOf(row.display) >= 0;
@@ -746,6 +746,40 @@ define('IRSTasks/views/TaskDetailView', [
             { label: 'Lesson', key: 'title', width: '30%' },
             { label: 'Lessons Learnt from Failures', key: 'lesson', className: 'irs-lines' }
         ], context.lessons));
+        return wrap;
+    }
+
+    /**
+     * R&D-PRJ-02 Software Resource: the software and tools on the project's
+     * Software & Tools tab, with the paper's three columns only (user,
+     * 2026-11-19). Software evaluated and Remark are set on that platform tab,
+     * not here, as Drive access is on the Members page. The paper's own
+     * wording is "Not Applicable", which is the value the link stores.
+     */
+    function softwareBlock(context) {
+        var wrap = el('div');
+        if (!context) {
+            wrap.appendChild(el('div', 'text-danger',
+                'The software resources could not be read.'));
+            return wrap;
+        }
+        if (context.softwareError) {
+            wrap.appendChild(el('div', 'text-danger',
+                'The software resources could not be read: ' + context.softwareError));
+            return wrap;
+        }
+        if (!context.software || !context.software.length) {
+            wrap.appendChild(emptyNote('No software or tool added to this project.'));
+            return wrap;
+        }
+        wrap.appendChild(table([
+            // percentages, not rem: the table is table-layout fixed and the
+            // widget's rem is small, so 12rem came out narrower than the
+            // header and "Software evaluated" ran into "Remark" (2026-11-19)
+            { label: 'Software Resource', key: 'label', width: '35%' },
+            { label: 'Software evaluated', key: 'evaluated', width: '20%' },
+            { label: 'Remark (if any)', key: 'remark', className: 'irs-lines' }
+        ], context.software));
         return wrap;
     }
 
@@ -1474,6 +1508,7 @@ define('IRSTasks/views/TaskDetailView', [
             if (row.display === 'lessons') { return lessonsBlock(context); }
             if (row.display === 'customer') { return customerBlock(context); }
             if (row.display === 'members') { return membersBlock(context, row); }
+            if (row.display === 'software') { return softwareBlock(context); }
             if (row.display === 'risks') { return risksBlock(context); }
             // a service section whose table is not built yet shows what it is
             // waiting for. This used to fall through to risksBlock, which drew
@@ -1827,10 +1862,11 @@ define('IRSTasks/views/TaskDetailView', [
                             return {
                                 risks: [], opportunities: [], learnings: [],
                                 learningsHere: [], learningsElsewhere: [],
-                                lessons: [], members: [],
+                                lessons: [], members: [], software: [],
                                 reviewers: { internal: [], external: '', error: reason },
                                 riskError: reason, learningError: reason,
-                                lessonError: reason, memberError: reason, counts: {}
+                                lessonError: reason, memberError: reason,
+                                softwareError: reason, counts: {}
                             };
                         });
                 }

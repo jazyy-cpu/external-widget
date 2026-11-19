@@ -271,6 +271,31 @@ define('IRSTasks/services/ProjectContextService', [
     }
 
     /**
+     * One software or computational tool the project uses (R&D-PRJ-02
+     * Software Resource; relationship IRSProjectSoftware, worklog
+     * 2026-11-19-06). `evaluated` (Yes / No / Not Applicable) and `remark` are
+     * the project's own values, kept on the link and set on the platform's
+     * Software & Tools tab. `label` is what the paper calls the software: its
+     * title, else its number.
+     */
+    function toSoftware(raw) {
+        raw = raw || {};
+        var no = text(raw.name);
+        var title = text(raw.title);
+        return {
+            id: text(raw.physicalId) || text(raw.id),
+            no: no,
+            title: title,
+            label: title || no,
+            revision: text(raw.revision),
+            version: text(raw.version),
+            type: text(raw.type),
+            evaluated: text(raw.evaluated),
+            remark: text(raw.remark)
+        };
+    }
+
+    /**
      * The project's reviewers, as the G7 Project Review header shows them
      * (user, 2026-10-22).
      *
@@ -344,10 +369,12 @@ define('IRSTasks/services/ProjectContextService', [
             department: toDepartment(body.department),
             members: sortMembers(list(body.members).map(toMember)),
             reviewers: toReviewers(body.reviewers),
+            software: list(body.software).map(toSoftware),
             riskError: text(body.riskError),
             learningError: text(learnings.error),
             lessonError: text(body.lessonError),
             memberError: text(body.memberError),
+            softwareError: text(body.softwareError),
             counts: body.counts || {}
         };
     }
@@ -393,6 +420,8 @@ define('IRSTasks/services/ProjectContextService', [
                 add('reviewers');
             } else if (field.display === 'lessons') {
                 add('lessons');
+            } else if (field.display === 'software') {
+                add('software');
             } else if (field.display === 'learnings') {
                 var scope = field.learningScope || 'all';
                 if (scope === 'created') { add('learnings.created'); }
@@ -443,6 +472,7 @@ define('IRSTasks/services/ProjectContextService', [
                 if (out.learningError) { Log.warn('learning section failed: ' + out.learningError); }
                 if (out.lessonError) { Log.warn('lesson section failed: ' + out.lessonError); }
                 if (out.memberError) { Log.warn('member section failed: ' + out.memberError); }
+                if (out.softwareError) { Log.warn('software section failed: ' + out.softwareError); }
                 return out;
             });
         },
@@ -453,6 +483,7 @@ define('IRSTasks/services/ProjectContextService', [
         _toLesson: toLesson,
         _toCustomer: toCustomer,
         _toDepartment: toDepartment,
-        _toReviewers: toReviewers
+        _toReviewers: toReviewers,
+        _toSoftware: toSoftware
     };
 });

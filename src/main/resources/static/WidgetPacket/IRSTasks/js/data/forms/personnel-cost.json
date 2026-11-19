@@ -80,10 +80,10 @@
     {
       "ref": "II",
       "label": "Software Resource required",
-      "hidden": true,
-      "source": "none",
-      "display": "pending",
-      "note": "The form asks for the software, whether it was evaluated (Yes / No / NA) and a Remark. No attribute for any of the three exists anywhere on this platform - checked against the whole IRS*/EPM* inventory, 2026-10-09. EPMDataDrive is the nearest Yes/No/NA attribute and it belongs to EPMPROJECT_REVIEW, not here. Three DMC attributes are needed before this row can show anything"
+      "source": "service",
+      "display": "software",
+      "profileField": "SoftwareResource",
+      "note": "R&D-PRJ-02 Software Resource / Software evaluated (Yes / No / Not Applicable) / Remark (if any): the project's Software & Tools tab (relationship IRSProjectSoftware, worklog 2026-11-19-01), with the two values on the link, ONE round trip from our JAR's $include=software (worklog 2026-11-19-06). Paper columns only (user, 2026-11-19). R&D only: RDAREA-PRJ-01 has no such row (profile key SoftwareResource = RND, page IRSProjectFormProfiles). Was hidden / pending from 2026-10-09 until then, for want of a source"
     },
     {
       "ref": "III",
