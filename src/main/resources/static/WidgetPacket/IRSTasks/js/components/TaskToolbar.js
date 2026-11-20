@@ -90,7 +90,9 @@ define('IRSTasks/components/TaskToolbar', [], function () {
          */
         render: function (parent, options) {
             var root = el('div', 'd-flex flex-wrap align-items-center gap-2 flex-grow-1');
-            var mode = options.mode || 'tasks';
+            // 'approvals' is the default and, since 2026-11-20, the only view:
+            // the IRS Tasks button is commented out below
+            var mode = options.mode || 'approvals';
 
             /*
              * Two views, one grid.
@@ -127,15 +129,17 @@ define('IRSTasks/components/TaskToolbar', [], function () {
                 return button;
             }
 
-            var tasksButton = modeButton('tasks', 'IRS Tasks', false);
+            // IRS Tasks view switched off 2026-11-20 (user): Approvals is the
+            // first and only button
+            // var tasksButton = modeButton('tasks', 'IRS Tasks', false);
             var approvalsButton = modeButton('approvals', 'Approvals', true);
 
             function paintModes() {
-                tasksButton.className = 'btn btn-sm btn-' +
-                    (mode === 'tasks' ? 'secondary' : 'outline-secondary');
+                // tasksButton.className = 'btn btn-sm btn-' +
+                //     (mode === 'tasks' ? 'secondary' : 'outline-secondary');
                 approvalsButton.className = 'btn btn-sm btn-' +
                     (mode === 'approvals' ? 'secondary' : 'outline-secondary');
-                tasksButton.setAttribute('aria-pressed', String(mode === 'tasks'));
+                // tasksButton.setAttribute('aria-pressed', String(mode === 'tasks'));
                 approvalsButton.setAttribute('aria-pressed', String(mode === 'approvals'));
             }
             paintModes();

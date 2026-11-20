@@ -30,15 +30,21 @@
  * copies - and reports how many rows each one dropped. That note is shown above
  * the grid, so a short list says why it is short instead of looking broken.
  */
+/*
+ * 2026-11-20 (user): the IRS Tasks view is switched off - work reaches the
+ * user through the Approvals view only. Its code is commented out rather
+ * than deleted, and TaskService / TaskColumns are no longer loaded, so the
+ * task list's REST call is never made.
+ */
 define('IRSTasks/views/TaskListView', [
     'JazzySole/TabulatorLoader',
-    'IRSTasks/services/TaskService',
+    // 'IRSTasks/services/TaskService',
     'IRSTasks/services/InboxTaskService',
     'IRSTasks/components/TaskToolbar',
-    'IRSTasks/views/TaskColumns',
+    // 'IRSTasks/views/TaskColumns',
     'IRSTasks/views/InboxColumns'
-], function (TabulatorLoader, TaskService, InboxTaskService, TaskToolbar,
-             columns, inboxColumns) {
+], function (TabulatorLoader, /* TaskService, */ InboxTaskService, TaskToolbar,
+             /* columns, */ inboxColumns) {
     'use strict';
 
     var SHOW_CLOSED = 'xPrefTasksShowClosed';
@@ -58,16 +64,17 @@ define('IRSTasks/views/TaskListView', [
      * search box may look in, and how to sort - and nothing else differs.
      */
     var VIEWS = {
-        tasks: {
-            columns: columns,
-            searchFields: SEARCH_FIELDS,
-            sort: 'finish',
-            empty: 'No task in this view.',
-            failed: 'The tasks could not be loaded: ',
-            load: function (includeClosed) {
-                return TaskService.list({ includeClosed: includeClosed });
-            }
-        },
+        // IRS Tasks view switched off 2026-11-20 - see the note at the top
+        // tasks: {
+        //     columns: columns,
+        //     searchFields: SEARCH_FIELDS,
+        //     sort: 'finish',
+        //     empty: 'No task in this view.',
+        //     failed: 'The tasks could not be loaded: ',
+        //     load: function (includeClosed) {
+        //         return TaskService.list({ includeClosed: includeClosed });
+        //     }
+        // },
         approvals: {
             columns: inboxColumns,
             searchFields: INBOX_SEARCH_FIELDS,
@@ -94,13 +101,14 @@ define('IRSTasks/views/TaskListView', [
     }
 
     /**
-     * Which list was showing last. Unknown values fall back to `tasks`, so a
-     * stale preference from an older build cannot leave the widget on a view
+     * Which list was showing last. Unknown values fall back to `approvals`, so
+     * a stale preference from an older build - including a saved `tasks` from
+     * before that view was switched off - cannot leave the widget on a view
      * that no longer exists.
      */
     function readMode() {
         var saved = widget.getValue(MODE);
-        return VIEWS[saved] ? saved : 'tasks';
+        return VIEWS[saved] ? saved : 'approvals';
     }
 
     function readShowClosed() {
