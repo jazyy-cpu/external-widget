@@ -14,6 +14,7 @@
     <groupId>com.irs.irclass</groupId>
     <artifactId>external-widget</artifactId>
     <version>0.0.1-SNAPSHOT</version>
+    <packaging>war</packaging>
     <name>external-widget</name>
     <description>IRCLASS external widget foundation</description>
 
@@ -26,6 +27,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
+        <!-- WAR deployment (WP12): TomEE 3dexternal supplies Tomcat 11 at runtime,
+             so the embedded Tomcat stays out of WEB-INF/lib (it goes to
+             WEB-INF/lib-provided, which keeps spring-boot:run and java -jar working). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-tomcat</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -34,6 +43,8 @@
     </dependencies>
 
     <build>
+        <!-- 3dexternal.war deploys at the context path /3dexternal -->
+        <finalName>3dexternal</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

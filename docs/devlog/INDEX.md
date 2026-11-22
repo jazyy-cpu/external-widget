@@ -4,6 +4,7 @@ Newest first.
 
 | Id | Title | Requirement | Status |
 |---|---|---|---|
+| [2026-11-22-01](2026/2026-11-22-01_war-packaging-3dexternal.md) | WAR packaging: `3dexternal.war` (war packaging, provided Tomcat, `SpringBootServletInitializer`) for TomEE `3dexternal` behind Apache `/3dexternal` (WP12). Worklog 2026-11-20-10 | - | built (BUILD SUCCESS, Java 17 classes); copied to VM webapps; first start by the user pending |
 | [2026-11-20-01](2026/2026-11-20-01_irs-tasks-view-switched-off.md) | Task widget: IRS Tasks view commented out (no task-list REST call), Approvals is the first and only view | - | built and unit-tested; live check pending |
 | [2026-11-19-01](2026/2026-11-19-01_software-resource-row.md) | Personnel / cost page: Software Resource row II from the project's Software & Tools tab (JAR `$include=software`), paper columns only, R&D only (profile key `SoftwareResource`). Worklog 2026-11-19-06 | WGT-07 | built and unit-tested; JAR deployed 2026-11-19; live check pending |
 | [2026-11-03-01](2026/2026-11-03-01_project-completion-in-task-widget.md) | Project Completion (R&D G10 / AR G9) in the Approvals list: `completion/:id` page, R&D-COM / RDAREA-COM form, key learnings from the project context; JAR `/completions`. Worklog 2026-11-03-08 | WGT-09 | built and unit-tested; needs the JAR deployed |
