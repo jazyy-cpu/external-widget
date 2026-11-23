@@ -34,3 +34,11 @@ Copied to VM `C:\DassaultSystemes\TomEE\3dexternal\webapps\3dexternal.war` (hash
 ## Watch on first start
 
 `WEB-INF/lib` carries `jakarta.annotation-api-3.0.0.jar`, Logback and SLF4J. TomEE may log that it skips a Jakarta API jar (harmless), and TomEE's own CDI / JAX-RS scanning sees the WAR. Any `SEVERE` at deploy goes into an update of this entry.
+
+## Update 2026-11-22 - first start: two TomEE issues fixed, WAR running
+
+1. **404 on `/3dexternal/api/status`, Spring never started.** TomEE's scan exclusion list (`default.exclusions` in `openejb-core-11.0.0-M2.jar`) has the entry `spring-`, so the `ServletContainerInitializer` in `spring-web` was skipped and the context stayed empty. Fixed on the **server**: `conf\system.properties` `openejb.additional.include = spring-` (read from the bytecode: `NewLoaderLogic.getExclusions` removes every exclusion that `startsWith` the value - `spring-web` would not match). Delivered in `PLM_PRD_CUSTOMIZATION/tomee/`.
+2. **Spring then failed** with `loading constraint violation ... com/fasterxml/jackson/annotation/ObjectIdGenerator`: TomEE Plus ships Jackson 2 in its `lib` (`jackson-annotations-2.21`, core/databind 2.22.4) and its `ContainerClassesFilter` serves `com.fasterxml.jackson.annotation` from there. Fixed in **`pom.xml`**: `com.fasterxml.jackson.core:jackson-annotations` scope `provided` (same 2.21 version as TomEE's; moves to `WEB-INF/lib-provided`, so `spring-boot:run` and `java -jar` keep it). Jackson 3 (`tools.jackson`, core/databind 3.1.5) stays in `WEB-INF/lib`.
+3. A replaced WAR was **not** re-expanded - TomEE kept the 19:04 `webapps\3dexternal\` with the old jar. Stop, delete the expanded folder and `work\Catalina\localhost\3dexternal`, start.
+
+Result 19:12: `Started ExternalWidgetApplication in 2.327 seconds`, deployment 6.4 s, 0 SEVERE (only BatchEE JMX notices); `GET http://127.0.0.1:8980/3dexternal/api/status` -> 200 `{"status":"UP","application":"irclass-external-widget"}`; `IRSProjects.html` -> 200; 8980 not reachable from the host. WAR SHA-256 `1E43DE87...7FCE1FC`.

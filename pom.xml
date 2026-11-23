@@ -35,6 +35,16 @@
             <artifactId>spring-boot-starter-tomcat</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- WAR deployment (WP12): TomEE Plus ships jackson-annotations-2.21 in its lib and
+             its ContainerClassesFilter loads com.fasterxml.jackson.annotation from there.
+             A second copy in WEB-INF/lib breaks Spring's startup with a class "loading
+             constraint violation" (ObjectIdGenerator). Provided = use TomEE's copy (same
+             version); it stays in WEB-INF/lib-provided for spring-boot:run / java -jar. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
