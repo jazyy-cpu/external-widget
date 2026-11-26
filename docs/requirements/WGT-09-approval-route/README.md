@@ -317,6 +317,13 @@ form right"* and the form is on this page.
   form back to someone who must work out what to change; one with no reason is
   unactionable. Demanding one for approvals produces comments like "ok" - which
   the live data already shows (`ASDFASD`, `FASDF`).
+  **Superseded 2026-11-26:** the comment is **mandatory for both** decisions. The
+  platform refuses an empty comment on Approve too
+  (`emxComponents.Routes.EnforceAssigneeApprovalComments=true`, shipped value;
+  `emxInboxTaskBase` promote check), so a comment-less approval ended in a 400.
+  Both buttons stay disabled until a comment is typed; the placeholder reads
+  `Comment (mandatory)` in red (`.irs-required::placeholder`, own CSS - Bootstrap
+  has no placeholder-colour utility). Devlog 2026-11-26-01.
 - **Two clicks.** There is no undo, here or in the Routes API, so the first click
   arms and states the consequence, the second sends. The other button becomes
   Cancel.

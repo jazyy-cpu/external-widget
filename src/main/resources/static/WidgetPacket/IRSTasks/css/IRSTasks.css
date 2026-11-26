@@ -399,6 +399,17 @@
 }
 
 /*
+ * The decision comment is mandatory (the platform refuses an empty one), and
+ * the placeholder says so in red (user, 2026-11-26). Bootstrap has no
+ * placeholder-colour utility, and `text-danger` would turn the typed comment
+ * red as well. The colour is Bootstrap's own danger variable.
+ */
+.irs-tasks .irs-decide .irs-required::placeholder {
+    color: var(--bs-danger, #dc3545);
+    opacity: 1;
+}
+
+/*
  * One IRS skill per line, in the R&D-PRJ-02 member table (user, 2026-10-09).
  *
  * The cell joins the skills with a newline and this lets the newline render.

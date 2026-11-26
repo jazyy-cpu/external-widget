@@ -246,11 +246,14 @@ define('IRSTasks/views/TaskApprovalPanel', [
      *
      * ## The comment rule
      *
-     * **Required to reject, optional to approve.** A rejection sends the form
-     * back to someone who then has to work out what to change; a rejection with
-     * no reason is unactionable. An approval needs no justification, and
-     * demanding one produces comments like "ok" - which is exactly what the
-     * live data already shows ("ASDFASD", "FASDF").
+     * **Mandatory for both Approve and Reject** (user, 2026-11-26). It is the
+     * platform's rule, not ours: `emxInboxTaskBase`'s promote check refuses an
+     * empty comment on Approve, Abstain and Reject while
+     * `emxComponents.Routes.EnforceAssigneeApprovalComments` and
+     * `ShowCommentsForTaskApproval` are `true` - the shipped values. The
+     * earlier "optional to approve" rule ended every comment-less approval in
+     * a 400 (worklog 2026-11-26-01). Neither button arms until there is text,
+     * and the placeholder says so in red.
      *
      * ## Two clicks, because there is no undo
      *
@@ -328,9 +331,11 @@ define('IRSTasks/views/TaskApprovalPanel', [
 
         // full-size, and three rows: a one-line box invites a one-word reason,
         // and the reason is the whole point of a rejection
-        var comment = el('textarea', 'form-control mb-2');
+        // `irs-required` paints the placeholder red - see IRSTasks.css
+        var comment = el('textarea', 'form-control irs-required mb-2');
         comment.rows = 3;
-        comment.placeholder = 'Comment (required to reject)';
+        comment.placeholder = 'Comment (mandatory)';
+        comment.required = true;
         comment.setAttribute('aria-label', 'Approval comment');
         wrap.appendChild(comment);
 
@@ -374,20 +379,20 @@ define('IRSTasks/views/TaskApprovalPanel', [
         }
 
         function syncApprove() {
-            approve.disabled = approveBlocked;
+            approve.disabled = approveBlocked || !comment.value.trim();
             approve.title = approveBlocked
                 ? 'You cannot fill in this form, so it cannot be approved - reject it instead'
-                : 'Approve this task';
+                : approve.disabled ? 'A comment is mandatory' : 'Approve this task';
         }
 
-        // a rejection with no reason is unactionable for whoever has to fix it
+        // the platform refuses an empty comment on either decision
         function syncReject() {
             reject.disabled = !comment.value.trim();
             reject.title = reject.disabled
-                ? 'A comment is required to reject' : 'Reject this task';
+                ? 'A comment is mandatory' : 'Reject this task';
         }
         comment.addEventListener('input', function () {
-            if (!armed) { syncReject(); }
+            if (!armed) { syncApprove(); syncReject(); }
         });
 
         var armed = null;     // the decision waiting for its second click
@@ -490,7 +495,7 @@ define('IRSTasks/views/TaskApprovalPanel', [
                 if (busy) { return; }
                 if (armed === decision) { submit(decision); return; }
                 if (armed) { reset(); return; }   // the other button is Cancel
-                if (decision === 'Reject' && !comment.value.trim()) { return; }
+                if (!comment.value.trim()) { return; }
                 if (decision === 'Approve' && approveBlocked) { return; }
                 // nothing is armed while the form is incomplete: the second
                 // click must never be the moment a missing answer is found

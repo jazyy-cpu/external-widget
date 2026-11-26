@@ -1987,8 +1987,11 @@ const decideChecks = Approval.check('IT1').then(v => {
 // ---- the decision bar
 const decideSrc = fs.readFileSync(
   path.join(base, 'js/views/TaskApprovalPanel.js'), 'utf8');
-// a rejection with no reason is unactionable for whoever has to fix the form
-assert.ok(/required to reject/i.test(decideSrc), 'the comment rule is stated to the user');
+// the platform refuses an empty comment on Approve AND Reject (EnforceAssigneeApprovalComments)
+assert.ok(/Comment \(mandatory\)/.test(decideSrc), 'the comment rule is stated to the user');
+assert.ok(/approveBlocked \|\| !comment\.value\.trim\(\)/.test(decideSrc),
+  'Approve waits for a comment too');
+assert.ok(/irs-required/.test(decideSrc), 'the placeholder is painted red');
 // there is no undo, in this widget or in the Routes API, so one click arms and
 // a second sends
 assert.ok(/Confirm '/.test(decideSrc), 'a decision takes two clicks');
